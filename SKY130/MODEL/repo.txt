@@ -1,2 +1,0 @@
-SKY130 spice simulation playground
-https://github.com/dotcypress/sky130-spice-playground
