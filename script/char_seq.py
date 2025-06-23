@@ -1257,8 +1257,16 @@ def genFileFlop_trial1(targetLib, targetCell, targetHarness, sim_mode, cap_line,
       outlines = []
       outlines.append("*title: flop delay meas.\n")
       outlines.append(".option brief nopage nomod post=1 ingold=2 autostop\n")
-      outlines.append(".inc '../"+str(targetCell.model)+"'\n")
-      outlines.append(".inc '../"+str(targetCell.netlist)+"'\n")
+      if targetCell.model.startswith('/'):
+        outlines.append(".inc '"+str(targetCell.model)+"'\n")        
+      else:
+        outlines.append(".inc '../"+str(targetCell.model)+"'\n")
+
+      if targetCell.netlist.startswith('/'):
+        outlines.append(".inc '"+str(targetCell.netlist)+"'\n")
+      else:
+        outlines.append(".inc '../"+str(targetCell.netlist)+"'\n")
+        
       outlines.append(".param _vdd = '"+str(targetLib.vdd_voltage)+"*"+str(targetLib.voltage_mag)+"'\n")
       outlines.append(".param _vss = '"+str(targetLib.vss_voltage)+"*"+str(targetLib.voltage_mag)+"'\n")
       outlines.append(".param _vnw = '"+str(targetLib.nwell_voltage)+"*"+str(targetLib.voltage_mag)+"'\n")
