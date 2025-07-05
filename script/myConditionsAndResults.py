@@ -1,6 +1,12 @@
 import argparse, re, os, shutil, subprocess
 import numpy as np
 
+from typing import List
+
+import myExpectLogic
+
+from myFunc import my_exit
+
 class MyConditionsAndResults:
   def __init__ (self):
     self.instance = None          ## instance name
@@ -15,15 +21,22 @@ class MyConditionsAndResults:
     self.target_reset_val = None  ## target reset val
     self.target_set     = None    ## target set name
     self.target_set_val = None    ## target set val
-  
-  def set_direction(self, outport="tmp"):
-    if(outport == '01'):
+    self.timing_when    = None     ## when condition in .lib from myExpectLogic.py
+    
+  def set_direction(self, arc="tmp"):
+  #def set_direction(self, outport="tmp"):
+    #if(outport == '01'):
+    #  self.set_direction_rise()
+    #elif(outport == '10'):
+    #  self.set_direction_fall()
+    if(arc == 'r'):
       self.set_direction_rise()
-    elif(outport == '10'):
+    elif(arc == 'f'):
       self.set_direction_fall()
     else:
-      print("Illegal input: "+self.outport+", check direction")
-
+      print("Illegal arc: "+arc+", check direction in myExpectLogic.py")
+      my_exit()
+      
   def set_direction_rise(self):
     self.direction_prop = "cell_rise"
     self.direction_tran = "rise_transition"
@@ -37,15 +50,17 @@ class MyConditionsAndResults:
   def set_timing_type_comb(self):
     self.timing_type = "combinational"
 
-  def set_timing_sense(self, unate="tmp"):
-    if(unate == 'pos'):
+  def set_timing_sense(self, sense="tmp"):
+    if(sense == 'pos'):
       self.timing_sense = "positive_unate"
-    elif(unate == 'neg'):
+    elif(sense == 'neg'):
       self.timing_sense = "negative_unate"
-    elif(unate == 'non'):
+    elif(sense == 'non'):
       self.timing_sense = "non_unate"
     else:
-      print("Illegal input: "+self.outport+", check unate")
+      print("Illegal input: " + sense+", check tmg_sense.")
+      my_exit()
+      
 
   def set_timing_sense_pos(self):
     self.timing_sense = "positive_unate"
@@ -53,6 +68,9 @@ class MyConditionsAndResults:
   def set_timing_sense_neg(self):
     self.timing_sense = "negative_unate"
 
+  def set_timing_when(self, tmg_when=""):
+    self.timing_when = tmg_when
+    
   ## set timing_sense and timing_type for input/output
   def set_timing_flop_inout(self, inport="tmp", clkport="tmp",outport="tmp"):
     ## inport
@@ -188,6 +206,7 @@ class MyConditionsAndResults:
     self.target_outport = outport
     self.target_function = function
     self.target_outport_val = val
+    
     #print(self.target_outport_val)
     #print(self.target_outport)
     #print(self.target_function)

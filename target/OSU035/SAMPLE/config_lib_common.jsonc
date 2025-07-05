@@ -1,0 +1,18 @@
+{
+   "process_name"       :"OSU035"
+  ,"lib_vendor_id"      :"SAMPLE"
+  ,"cell_name_prefix"   :"_V1"
+	,"model_path"         :"./target/OSU035"
+	,"cell_spice_path"    :"/home/synology_nfs/Techlibs/Techlib/OSU035/std/fromXXX/v00.00/spice"
+  ,"vdd_name"           :"VDD"
+  ,"vss_name"           :"VSS"
+  ,"pwell_name"         :"VPW"
+  ,"nwell_name"         :"VNW"
+  ,"voltage_unit"       :"V"
+  ,"capacitance_unit"   :"pf"
+  ,"resistance_unit"    :"Ohm"
+  ,"current_unit"       :"mA"
+  ,"leakage_power_unit" :"pW"
+  ,"energy_unit"        :"fJ"
+  ,"time_unit"          :"ns"
+}

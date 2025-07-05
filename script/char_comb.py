@@ -4,188 +4,295 @@ import myConditionsAndResults as mcar
 import myLibrarySetting as mls 
 import myLogicCell as mlc
 import myExport as me
+import myExpectLogic as mel
+
 import numpy as np
 from myFunc import my_exit
+from typing import List
 
-def runCombIn1Out1(targetLib, targetCell, expectationList2, unate):
-  harnessList = []   # harness for each trial
-  harnessList2 = []  # list of harnessList
+#--def runCombIn1Out1(targetLib, targetCell, expectationList2, unate):
+#--  harnessList = []   # harness for each trial
+#--  harnessList2 = []  # list of harnessList
+#--
+#--  for trial in range(len(expectationList2)):
+#--    tmp_Harness = mcar.MyConditionsAndResults()
+#--    tmp_Harness.set_timing_type_comb()
+#--    tmp_Harness.set_timing_sense(unate)
+#--    tmp_inp0_val, tmp_outp0_val=expectationList2[trial]
+#--    tmp_Harness.set_direction(tmp_outp0_val)
+#--    #print ("**"+targetCell.outports[0]+" "+targetCell.functions[0]+" "+ tmp_outp0_val)
+#--    tmp_Harness.set_target_outport (targetCell.outports[0], targetCell.functions[0], tmp_outp0_val)
+#--    ## case input0 is target input pin
+#--    if ((tmp_inp0_val == '01') or (tmp_inp0_val == '10')):
+#--      tmp_Harness.set_target_inport (targetCell.inports[0], tmp_inp0_val)
+#--      tmp_Harness.set_stable_inport ("NULL", "NULL")
+#--    else:
+#--      print ("Illiegal input vector type!!")
+#--      print ("Check logic definition of this program!!")
+#--      
+#--    #tmp_Harness.set_leak_inportval ("1")
+#--    #tmp_Harness.set_nontarget_outport (targetCell.outports[0], "01")
+#--    spicef = "vt_"+str(targetLib.vdd_voltage)+"_"+str(targetLib.temperature)+"_"\
+#--      +"delay1_"+str(targetCell.cell)+"_"+str(targetCell.inports[0])\
+#--      +str(tmp_inp0_val)+"_"+str(targetCell.outports[0])+str(tmp_outp0_val)
+#--    ## run spice and store result
+#--    runSpiceCombDelayMultiThread(targetLib, targetCell, tmp_Harness, spicef)
+#--    harnessList.append(tmp_Harness)
+#--    harnessList2.append(harnessList)
+#--
+#--
+#--  ## average cin of each harness
+#--  targetCell.set_cin_avg(targetLib, harnessList) 
+#--
+#--  return harnessList2
+#--#end runCombIn1Out1
+#--def runCombIn2Out1(targetLib, targetCell, expectationList2, unate):
+#--  harnessList = []
+#--  harnessList2 = []
+#--
+#--  for trial in range(len(expectationList2)):
+#--    tmp_Harness = mcar.MyConditionsAndResults()
+#--    tmp_Harness.set_timing_type_comb()
+#--    tmp_Harness.set_timing_sense(unate)
+#--    tmp_inp0_val, tmp_inp1_val, tmp_outp0_val=expectationList2[trial]
+#--    tmp_Harness.set_direction(tmp_outp0_val)
+#--    tmp_Harness.set_target_outport (targetCell.outports[0], targetCell.functions[0], tmp_outp0_val)
+#--    # case input0 is target input pin
+#--    if ((tmp_inp0_val == '01') or (tmp_inp0_val == '10')):
+#--      tmp_Harness.set_target_inport (targetCell.inports[0], tmp_inp0_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
+#--    # case input0 is target input pin
+#--    elif ((tmp_inp1_val == '01') or (tmp_inp1_val == '10')):
+#--      tmp_Harness.set_target_inport (targetCell.inports[1], tmp_inp1_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
+#--    else:
+#--      print ("Illiegal input vector type!!")
+#--      print ("Check logic definition of this program!!")
+#--      
+#--    #tmp_Harness.set_leak_inportval ("1")
+#--    #tmp_Harness.set_nontarget_outport (targetCell.outports[0], "01")
+#--    spicef = "vt_"+str(targetLib.vdd_voltage)+"_"+str(targetLib.temperature)+"_"\
+#--      +"delay1_"+str(targetCell.cell)+"_"+str(targetCell.inports[0])\
+#--      +str(tmp_inp0_val)+"_"+str(targetCell.inports[1])+str(tmp_inp1_val)\
+#--      +"_"+str(targetCell.outports[0])+str(tmp_outp0_val)
+#--    # run spice and store result
+#--    runSpiceCombDelayMultiThread(targetLib, targetCell, tmp_Harness, spicef)
+#--    harnessList.append(tmp_Harness)
+#--    harnessList2.append(harnessList)
+#--
+#--    # calculate avg of pleak
+#--    #if ((tmp_inp0_val == '01') or (tmp_inp0_val == '10')):
+#--    # targetCell.set_inport_cap_pleak(0, tmp_Harness)
+#--    # case input0 is target input pin
+#--    #elif ((tmp_inp1_val == '01') or (tmp_inp1_val == '10')):
+#--    # targetCell.set_inport_cap_pleak(1, tmp_Harness)
+#--
+#--  ## average cin of each harness
+#--  targetCell.set_cin_avg(targetLib, harnessList) 
+#--
+#--  return harnessList2
+#--#end runCombIn2Out1
+#--
+#--def runCombIn3Out1(targetLib, targetCell, expectationList2, unate):
+#--  harnessList = []
+#--  harnessList2 = []
+#--
+#--  for trial in range(len(expectationList2)):
+#--    tmp_Harness = mcar.MyConditionsAndResults()
+#--    tmp_Harness.set_timing_type_comb()
+#--    tmp_Harness.set_timing_sense(unate)
+#--    tmp_inp0_val, tmp_inp1_val, tmp_inp2_val, tmp_outp0_val=expectationList2[trial]
+#--    tmp_Harness.set_direction(tmp_outp0_val)
+#--    tmp_Harness.set_target_outport (targetCell.outports[0], targetCell.functions[0], tmp_outp0_val)
+#--    # case input0 is target input pin
+#--    if ((tmp_inp0_val == '01') or (tmp_inp0_val == '10')):
+#--      tmp_Harness.set_target_inport (targetCell.inports[0], tmp_inp0_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[2], tmp_inp2_val)
+#--    # case input1 is target input pin
+#--    elif ((tmp_inp1_val == '01') or (tmp_inp1_val == '10')):
+#--      tmp_Harness.set_target_inport (targetCell.inports[1], tmp_inp1_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[2], tmp_inp2_val)
+#--    # case input2 is target input pin
+#--    elif ((tmp_inp2_val == '01') or (tmp_inp2_val == '10')):
+#--      tmp_Harness.set_target_inport (targetCell.inports[2], tmp_inp2_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
+#--    else:
+#--      print ("Illiegal input vector type!!")
+#--      print ("Check logic definition of this program!!")
+#--      
+#--    #tmp_Harness.set_leak_inportval ("1")
+#--    #tmp_Harness.set_nontarget_outport (targetCell.outports[0], "01")
+#--    spicef = "vt_"+str(targetLib.vdd_voltage)+"_"+str(targetLib.temperature)+"_"\
+#--      +"delay1_"+str(targetCell.cell)+"_"\
+#--      +str(targetCell.inports[0])+str(tmp_inp0_val)\
+#--      +"_"+str(targetCell.inports[1])+str(tmp_inp1_val)\
+#--      +"_"+str(targetCell.inports[2])+str(tmp_inp2_val)\
+#--      +"_"+str(targetCell.outports[0])+str(tmp_outp0_val)
+#--    # run spice and store result
+#--    runSpiceCombDelayMultiThread(targetLib, targetCell, tmp_Harness, spicef)
+#--    harnessList.append(tmp_Harness)
+#--    harnessList2.append(harnessList)
+#--
+#--  ## average cin of each harness
+#--  targetCell.set_cin_avg(targetLib, harnessList) 
+#--
+#--  return harnessList2
+#--#end runCombIn3Out1
+#--
+#--def runCombIn4Out1(targetLib, targetCell, expectationList2, unate):
+#--  harnessList = []
+#--  harnessList2 = []
+#--
+#--  for trial in range(len(expectationList2)):
+#--    tmp_Harness = mcar.MyConditionsAndResults()
+#--    tmp_Harness.set_timing_type_comb()
+#--    tmp_Harness.set_timing_sense(unate)
+#--    tmp_inp0_val, tmp_inp1_val, tmp_inp2_val, tmp_inp3_val, tmp_outp0_val=expectationList2[trial]
+#--    tmp_Harness.set_direction(tmp_outp0_val)
+#--    tmp_Harness.set_target_outport (targetCell.outports[0], targetCell.functions[0], tmp_outp0_val)
+#--    # case input0 is target input pin
+#--    if ((tmp_inp0_val == '01') or (tmp_inp0_val == '10')):
+#--      tmp_Harness.set_target_inport (targetCell.inports[0], tmp_inp0_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[2], tmp_inp2_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[3], tmp_inp3_val)
+#--    # case input1 is target input pin
+#--    elif ((tmp_inp1_val == '01') or (tmp_inp1_val == '10')):
+#--      tmp_Harness.set_target_inport (targetCell.inports[1], tmp_inp1_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[2], tmp_inp2_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[3], tmp_inp3_val)
+#--    # case input2 is target input pin
+#--    elif ((tmp_inp2_val == '01') or (tmp_inp2_val == '10')):
+#--      tmp_Harness.set_target_inport (targetCell.inports[2], tmp_inp2_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[3], tmp_inp3_val)
+#--    elif ((tmp_inp3_val == '01') or (tmp_inp3_val == '10')):
+#--      tmp_Harness.set_target_inport (targetCell.inports[3], tmp_inp3_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
+#--      tmp_Harness.set_stable_inport (targetCell.inports[2], tmp_inp2_val)
+#--    else:
+#--      print ("Illiegal input vector type!!")
+#--      print ("Check logic definition of this program!!")
+#--      
+#--    #tmp_Harness.set_leak_inportval ("1")
+#--    #tmp_Harness.set_nontarget_outport (targetCell.outports[0], "01")
+#--    spicef = "vt_"+str(targetLib.vdd_voltage)+"_"+str(targetLib.temperature)+"_"\
+#--      +"delay1_"+str(targetCell.cell)+"_"\
+#--      +str(targetCell.inports[0])+str(tmp_inp0_val)\
+#--      +"_"+str(targetCell.inports[1])+str(tmp_inp1_val)\
+#--      +"_"+str(targetCell.inports[2])+str(tmp_inp2_val)\
+#--      +"_"+str(targetCell.inports[3])+str(tmp_inp3_val)\
+#--      +"_"+str(targetCell.outports[0])+str(tmp_outp0_val)
+#--    # run spice and store result
+#--    runSpiceCombDelayMultiThread(targetLib, targetCell, tmp_Harness, spicef)
+#--    harnessList.append(tmp_Harness)
+#--    harnessList2.append(harnessList)
+#--  
+#--  ## average cin of each harness
+#--  targetCell.set_cin_avg(targetLib, harnessList) 
+#--
+#--  return harnessList2
+#--#end  runCombIn4Out1
 
-  for trial in range(len(expectationList2)):
-    tmp_Harness = mcar.MyConditionsAndResults()
-    tmp_Harness.set_timing_type_comb()
-    tmp_Harness.set_timing_sense(unate)
-    tmp_inp0_val, tmp_outp0_val=expectationList2[trial]
-    tmp_Harness.set_direction(tmp_outp0_val)
-    #print ("**"+targetCell.outports[0]+" "+targetCell.functions[0]+" "+ tmp_outp0_val)
-    tmp_Harness.set_target_outport (targetCell.outports[0], targetCell.functions[0], tmp_outp0_val)
-    ## case input0 is target input pin
-    if ((tmp_inp0_val == '01') or (tmp_inp0_val == '10')):
-      tmp_Harness.set_target_inport (targetCell.inports[0], tmp_inp0_val)
-      tmp_Harness.set_stable_inport ("NULL", "NULL")
-    else:
-      print ("Illiegal input vector type!!")
-      print ("Check logic definition of this program!!")
-      
-    #tmp_Harness.set_leak_inportval ("1")
-    #tmp_Harness.set_nontarget_outport (targetCell.outports[0], "01")
-    spicef = "vt_"+str(targetLib.vdd_voltage)+"_"+str(targetLib.temperature)+"_"\
-      +"delay1_"+str(targetCell.cell)+"_"+str(targetCell.inports[0])\
-      +str(tmp_inp0_val)+"_"+str(targetCell.outports[0])+str(tmp_outp0_val)
-    ## run spice and store result
-    runSpiceCombDelayMultiThread(targetLib, targetCell, tmp_Harness, spicef)
-    harnessList.append(tmp_Harness)
-    harnessList2.append(harnessList)
 
-
-  ## average cin of each harness
-  targetCell.set_cin_avg(targetLib, harnessList) 
-
-  return harnessList2
-#end runCombIn1Out1
-def runCombIn2Out1(targetLib, targetCell, expectationList2, unate):
+#def runCombInNOut1(targetLib, targetCell, expectationList2, unate):
+def runCombInNOut1(targetLib:mls.MyLibrarySetting, targetCell:mlc.MyLogicCell, expectationdictList:List[mel.MyExpectLogic]):
   harnessList = []
   harnessList2 = []
 
-  for trial in range(len(expectationList2)):
+  #for trial in range(len(expectationdictList)):
+  for expectationdict in expectationdictList:
     tmp_Harness = mcar.MyConditionsAndResults()
     tmp_Harness.set_timing_type_comb()
-    tmp_Harness.set_timing_sense(unate)
-    tmp_inp0_val, tmp_inp1_val, tmp_outp0_val=expectationList2[trial]
-    tmp_Harness.set_direction(tmp_outp0_val)
-    tmp_Harness.set_target_outport (targetCell.outports[0], targetCell.functions[0], tmp_outp0_val)
-    # case input0 is target input pin
-    if ((tmp_inp0_val == '01') or (tmp_inp0_val == '10')):
-      tmp_Harness.set_target_inport (targetCell.inports[0], tmp_inp0_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
-    # case input0 is target input pin
-    elif ((tmp_inp1_val == '01') or (tmp_inp1_val == '10')):
-      tmp_Harness.set_target_inport (targetCell.inports[1], tmp_inp1_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
-    else:
-      print ("Illiegal input vector type!!")
-      print ("Check logic definition of this program!!")
+    tmp_Harness.set_timing_sense(expectationdict.tmg_sense)
+
+    tmp_Harness.set_direction(expectationdict.arc)
+
+    tmp_Harness.set_timing_when(expectationdict.tmg_when)
+    
+    #
+    pin_r  = expectationdict.pin_r
+    pin_t  = expectationdict.pin_t
+    val1_r = expectationdict.val1_r
+    val1_t = expectationdict.val1_t
       
-    #tmp_Harness.set_leak_inportval ("1")
-    #tmp_Harness.set_nontarget_outport (targetCell.outports[0], "01")
-    spicef = "vt_"+str(targetLib.vdd_voltage)+"_"+str(targetLib.temperature)+"_"\
-      +"delay1_"+str(targetCell.cell)+"_"+str(targetCell.inports[0])\
-      +str(tmp_inp0_val)+"_"+str(targetCell.inports[1])+str(tmp_inp1_val)\
-      +"_"+str(targetCell.outports[0])+str(tmp_outp0_val)
-    # run spice and store result
-    runSpiceCombDelayMultiThread(targetLib, targetCell, tmp_Harness, spicef)
-    harnessList.append(tmp_Harness)
-    harnessList2.append(harnessList)
-
-    # calculate avg of pleak
-    #if ((tmp_inp0_val == '01') or (tmp_inp0_val == '10')):
-    # targetCell.set_inport_cap_pleak(0, tmp_Harness)
-    # case input0 is target input pin
-    #elif ((tmp_inp1_val == '01') or (tmp_inp1_val == '10')):
-    # targetCell.set_inport_cap_pleak(1, tmp_Harness)
-
-  ## average cin of each harness
-  targetCell.set_cin_avg(targetLib, harnessList) 
-
-  return harnessList2
-#end runCombIn2Out1
-
-def runCombIn3Out1(targetLib, targetCell, expectationList2, unate):
-  harnessList = []
-  harnessList2 = []
-
-  for trial in range(len(expectationList2)):
-    tmp_Harness = mcar.MyConditionsAndResults()
-    tmp_Harness.set_timing_type_comb()
-    tmp_Harness.set_timing_sense(unate)
-    tmp_inp0_val, tmp_inp1_val, tmp_inp2_val, tmp_outp0_val=expectationList2[trial]
-    tmp_Harness.set_direction(tmp_outp0_val)
-    tmp_Harness.set_target_outport (targetCell.outports[0], targetCell.functions[0], tmp_outp0_val)
-    # case input0 is target input pin
-    if ((tmp_inp0_val == '01') or (tmp_inp0_val == '10')):
-      tmp_Harness.set_target_inport (targetCell.inports[0], tmp_inp0_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[2], tmp_inp2_val)
-    # case input1 is target input pin
-    elif ((tmp_inp1_val == '01') or (tmp_inp1_val == '10')):
-      tmp_Harness.set_target_inport (targetCell.inports[1], tmp_inp1_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[2], tmp_inp2_val)
-    # case input2 is target input pin
-    elif ((tmp_inp2_val == '01') or (tmp_inp2_val == '10')):
-      tmp_Harness.set_target_inport (targetCell.inports[2], tmp_inp2_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
-    else:
-      print ("Illiegal input vector type!!")
-      print ("Check logic definition of this program!!")
+    #-- set target(outport)
+    for i in range (len(expectationdict.val0_o)):
+      pin_o="o{:}".format(i)
+      if pin_t == pin_o:
+        tmp_Harness.set_target_outport (pin_o, targetCell.functions[0], expectationdict.val0_o[i]+val1_t)
       
-    #tmp_Harness.set_leak_inportval ("1")
-    #tmp_Harness.set_nontarget_outport (targetCell.outports[0], "01")
-    spicef = "vt_"+str(targetLib.vdd_voltage)+"_"+str(targetLib.temperature)+"_"\
-      +"delay1_"+str(targetCell.cell)+"_"\
-      +str(targetCell.inports[0])+str(tmp_inp0_val)\
-      +"_"+str(targetCell.inports[1])+str(tmp_inp1_val)\
-      +"_"+str(targetCell.inports[2])+str(tmp_inp2_val)\
-      +"_"+str(targetCell.outports[0])+str(tmp_outp0_val)
-    # run spice and store result
-    runSpiceCombDelayMultiThread(targetLib, targetCell, tmp_Harness, spicef)
-    harnessList.append(tmp_Harness)
-    harnessList2.append(harnessList)
+    #-- set target(ioport)
+    for i in range (len(expectationdict.val0_b)):
+      pin_b="b{:}".format(i)
+      if pin_t == pin_b:
+        tmp_Harness.set_target_outport (pin_b, targetCell.functions[0], expectationdict.val0_b[i]+val1_t)
 
-  ## average cin of each harness
-  targetCell.set_cin_avg(targetLib, harnessList) 
+    #-- set reference(inport)
+    for i in range (len(expectationdict.val0_i)):
+      pin_i="i{:}".format(i)
+      if pin_r == pin_i:
+        tmp_Harness.set_target_inport (pin_i, expectationdict.val0_i[i]+val1_r)
+      else:
+        tmp_Harness.set_stable_inport (pin_i, expectationdict.val0_i[i])
+    
+    #-- set reference(ioport)
+    for i in range (len(expectationdict.val0_b)):
+      pin_b="b{:}".format(i)
+      if pin_r == pin_b:
+        tmp_Harness.set_target_inport (pin_b, expectationdict.val0_b[i]+val1_r)
+      else:
+        tmp_Harness.set_stable_inport (pin_b, expectationdict.val0_b[i])
+    
 
-  return harnessList2
-#end runCombIn3Out1
+    #spicef = "vt_"+str(targetLib.vdd_voltage)+"_"+str(targetLib.temperature)+"_"\
+    #  +"delay1_"+str(targetCell.cell)+"_"\
+    #  +str(targetCell.inports[0])+str(tmp_inp0_val)\
+    #  +"_"+str(targetCell.inports[1])+str(tmp_inp1_val)\
+    #  +"_"+str(targetCell.inports[2])+str(tmp_inp2_val)\
+    #  +"_"+str(targetCell.inports[3])+str(tmp_inp3_val)\
+    #  +"_"+str(targetCell.outports[0])+str(tmp_outp0_val)
 
-def runCombIn4Out1(targetLib, targetCell, expectationList2, unate):
-  harnessList = []
-  harnessList2 = []
+    #-- spcie file name
+    spicef0 = "vt_"+str(targetLib.vdd_voltage)+"_"+str(targetLib.temperature)+"_"\
+      +"delay1_"+str(targetCell.cell)
 
-  for trial in range(len(expectationList2)):
-    tmp_Harness = mcar.MyConditionsAndResults()
-    tmp_Harness.set_timing_type_comb()
-    tmp_Harness.set_timing_sense(unate)
-    tmp_inp0_val, tmp_inp1_val, tmp_inp2_val, tmp_inp3_val, tmp_outp0_val=expectationList2[trial]
-    tmp_Harness.set_direction(tmp_outp0_val)
-    tmp_Harness.set_target_outport (targetCell.outports[0], targetCell.functions[0], tmp_outp0_val)
-    # case input0 is target input pin
-    if ((tmp_inp0_val == '01') or (tmp_inp0_val == '10')):
-      tmp_Harness.set_target_inport (targetCell.inports[0], tmp_inp0_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[2], tmp_inp2_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[3], tmp_inp3_val)
-    # case input1 is target input pin
-    elif ((tmp_inp1_val == '01') or (tmp_inp1_val == '10')):
-      tmp_Harness.set_target_inport (targetCell.inports[1], tmp_inp1_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[2], tmp_inp2_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[3], tmp_inp3_val)
-    # case input2 is target input pin
-    elif ((tmp_inp2_val == '01') or (tmp_inp2_val == '10')):
-      tmp_Harness.set_target_inport (targetCell.inports[2], tmp_inp2_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[3], tmp_inp3_val)
-    elif ((tmp_inp3_val == '01') or (tmp_inp3_val == '10')):
-      tmp_Harness.set_target_inport (targetCell.inports[3], tmp_inp3_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[0], tmp_inp0_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[1], tmp_inp1_val)
-      tmp_Harness.set_stable_inport (targetCell.inports[2], tmp_inp2_val)
-    else:
-      print ("Illiegal input vector type!!")
-      print ("Check logic definition of this program!!")
+    spicef1=""
+    for i in range (len(expectationdict.val0_i)):
+      pin_i="i{:}".format(i)
+      spicef1 +="_" + pin_i + expectationdict.val0_i[i]
+      if pin_i == pin_r:
+        spicef1 +=val1_r
       
-    #tmp_Harness.set_leak_inportval ("1")
-    #tmp_Harness.set_nontarget_outport (targetCell.outports[0], "01")
-    spicef = "vt_"+str(targetLib.vdd_voltage)+"_"+str(targetLib.temperature)+"_"\
-      +"delay1_"+str(targetCell.cell)+"_"\
-      +str(targetCell.inports[0])+str(tmp_inp0_val)\
-      +"_"+str(targetCell.inports[1])+str(tmp_inp1_val)\
-      +"_"+str(targetCell.inports[2])+str(tmp_inp2_val)\
-      +"_"+str(targetCell.inports[3])+str(tmp_inp3_val)\
-      +"_"+str(targetCell.outports[0])+str(tmp_outp0_val)
+    for i in range (len(expectationdict.val0_b)):
+      pin_b="b{:}".format(i)
+      spicef1 +="_" + pin_b + expectationdict.val0_b[i]
+      if pin_b == pin_r:
+        spicef1 +=val1_r
+      elif pin_b == pin_t:
+        spicef1 +=val1_t
+        
+    for i in range (len(expectationdict.val0_o)):
+      pin_o="o{:}".format(i)
+      spicef1 += "_" + pin_o + expectationdict.val0_o[i]
+      if pin_o == pin_t:
+        spicef1 +=val1_t
+      spicef1 +="_"
+        
+      
+    spicef = spicef0 + spicef1
+
+    #print(targetCell.__dict__)
+    #print(expectationdict)
+    #print(tmp_Harness.__dict__)
+    #my_exit()
+    
     # run spice and store result
     runSpiceCombDelayMultiThread(targetLib, targetCell, tmp_Harness, spicef)
     harnessList.append(tmp_Harness)
@@ -195,7 +302,9 @@ def runCombIn4Out1(targetLib, targetCell, expectationList2, unate):
   targetCell.set_cin_avg(targetLib, harnessList) 
 
   return harnessList2
-#end  runCombIn4Out1
+
+
+
 
 def runSpiceCombDelayMultiThread(targetLib, targetCell, targetHarness, spicef):
   list2_prop =   []

@@ -30,47 +30,29 @@
 .SUFFIXES:
 .SUFFIXES: .cmd .md .sp
 
-PROCESS_NAME := OSU350
-#PROCESS_NAME := VIS500MM
-#PROCESS_NAME := NISD_BiM16_F
+FAB_PROCESS := OSU035
+CELL_VENDOR := SAMPLE
 
-CELL_NAME := SAMPLE
-
+CONDITION    := TT
 PROCESS      := 1.0
-CONDITION    := TCCOM
-VDD  				 := 5.0
-SPEED				 := TT
 TEMP 				 := 25
+VDD  				 := 5.0
+VSS  				 := 0.0
+VNW  				 := 5.0
+VPW  				 := 0.0
 
 #===========================================================
 #for rpc_make
-SOURCEDIR     := "cell script model"
+SOURCEDIR     := "target script"
 #RESULTDIR     := "timing work"
 RESULTDIR     := "timing"
 REMOTE 				:= 0
 #===========================================================
 
 LIBRETTO	= script/libretto.py
-GEN_CMD		= cell/$(PROCESS_NAME)/$(CELL_NAME)/gen_cmd.py
-
-CMD_FILE	= cmd/libretto.cmd
 #------------------------------------------------
-
-#---- change value of VDD/TEMP 
-VDD_STR      := $(subst .,P,$(VDD))V
-TEMP_STR     := $(subst -,M,$(TEMP))C
-
-
-LIB_NAME    := $(PROCESS_NAME)_$(CELL_NAME)_$(VDD_STR)_$(TEMP_STR)
-PATH_MODEL  := model/$(PROCESS_NAME)/model_$(PROCESS_NAME)_$(SPEED).sp
-PATH_CELL   := cell/$(PROCESS_NAME)/$(CELL_NAME)/CELL
-MD          := timing/$(LIB_NAME).md
-PDF         := timing/$(LIB_NAME).pdf
-LIB         := timing/$(LIB_NAME).lib 
-VERILOG     := timing/$(PROCESS_NAME).v
-
 #========================================================================
-.PHONY: all prep
+.PHONY: all prep lib pdf clean finish
 
 ifeq ($(REMOTE),1)
 all:
@@ -83,35 +65,31 @@ all:
 	--RESULT "$(RESULTDIR)";
 
 else
-all:$(LIB) $(VERILOG) $(PDF) 
+all:prep lib pdf finish
 
 endif
 
+finish:pdf
+	mv *.lib *.v *.pdf timing/
 
+pdf:lib
+	@for f in $(wildcard *.md); do \
+	  [ -e "$$f" ] && /bin/pandoc "$$f" -o  "$${f%.md}.pdf" -V documentclass=ltjarticle --pdf-engine=lualatex -V geometry:margin=1in -N --toc -V secnumdepth=4; \
+	done
 
-$(PDF):$(MD) 
-	/bin/pandoc $(MD) -o $@ -V documentclass=ltjarticle --pdf-engine=lualatex -V geometry:margin=1in -N --toc -V secnumdepth=4;
-
-$(LIB):prep
-	python3 $(GEN_CMD) --vdd $(VDD) --temp  $(TEMP) --process $(PROCESS) --condition $(CONDITION) \
-		--p_name $(PROCESS_NAME) --lib_name $(LIB_NAME)  \
-		--path_model $(PATH_MODEL) --path_cell $(PATH_CELL);
-
-	time python3 $(LIBRETTO) -b $(CMD_FILE);
-
-	\mv -f $(LIB_NAME).* $(PROCESS_NAME).v timing/;
-
-%.pdf:%.md
+lib:prep
+	time python3 $(LIBRETTO) -f $(FAB_PROCESS) -v $(CELL_VENDOR) --condition $(CONDITION) --process $(PROCESS) --temp $(TEMP) --vdd $(VDD) --vss $(VSS) --vnw $(VNW) --vpw $(VPW)
 
 prep:
-	\rm -rf work cmd ;\
+	\rm -rf work cmd *.v *.md *.lib;\
 	\mkdir -p work cmd timing;\
 
 lc:
 	lc_shell -f tcl/run_lc.tcl 
 
 clean:
-	\rm -rf work log.txt  cat_run.sh cmd/* script/__pycache__  *.db *.lib *.v *.log *.md *.pdf __tmp__
+	#	\rm -rf work log.txt  cat_run.sh cmd/* script/__pycache__  *.db *.lib *.v *.log *.md *.pdf __tmp__
+	\rm -rf work log.txt  cat_run.sh script/__pycache__  *.db *.lib *.v *.log *.md *.pdf __tmp__
 
 clean_all:clean
 	\rm -rf timing

@@ -1,6 +1,7 @@
 
 import argparse, re, os, shutil, subprocess, sys, inspect, datetime 
 from myFunc import my_exit
+import myExpectLogic as mel
 
 def exportFiles(targetLib, targetCell, harnessList2):
 
@@ -43,7 +44,7 @@ def exportLib(targetLib, targetCell):
   with open(targetLib.dotlib_name, 'w') as f:
     outlines = []
     ## general settings
-    outlines.append("## dotlib file generated libretto; \n")
+    outlines.append("/* dotlib file generated libretto; */\n")
     outlines.append("library ("+targetLib.lib_name+"){\n")
     outlines.append("  delay_model : \""+targetLib.delay_model+"\";\n")
     outlines.append("  capacitive_load_unit (1,"+targetLib.capacitance_unit+");\n")
@@ -151,6 +152,7 @@ def exportLib(targetLib, targetCell):
 def exportHarness(targetLib, targetCell, harnessList2):
   with open(targetLib.tmp_file, 'a') as f:
     outlines = []
+    outlines.append("\n") 
     outlines.append("  cell ("+targetCell.cell+") {\n") ## cell start
     outlines.append("    area : "+str(targetCell.area)+";\n")
     ##outlines.append("    cell_leakage_power : "+targetCell.pleak+";\n")
@@ -169,7 +171,7 @@ def exportHarness(targetLib, targetCell, harnessList2):
       index1 = targetCell.outports.index(target_outport) 
       outlines.append("    pin ("+target_outport+"){\n") ## out pin start
       outlines.append("      direction : output;\n")
-      outlines.append("      function : \"("+targetCell.functions[index1]+")\"\n")
+      outlines.append("      function : \"("+targetCell.functions[index1]+")\";\n")
       outlines.append("      related_power_pin : \""+targetLib.vdd_name+"\";\n")
       outlines.append("      related_ground_pin : \""+targetLib.vss_name+"\";\n")
       outlines.append("      max_capacitance : \""+str(targetCell.load[-1])+"\";\n") ## use max val. of load table
@@ -181,6 +183,11 @@ def exportHarness(targetLib, targetCell, harnessList2):
         outlines.append("        related_pin : \""+target_inport+"\";\n")
         outlines.append("        timing_sense : \""+harnessList2[index1][index2*2].timing_sense+"\";\n")
         outlines.append("        timing_type : \""+harnessList2[index1][index2*2].timing_type+"\";\n")
+
+        #-- when
+        if harnessList2[index1][index2*2].timing_when != "":
+          outlines.append("        when  : \""+harnessList2[index1][index2*2].timing_when.replace('&',' ')+"\";\n")
+        
         ## rise
         ## propagation delay
         #outlines.append("        "+harnessList2[index1][index2*2].direction_prop+" (delay_template) {\n")
@@ -381,7 +388,7 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
       index1 = targetCell.outports.index(target_outport) 
       outlines.append("    pin ("+target_outport+"){\n") #### out pin start
       outlines.append("      direction : output;\n")
-      outlines.append("      function : \"("+targetCell.functions[index1]+")\"\n")
+      outlines.append("      function : \"("+targetCell.functions[index1]+")\";\n")
       outlines.append("      related_power_pin : \""+targetLib.vdd_name+"\";\n")
       outlines.append("      related_ground_pin : \""+targetLib.vss_name+"\";\n")
       outlines.append("      max_capacitance : \""+str(targetCell.load[-1])+"\";\n") ## use max val. of load table
@@ -782,6 +789,7 @@ def exportVerilog(targetLib, targetCell):
       numport += 1
     portlist = portlist+");"
 
+    outlines.append("`celldefine\n")
     outlines.append("module "+targetCell.cell+portlist+"\n")
 
     ## input/output statement
@@ -802,7 +810,18 @@ def exportVerilog(targetLib, targetCell):
         index1 = targetCell.outports.index(target_outport) 
         outlines.append("assign "+target_outport+" = "+targetCell.functions[index1]+";\n")
 
-    outlines.append("endmodule\n\n")
+    ## specify
+    outlines.append("\nspecify\n");
+    
+    for expectationdict in mel.logic_dict[targetCell.logic]["expect"]:
+      if expectationdict.specify != "":
+        if expectationdict.tmg_when != "":
+          outlines.append("  if (" + expectationdict.tmg_when + ")");
+        outlines.append("  " + expectationdict.specify + "\n");
+      
+    outlines.append("endspecify\n");
+    outlines.append("endmodule\n")
+    outlines.append("`endcelldefine\n\n")
     f.writelines(outlines)
   f.close()
 

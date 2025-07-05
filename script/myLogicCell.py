@@ -1,55 +1,132 @@
 import argparse, re, os, shutil, subprocess, inspect
 import copy
+from pydantic import BaseModel, model_validator, Field
+from typing import Any
 
 from myFunc import my_exit
 
-class MyLogicCell:
-  def __init__ (self):
-    self.cell = None     ## cell name
-    self.area = None     ## set area 
-    self.functions = []  ## cell function
-    self.inports = []    ## inport pins
-    self.cins = []       ## inport caps
-    self.clock = None    ## clock pin for flop
-    self.set = None      ## set pin for flop
-    self.reset = None    ## reset pin for flop 
-    self.cclks = []      ## clock pin cap. for flop
-    self.csets = []      ## set pin cap. for flop
-    self.crsts = []      ## reset pin cap. for flop 
-    self.outports = []   ## outport pins
-    self.flops = []      ## registers 
-    self.functions = []  ## logic/flop functions 
-    self.slope = []      ## inport slope
-    self.cslope = 0      ## inport clock slope
-    self.load = []       ## outport load
-    self.slope_name = [] ## slope name
-    self.load_name = []  ## load name
-    self.simulation_timestep = 0      ## simulation timestep 
-    self.isexport = 0   ## exported or not
-    self.isexport2doc = 0 ## exported to doc or not
-    self.isflop = 0     ## DFF or not
-    ## setup 
-    self.sim_setup_lowest = 0    ## fastest simulation edge (pos. val.) 
-    self.sim_setup_highest = 0   ## lowest simulation edge (pos. val.) 
-    self.sim_setup_timestep = 0  ## timestep for setup search (pos. val.) 
-    ## hold                        
-    self.sim_hold_lowest = 0     ## fastest simulation edge (pos. val.) 
-    self.sim_hold_highest = 0    ## lowest simulation edge (pos. val.) 
-    self.sim_hold_timestep = 0   ## timestep for hold search (pos. val.) 
-    ## power
-    self.pleak = []        ## cell leak power
-    self.inport_pleak = [] ## inport leak power
-    self.inport_cap = []   ## inport cap
-    ## message
-    self.supress_msg = None        ## supress message 
-    ## template_LUT_name
-    constraint_template_name = None
-    recovery_template_name = None
-    removal_template_name = None
-    mpw_constraint_template_name = None
-    passive_power_template_name = None
-    delay_template_name = None
-    power_template_name = None 
+import myExpectLogic as mel
+
+class MyLogicCell(BaseModel):
+  #=====================================
+  # class variable
+  
+  #=====================================
+  # instance variable by BaseModel
+
+  cell      : str = None;     ## cell name
+  logic     : str = None;     ## logic name
+  area      : float= None;    ## set area
+  spice     : str  = None;    ## spice file name
+  functions : list[str] = Field(default_factory=list); ## cell function
+  ports_dict: dict[str,str] = {}; ## spice-port/name mapper
+  inports   : list[str] = Field(default_factory=list); ## inport pins
+  outports  : list[str] = Field(default_factory=list); ## outport pins
+  biports   : list[str] = Field(default_factory=list); ## inout port pins
+  clock     : str= None;      ## clock pin for flop
+  set       : str= None;      ## set pin for flop
+  reset     : str= None;      ## reset pin for flop 
+  cins      : list[str] = Field(default_factory=list); ## inport caps
+  cclks     : list[float] = Field(default_factory=list);      ## clock pin cap. for flop
+  csets     : list[float] = Field(default_factory=list);      ## set pin cap. for flop
+  crsts     : list[float] = Field(default_factory=list);      ## reset pin cap. for flop 
+  flops     : list[str]   = Field(default_factory=list);      ## registers 
+  #functions : list[str]   = Field(default_factory=list);  ## logic/flop functions 
+  slope     : list[float] = Field(default_factory=list);      ## inport slope
+  cslope    : float          = 0;      ## inport clock slope
+  load      : list[float] = Field(default_factory=list);       ## outport load
+  timestep_res  : float       = 0.1;   ## simulation timestep resolution in slope[0]
+  #slope_name : list[str]  = Field(default_factory=list); ## slope name
+  #load_name  : list[str]  = Field(default_factory=list);  ## load name
+  slope_name : str         = "slope"; ## slope name
+  load_name  : str         = "load";  ## load name
+  simulation_timestep : float = 0;      ## simulation timestep 
+  isexport            : int = 0;   ## exported or not
+  isexport2doc        : int = 0; ## exported to doc or not
+  isflop              : int = 0;     ## DFF or not
+  ## setup 
+  sim_setup_lowest    : float = 0.0;    ## fastest simulation edge (pos. val.) 
+  sim_setup_highest   : float = 0.0;   ## lowest simulation edge (pos. val.) 
+  sim_setup_timestep  : float = 0.0;  ## timestep for setup search (pos. val.) 
+  ## hold                        
+  sim_hold_lowest     : float = 0.0;     ## fastest simulation edge (pos. val.) 
+  sim_hold_highest    : float = 0.0;    ## lowest simulation edge (pos. val.) 
+  sim_hold_timestep   : float = 0.0;   ## timestep for hold search (pos. val.) 
+  ## power
+  pleak        : list[list[float]] = Field(default_factory=list);        ## cell leak power
+  inport_pleak : list[list[float]] = Field(default_factory=list); ## inport leak power
+  inport_cap   : list[float]       = Field(default_factory=list);   ## inport cap
+  ## message
+  supress_msg  : str = None;        ## supress message
+
+  #-- local variable
+  netlist      : str  = None;    ## spice file name & PATH
+  definition   : str  = None;    ## dut subskt name in spice file. 
+  instance     : str  = None;    ## DUT instance name in TB.
+  model        : str  = "./model/TT.sp";
+  
+  constraint_template_name     : str = None
+  recovery_template_name       : str = None
+  removal_template_name        : str = None
+  mpw_constraint_template_name : str = None
+  passive_power_template_name  : str = None
+  delay_template_name          : str = None
+  power_template_name          : str = None 
+  
+  #--def __init__ (self):  #-- not use
+
+  
+  def print_variable(self):
+    for k,v in self.__dict__.items():
+      print(f"   {k}={v}")
+  
+  #--def __init__ (self):
+  #--  self.cell = None     ## cell name
+  #--  self.area = None     ## set area 
+  #--  self.functions = []  ## cell function
+  #--  self.inports = []    ## inport pins
+  #--  self.cins = []       ## inport caps
+  #--  self.clock = None    ## clock pin for flop
+  #--  self.set = None      ## set pin for flop
+  #--  self.reset = None    ## reset pin for flop 
+  #--  self.cclks = []      ## clock pin cap. for flop
+  #--  self.csets = []      ## set pin cap. for flop
+  #--  self.crsts = []      ## reset pin cap. for flop 
+  #--  self.outports = []   ## outport pins
+  #--  self.flops = []      ## registers 
+  #--  self.functions = []  ## logic/flop functions 
+  #--  self.slope = []      ## inport slope
+  #--  self.cslope = 0      ## inport clock slope
+  #--  self.load = []       ## outport load
+  #--  self.slope_name = [] ## slope name
+  #--  self.load_name = []  ## load name
+  #--  self.simulation_timestep = 0      ## simulation timestep 
+  #--  self.isexport = 0   ## exported or not
+  #--  self.isexport2doc = 0 ## exported to doc or not
+  #--  self.isflop = 0     ## DFF or not
+  #--  ## setup 
+  #--  self.sim_setup_lowest = 0    ## fastest simulation edge (pos. val.) 
+  #--  self.sim_setup_highest = 0   ## lowest simulation edge (pos. val.) 
+  #--  self.sim_setup_timestep = 0  ## timestep for setup search (pos. val.) 
+  #--  ## hold                        
+  #--  self.sim_hold_lowest = 0     ## fastest simulation edge (pos. val.) 
+  #--  self.sim_hold_highest = 0    ## lowest simulation edge (pos. val.) 
+  #--  self.sim_hold_timestep = 0   ## timestep for hold search (pos. val.) 
+  #--  ## power
+  #--  self.pleak = []        ## cell leak power
+  #--  self.inport_pleak = [] ## inport leak power
+  #--  self.inport_cap = []   ## inport cap
+  #--  ## message
+  #--  self.supress_msg = None        ## supress message
+  #--  
+  #--  ## template_LUT_name
+  #--  constraint_template_name = None
+  #--  recovery_template_name = None
+  #--  removal_template_name = None
+  #--  mpw_constraint_template_name = None
+  #--  passive_power_template_name = None
+  #--  delay_template_name = None
+  #--  power_template_name = None 
 
 ##                                                #
 ##-- add functions for both comb. and seq. cell --#   
@@ -119,53 +196,51 @@ class MyLogicCell:
     if((self.supress_msg.lower() == "false")or(self.supress_msg.lower() == "f")):
       print(message)
 
-  def add_slope(self, targetLib, line="tmp"):
-    tmp_array = line.split()
-    for w in tmp_array:
-      self.slope.append(float(w))
-    #print (self.slope)
+  #def add_slope(self, targetLib, line="tmp"):
+  #  tmp_array = line.split()
+  #  for w in tmp_array:
+  #    self.slope.append(float(w))
+  #  #print (self.slope)
 
-  def add_slope(self, targetLib, line="slope_name"):
-    tmp_array = line.split()
+  def add_slope(self, targetLib):
     flag_match = 0
     jlist = []
     # search slope name from 2D slope array
     for jlist in targetLib.slope:
-        if (jlist[-1] != tmp_array[1]):
+        if (jlist[-1] != self.slope_name):
           continue
         else:
           flag_match = 1
           break
     if (flag_match == 0): # exit loop w/o match
-      print("cannot find slope: "+str(tmp_array[1]))
+      print("cannot find slope: "+self.slope_name)
       print(targetLib.slope)
       my_exit()
     self.slope = copy.deepcopy(jlist)
-    self.slope_name = self.slope.pop(-1) # delete slope name
+    self.slope.pop(-1) # delete slope name
     self.print_msg("add slope "+self.slope_name) 
 
-  def add_load(self, targetLib, line="load_name"):
-    tmp_array = line.split()
+  def add_load(self, targetLib):
     flag_match = 0
     jlist = []
     # search load name from 2D load array
     for jlist in targetLib.load:
-        if (jlist[-1] != tmp_array[1]):
+        if (jlist[-1] != self.load_name):
           continue
         else:
           flag_match = 1
           break
     if (flag_match == 0): # exit loop w/o match
-      print("cannot find load: "+str(tmp_array[1]))
+      print("cannot find load: "+self.load_name)
       my_exit()
     self.load = copy.deepcopy(jlist)
-    self.load_name = self.load.pop(-1) # delete load name
+    self.load.pop(-1) # delete load name
     self.print_msg("add load "+self.load_name) 
 
   def return_slope(self):
     jlist = self.slope
     outline = "(\""
-    self.lut_prop = []
+    #mmm self.lut_prop = []
     for j in range(len(jlist)-1):
       outline += str(jlist[j])+", " 
     outline += str(jlist[len(jlist)-1])+"\");" 
@@ -174,44 +249,34 @@ class MyLogicCell:
   def return_load(self):
     jlist = self.load
     outline = "(\""
-    self.lut_prop = []
+    #mmm self.lut_prop = []
     for j in range(len(jlist)-1):
       outline += str(jlist[j])+", " 
     outline += str(jlist[len(jlist)-1])+"\");" 
     return outline
 
-  def add_area(self, line="tmp"):
-    tmp_array = line.split()
-    self.area = float(tmp_array[1]) 
+  #def add_area(self, line="tmp"):
+  #  tmp_array = line.split()
+  #  self.area = float(tmp_array[1]) 
 
-  def add_netlist(self, line="tmp"):
-    tmp_array = line.split()
-    self.netlist = tmp_array[1]
-    self.definition = None 
-    self.instance = None 
-    lines = open(self.netlist, "r")
+  def chk_netlist(self, targetLib):
+    self.netlist = targetLib.cell_spice_path +"/"+self.spice
+    self.definition = None
+
     ## search cell name in the netlist
-    for line in lines:
-      #print("self.cell.lower:"+str(self.cell.lower()))
-      #print("line.lower:"+str(line.lower()))
-      if((self.cell.lower() in line.lower()) and (".subckt" in line.lower())):
-        print("Cell definition found for: "+str(self.cell))
-        #print(line)
-        self.definition = line
-        ## generate circuit call
-        line = re.sub('\$.*$','',line)
-        tmp_array2 = line.split()
-        #print (tmp_array2)
-        tmp_array2.pop(0) ## delete .subckt
-        #print (tmp_array2)
-        tmp_str = tmp_array2.pop(0)
-        #print (tmp_array2)
-        tmp_array2.append(tmp_str) ## move circuit name to last
-        #print (tmp_array2)
-        tmp_array2.insert(0,"XDUT") ## insert instance name 
-        #print (tmp_array2)
-        self.instance = ' '.join(tmp_array2) ## convert array into string
-        
+    if not os.path.exists(self.netlist):
+      print("  netlist is not exits. {0}".format(self.netlist))
+      my_exit()
+      
+    with open(self.netlist, 'r') as f:
+      for line in f:
+
+        #print("self.cell.lower:"+str(self.cell.lower()))
+        #print("line.lower:"+str(line.lower()))
+        if((self.cell.lower() in line.lower()) and (".subckt" in line.lower())):
+          print("Cell definition found for: "+str(self.cell))
+          #print(line)
+          self.definition = line
         
     ## if cell name is not found, show error
     if(self.definition == None):
@@ -227,18 +292,113 @@ class MyLogicCell:
         print("Defined logic: "+self.logic)
       my_exit()
 
-  def add_model(self, line="tmp"):
-    tmp_array = line.split()
-    self.model = tmp_array[1] 
+  def chk_ports(self):
+    self.instance = ""
+    
+    #-- get port name from spice file
+    ports_s=self.definition.split(); # .subckt NAND2_1X A B YB VDD VSS VNW VPW
+    ports_s.pop(0);                   # NAND2_1X A B YB VDD VSS VNW VPW
+    cell_name=ports_s.pop(0);                   # A B YB VDD VSS VNW VPW
 
-  def add_simulation_timestep(self, line="tmp"):
-    tmp_array = line.split()
-    ## if auto, amd slope is defined, use 1/10 of min slope
-    if ((tmp_array[1] == 'auto') and (self.slope[0] != None)):
-      self.simulation_timestep = float(self.slope[0])/10 
-      self.print_msg ("auto set simulation timestep")
-    else:
-      self.simulation_timestep = float(tmp_array[1])
+    #-- check port_map in cell_comb.json
+    pos_s=0
+    for name_j,name_tb in self.ports_dict.items():
+      pos_s=pos_s + 1
+      name_s = ports_s.pop(0);
+      #print("pos={0}, spice={1}, json={2}.".format(pos_s, name_s, name_j))
+      if name_s.upper() != name_j.upper():
+        print("  Pin Name missmatch in PinPos={0}. spice={1}/json={2}.".format(pos_s,name_s,name_j))
+        my_exit()
+
+      #--- check name_tb
+      if name_tb.upper().startswith("I"):
+        self.inports.append(name_tb.lower())
+      elif name_tb.upper().startswith("O"):
+        self.outports.append(name_tb.lower())
+      elif name_tb.upper().startswith("B"):
+        self.biports.append(name_tb.lower())
+      elif name_tb.upper().startswith("C"):
+        self.clock.append(name_tb.lower())
+      elif name_tb.upper().startswith("S"):
+        self.set.append(name_tb.lower())
+      elif name_tb.upper().startswith("R"):
+        self.reset.append(name_tb.lower())
+      elif name_tb.upper().startswith("V"):
+        True
+      else:
+        print("  UnKnown port-name for TB in ports_dict(JSON file). {0}:{1}.".format(name_j,name_tb))
+        my_exit()
+
+      #--- 
+      self.instance += ' ' + name_tb.lower()
+      
+    self.instance = 'XDUT' + self.instance + " " + cell_name
+    
+  def add_model(self, targetLib):
+    self.model = targetLib.model_path +"/.model_"+targetLib.process_name +"_"+targetLib.operating_conditions+".sp"
+
+    if not os.path.exists(self.model):
+      print("  model file is not exits. {0}".format(self.model))
+      my_exit()
+      
+    
+  #--def add_netlist(self, targetLib):
+  #--  self.netlist = targetLib.cell_spice_path +"/"+self.spice
+  #--  self.definition = None 
+  #--  self.instance = None 
+  #--  lines = open(self.netlist, "r")
+  #--  ## search cell name in the netlist
+  #--  for line in lines:
+  #--    #print("self.cell.lower:"+str(self.cell.lower()))
+  #--    #print("line.lower:"+str(line.lower()))
+  #--    if((self.cell.lower() in line.lower()) and (".subckt" in line.lower())):
+  #--      print("Cell definition found for: "+str(self.cell))
+  #--      #print(line)
+  #--      self.definition = line
+  #--      
+  #--      ## generate circuit call
+  #--      #--- line = re.sub('\$.*$','',line)
+  #--      #--- tmp_array2 = line.split()
+  #--      #--- #print (tmp_array2)
+  #--      #--- tmp_array2.pop(0) ## delete .subckt
+  #--      #--- #print (tmp_array2)
+  #--      #--- tmp_str = tmp_array2.pop(0)
+  #--      #--- #print (tmp_array2)
+  #--      #--- tmp_array2.append(tmp_str) ## move circuit name to last
+  #--      #--- #print (tmp_array2)
+  #--      #--- tmp_array2.insert(0,"XDUT") ## insert instance name 
+  #--      #--- #print (tmp_array2)
+  #--      #--- self.instance = ' '.join(tmp_array2) ## convert array into string
+  #--
+  #--  ## if cell name is not found, show error
+  #--  if(self.definition == None):
+  #--    if((self.cell == None) and (self.cell == None)):
+  #--      print("Cell definition not found. Please use add_cell command to add your cell")
+  #--    elif(self.cell == None):
+  #--      print("Cell is not defined by add_cell. Please use add_cell command to add your cell")
+  #--    elif(self.logic == None):
+  #--      print("Logic is not defined by add_cell. Please use add_cell command to add your cell")
+  #--    else:
+  #--      print("Options for add_cell command might be wrong")
+  #--      print("Defined cell: "+self.cell)
+  #--      print("Defined logic: "+self.logic)
+  #--    my_exit()
+  #--
+  #--def add_model(self, line="tmp"):
+  #--  tmp_array = line.split()
+  #--  self.model = tmp_array[1] 
+  #--
+  #--def add_simulation_timestep(self, line="tmp"):
+  #--  tmp_array = line.split()
+  #--  ## if auto, amd slope is defined, use 1/10 of min slope
+  #--  if ((tmp_array[1] == 'auto') and (self.slope[0] != None)):
+  #--    self.simulation_timestep = float(self.slope[0])/10 
+  #--    self.print_msg ("auto set simulation timestep")
+  #--  else:
+  #--    self.simulation_timestep = float(tmp_array[1])
+
+  def add_simulation_timestep(self):
+    self.simulation_timestep =self.slope[0] * self.timestep_res
 
   def set_exported(self):
     self.isexport = 1 
@@ -334,6 +494,30 @@ class MyLogicCell:
     # do not use print_msg 
     print ("finish add_flop")
 
+  def add_function(self):
+    if not self.logic in mel.logic_dict.keys():
+      print("  logic="+self.logic + " is not exist in MyExpectLogic.py.");
+      my_exit();
+
+    #-- copy from mel
+    logic_dict=mel.logic_dict[self.logic]
+
+    for k,v in logic_dict["functions"].items():
+      print(k , v)
+      for o in self.outports:
+        if(o.upper() == k.upper()):
+          self.functions.append(v)
+    
+    #tmp_array1 = logic_dict["function"].split(',')
+    #for f in tmp_array1:
+    #  tmp_array3 = f.split("=")
+    #  for o in self.outports:
+    #    if(o.upper() == tmp_array3[0].upper()):
+    #      #self.functions.append(tmp_array3[1])
+    #      self.functions.append(f)
+          
+    print("add function: " + str(self.functions))
+    
   def add_clock_slope(self, line="tmp"):
     tmp_array = line.split()
     ## if auto, amd slope is defined, use mininum slope
@@ -345,7 +529,7 @@ class MyLogicCell:
 
   def gen_lut_templates(self):
     if ((not self.slope_name) and (not self.load_name)):
-      print("slope / load are not registered!\m")
+      print("slope / load are not registered!\n")
       my_exit()
     else:
       self.constraint_template_name = "constraint_template_"+self.slope_name
@@ -355,7 +539,7 @@ class MyLogicCell:
       self.passive_power_template_name = "passive_power_template_"+self.slope_name
       self.delay_template_name = "delay_template_"+self.load_name+"_"+self.slope_name
       self.power_template_name = "power_template_"+self.load_name+"_"+self.slope_name
-      #print("Done targetCell.gen_lut_template\m")
+      #print("Done targetCell.gen_lut_template\n")
 
   ## this defines lowest limit of setup edge
   def add_simulation_setup_lowest(self, line="tmp"):
