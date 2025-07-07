@@ -1,6 +1,11 @@
 # libretto
 ## Introduction
 An open cell library characterizer.
+
+This repository is a fork of [original project name](https://github.com/snishizawa/libretto).  
+All credits and copyrights belong to the original authors.  
+This fork includes additional modifications and customizations.
+
 Current version support timing characterization and power characterization of combinational cells and sequential cells.
 Multithread supported. All of the indexes are simulated in parallel.
 
@@ -16,6 +21,9 @@ https://github.com/stineje/CharLib/tree/main
 (2) Pandoc, if you want to convert datasheet in Markdown to PDF
 
 ## How to use
+
+<!-- 
+
 Use Makefile to speficy the target.
 ```Makefile
 PROCESS_NAME := OSU350
@@ -30,13 +38,22 @@ We can manually prepare .cmd file. Then type
 python3 libretto.py -b [.cmd file]
 ```
 
+-->
+
 ## How to prepare .cmd file
+
+<!-- 
 .cmd file composes three blocks.
 (1) common settings for library
 (2) common settings for cell (characterization conditions, settings)
 (3) individual settings for cell
 
+-->
+
 ### common settings for library
+
+<!--
+
 Define common settings for target library.
 (called **set command**)
 | Command | Argument example | Description |
@@ -56,8 +73,11 @@ Define common settings for target library.
 | set_vss_name | VSS | vss name, used to detect vss |
 | set_pwell_name | VPW | pwell name, used to detect pwell (option)|
 | set_nwell_name | VNW | nwell name, used to detect nwell (option)|
+-->
 
 ### common characterization conditions
+<!--
+
 Define common settings for logic cells.
 (called **set command**)
 | Command | Argument example | Description |
@@ -79,7 +99,11 @@ Define common settings for logic cells.
 | set_slope | slope_name {0.01 0.02 ...} | set of slope_name and its index (unit in set_time_unit) |
 | set_load | load_name {0.01 0.02 ...} | set of load_name and its index (unit in set_capacitance_unit)|
 
+-->
 ### common characterization settings
+
+<!--
+
 Define common settings for logic cells.
 (called **set command**)
 | Command | Argument example | Description |
@@ -103,7 +127,10 @@ to initialize characterizor.
 |:-----------|------------:|:------------|
 | initialize | n/a | initialize characteizer | 
 
+-->
+
 ### individual characterization commands
+<!--
 Define individual settings for cells.
 (called **add command**)
 Except **add_cell** command, other **add command** requires one argument.
@@ -229,7 +256,9 @@ use **exit** command to return into shell.
 |:-----------|------------:|:------------|
 | exit | n/a | exit |
 
+-->
 ### sample
+<!--
 ```txt libretto.cmd
 # common settings for library
 set_lib_name         OSU350_5P0V_25C
@@ -307,6 +336,7 @@ export
 exit
 
 exit
+-->
 ```
 
 ## Known issues (future works)
@@ -319,6 +349,4 @@ exit
 5. Logic parser to find mismatch between logic definition and netlist.
 
 ## Done
-1. Speed up: Use multithreads (23Jun)
-2. Documentation support (23Jun)
-3. Support multiple loads slopes (24May)
+1. clone from original procest (25 Jun).
