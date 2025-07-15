@@ -1,5 +1,7 @@
 
 import argparse, re, os, shutil, subprocess, sys, inspect, datetime 
+from itertools import groupby
+
 from myFunc import my_exit
 import myExpectLogic as mel
 
@@ -166,79 +168,127 @@ def exportHarness(targetLib, targetCell, harnessList2):
     outlines.append("      voltage_name : \""+targetLib.vss_name+"\";\n")
     outlines.append("    }\n")
 
-    ## select one output pin from pinlist(target_outports) 
+    ## harnessList2
+    harnessList = harnessList2[-1]
+    #harnessList = sorted(harnessList2[-1], key=lambda x: (x.target_outport, x.target_inport, x.timing_type, x.timing_when, x.direction_prop))
+
     for target_outport in targetCell.outports:
-      index1 = targetCell.outports.index(target_outport) 
-      outlines.append("    pin ("+target_outport+"){\n") ## out pin start
+      dt = [harness for harness in harnessList if harness.target_outport == target_outport]
+      harnessList = sorted(dt, key=lambda x: (x.target_inport, x.timing_type, x.timing_when, x.direction_prop));
+      
+      if len(harnessList) < 1:
+        print(f"Error: no harness result exist for target={target_outport}.")
+        my_exit()
+
+      ## output pin infomation
+      #outlines.append("    pin ("+ target_outport+"){\n") ## out pin start
+      outlines.append("    pin ("+ targetCell.replace_by_portmap(target_outport)+"){\n") ## out pin start
       outlines.append("      direction : output;\n")
-      outlines.append("      function : \"("+targetCell.functions[index1]+")\";\n")
+      #outlines.append("      function : \"("+targetCell.functions[target_outport]+")\";\n")
+      outlines.append("      function : \"("+targetCell.replace_by_portmap(targetCell.functions[target_outport])+")\";\n")
       outlines.append("      related_power_pin : \""+targetLib.vdd_name+"\";\n")
       outlines.append("      related_ground_pin : \""+targetLib.vss_name+"\";\n")
       outlines.append("      max_capacitance : \""+str(targetCell.load[-1])+"\";\n") ## use max val. of load table
       outlines.append("      output_voltage : default_"+targetLib.vdd_name+"_"+targetLib.vss_name+"_output;\n")
-      ## timing
-      for target_inport in targetCell.inports:
+        
+      ## timing()
+      for (target_inport,timing_type,timing_when),group in groupby(harnessList, key=lambda x:(x.target_inport, x.timing_type, x.timing_when)):
+        group_list=list(group);
+        size=len(group_list)
+        print(f" group: target_outport={target_outport}, target_inport={target_inport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
+        
+        if size != 2:
+          print(f"Error: len(group) is not 2(={size})")
+
+        #--
+        harness1=group_list[0]
+        harness2=group_list[1]
+
+        ## check 
+        if (harness1.stable_inport != harness2.stable_inport) :
+          print("Error: stable_inport missmatch in %s . harness[N]=%s, harness[N+1]=%s." %(targetCell.logic, harness1.stable_inport, harness2.stable_inport));
+          my_exit();
+        if (harness1.timing_sense != harness2.timing_sense) :
+          print("Error: timing_sense missmatch in %s. harness[N]=%s, harness[N+1]=%s." %(targetCell.logic, harness1.timing_sense, harness2.timing_sense));
+          my_exit();
+
+        ## infomation
         outlines.append("      timing () {\n")
-        index2 = targetCell.inports.index(target_inport) 
-        outlines.append("        related_pin : \""+target_inport+"\";\n")
-        outlines.append("        timing_sense : \""+harnessList2[index1][index2*2].timing_sense+"\";\n")
-        outlines.append("        timing_type : \""+harnessList2[index1][index2*2].timing_type+"\";\n")
+        #outlines.append("        related_pin : \""+target_inport+"\";\n")
+        outlines.append("        related_pin : \""+targetCell.replace_by_portmap(target_inport)+"\";\n")
+
+        #-- when/sense/type
+        if harness1.timing_when:
+          outlines.append("        when  : \""+targetCell.replace_by_portmap(harness1.timing_when).replace('&',' ')+"\";\n")
+          outlines.append("        sdf_cond  : \""+targetCell.replace_by_portmap(harness1.timing_when).replace('&',' ')+"\";\n")
+        
+        outlines.append("        timing_sense : \""+harness1.timing_sense+"\";\n")
+        outlines.append("        timing_type : \""+harness1.timing_type+"\";\n")
+
+        
+        ## propagation delay1/transition delay1
+        outlines.append("        "+harness1.direction_prop+ " ("+targetCell.delay_template_name+") {\n")
+        for lut_line in harness1.lut_prop:
+          outlines.append("          "+lut_line+"\n")
+        outlines.append("        }\n") 
+
+        outlines.append("        "+harness1.direction_tran+" ("+targetCell.delay_template_name+") {\n")
+        for lut_line in harness1.lut_tran:
+          outlines.append("          "+lut_line+"\n")
+        outlines.append("        }\n")
+        
+        ## propagation delay2/transition delay2
+        outlines.append("        "+harness2.direction_prop+" ("+targetCell.delay_template_name+") {\n")
+        for lut_line in harness2.lut_prop:
+          outlines.append("          "+lut_line+"\n")
+        outlines.append("        }\n") 
+
+        outlines.append("        "+harness2.direction_tran+" ("+targetCell.delay_template_name+") {\n")
+        for lut_line in harness2.lut_tran:
+          outlines.append("          "+lut_line+"\n")
+        outlines.append("        }\n") 
+        outlines.append("      }\n") ## timing end
+
+      ## power
+      for (target_inport,timing_type,timing_when),group in groupby(harnessList, key=lambda x:(x.target_inport, x.timing_type, x.timing_when)):
+        group_list=list(group);
+        size=len(group_list)
+        print(f" group: target_outport={target_outport}, target_inport={target_inport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
+        
+        if size != 2:
+          print(f"Error: len(group) is not 2(={size})")
+
+        #--
+        harness1=group_list[0]
+        harness2=group_list[1]
+
+        #-- infomation
+        outlines.append("      internal_power () {\n")
+        outlines.append("        related_pin : \""+targetCell.replace_by_portmap(target_inport)+"\";\n")
 
         #-- when
-        if harnessList2[index1][index2*2].timing_when != "":
-          outlines.append("        when  : \""+harnessList2[index1][index2*2].timing_when.replace('&',' ')+"\";\n")
-        
-        ## rise
-        ## propagation delay
-        #outlines.append("        "+harnessList2[index1][index2*2].direction_prop+" (delay_template) {\n")
-        outlines.append("        "+harnessList2[index1][index2*2].direction_prop+ " ("+targetCell.delay_template_name+") {\n")
-        for lut_line in harnessList2[index1][index2*2].lut_prop:
-          outlines.append("          "+lut_line+"\n")
-        outlines.append("        }\n") 
-        ## transition delay
-        #outlines.append("        "+harnessList2[index1][index2*2].direction_tran+" (delay_template) {\n")
-        outlines.append("        "+harnessList2[index1][index2*2].direction_tran+" ("+targetCell.delay_template_name+") {\n")
-        for lut_line in harnessList2[index1][index2*2].lut_tran:
-          outlines.append("          "+lut_line+"\n")
-        outlines.append("        }\n") 
-        ## fall
-        ## propagation delay
-        #outlines.append("        "+harnessList2[index1][index2*2+1].direction_prop+" (delay_template) {\n")
-        outlines.append("        "+harnessList2[index1][index2*2+1].direction_prop+" ("+targetCell.delay_template_name+") {\n")
-        for lut_line in harnessList2[index1][index2*2+1].lut_prop:
-          outlines.append("          "+lut_line+"\n")
-        outlines.append("        }\n") 
-        ## transition delay
-        #outlines.append("        "+harnessList2[index1][index2*2+1].direction_tran+" (delay_template) {\n")
-        outlines.append("        "+harnessList2[index1][index2*2+1].direction_tran+" ("+targetCell.delay_template_name+") {\n")
-        for lut_line in harnessList2[index1][index2*2+1].lut_tran:
-          outlines.append("          "+lut_line+"\n")
-        outlines.append("        }\n") 
-        outlines.append("      }\n") ## timing end 
-      ## power
-      for target_inport in targetCell.inports:
-        outlines.append("      internal_power () {\n")
-        index2 = targetCell.inports.index(target_inport) 
-        outlines.append("        related_pin : \""+target_inport+"\";\n")
+        if harness1.timing_when != "":
+          outlines.append("        when  : \""+targetCell.replace_by_portmap(harness1.timing_when).replace('&',' ')+"\";\n")
+
         ## rise(fall)
-        #outlines.append("        "+harnessList2[index1][index2*2].direction_power+" (power_template) {\n")
-        outlines.append("        "+harnessList2[index1][index2*2].direction_power+" ("+targetCell.power_template_name+") {\n")
-        for lut_line in harnessList2[index1][index2*2].lut_eintl:
+        outlines.append("        "+harness1.direction_power+" ("+targetCell.power_template_name+") {\n")
+        for lut_line in harness1.lut_eintl:
           outlines.append("          "+lut_line+"\n")
-        outlines.append("        }\n") 
+        outlines.append("        }\n")
+        
         ## fall(rise)
-        #outlines.append("        "+harnessList2[index1][index2*2+1].direction_power+" (power_template) {\n")
-        outlines.append("        "+harnessList2[index1][index2*2+1].direction_power+" ("+targetCell.power_template_name+") {\n")
-        for lut_line in harnessList2[index1][index2*2+1].lut_eintl:
+        outlines.append("        "+harness2.direction_power+" ("+targetCell.power_template_name+") {\n")
+        for lut_line in harness2.lut_eintl:
           outlines.append("          "+lut_line+"\n")
-        outlines.append("        }\n") 
-        outlines.append("      }\n") ## power end 
+        outlines.append("        }\n")
+        outlines.append("      }\n") ## power end
+        
       outlines.append("    }\n") ## out pin end
 
     ## select one input pin from pinlist(target_inports) 
     for target_inport in targetCell.inports:
       index1 = targetCell.inports.index(target_inport) 
-      outlines.append("    pin ("+target_inport+"){\n") ## out pin start
+      outlines.append("    pin ("+targetCell.replace_by_portmap(target_inport)+"){\n") ## out pin start
       outlines.append("      direction : input; \n")
       outlines.append("      related_power_pin : "+targetLib.vdd_name+";\n")
       outlines.append("      related_ground_pin : "+targetLib.vss_name+";\n")
@@ -388,7 +438,8 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
       index1 = targetCell.outports.index(target_outport) 
       outlines.append("    pin ("+target_outport+"){\n") #### out pin start
       outlines.append("      direction : output;\n")
-      outlines.append("      function : \"("+targetCell.functions[index1]+")\";\n")
+      #outlines.append("      function : \"("+targetCell.functions[index1]+")\";\n")
+      outlines.append("      function : \"("+targetCell.functions[target_outport]+")\";\n")
       outlines.append("      related_power_pin : \""+targetLib.vdd_name+"\";\n")
       outlines.append("      related_ground_pin : \""+targetLib.vss_name+"\";\n")
       outlines.append("      max_capacitance : \""+str(targetCell.load[-1])+"\";\n") ## use max val. of load table
@@ -776,28 +827,47 @@ def exportVerilog(targetLib, targetCell):
   with open(targetLib.verilog_name, 'a') as f:
     outlines = []
 
-    ## list ports in one line 
-    portlist = "("
-    numport = 0
-    for target_outport in targetCell.outports:
-      if(numport != 0):
-        portlist = portlist+", "
-      portlist = portlist+target_outport
-      numport += 1
-    for target_inport in targetCell.inports:
-      portlist = portlist+","+target_inport
-      numport += 1
-    portlist = portlist+");"
+    ## list ports in one line (order is same as SPICE netlist)
+    
+    #--portlist = "("
+    #--numport = 0
+    #--for target_outport in targetCell.outports:
+    #--  if(numport != 0):
+    #--    portlist = portlist+", "
+    #--  portlist = portlist+target_outport
+    #--  numport += 1
+    #--for target_inport in targetCell.inports:
+    #--  portlist = portlist+","+target_inport
+    #--  numport += 1
+    #--portlist = portlist+");"
 
+    #--
+    ports_s=targetCell.definition.split(); # .subckt NAND2_1X A B YB VDD VSS VNW VPW
+    ports_s.pop(0);                   # NAND2_1X A B YB VDD VSS VNW VPW
+    ports_s.pop(0);                   # A B YB VDD VSS VNW VPW
+    portlist = "(" + ",".join(ports_s) + ");"
+    
     outlines.append("`celldefine\n")
     outlines.append("module "+targetCell.cell+portlist+"\n")
 
     ## input/output statement
-    for target_outport in targetCell.outports:
+    #for target_outport in targetCell.outports:
+    for target_outport in targetCell.rvs_portmap(targetCell.outports):
       outlines.append("output "+target_outport+";\n")
-    for target_inport in targetCell.inports:
+    #for target_inport in targetCell.inports:
+    for target_inport in targetCell.rvs_portmap(targetCell.inports):
       outlines.append("input "+target_inport+";\n")
 
+    ## inout statement
+    #for target_biport in targetCell.biports:
+    for target_biport in targetCell.rvs_portmap(targetCell.biports):
+      outlines.append("inout "+target_biport+";\n")
+
+    ## power statement
+    #for target_vport in targetCell.vports:
+    for target_vport in targetCell.rvs_portmap(targetCell.vports):
+      outlines.append("inout "+target_vport+";\n")
+      
     ## branch for sequencial cell
     if(targetCell.logic == "DFFARAS"):
       print ("This cell "+targetCell.logic+" is not supported for verilog out\n")
@@ -807,18 +877,31 @@ def exportVerilog(targetLib, targetCell):
     else:
     ## assign statement
       for target_outport in targetCell.outports:
-        index1 = targetCell.outports.index(target_outport) 
-        outlines.append("assign "+target_outport+" = "+targetCell.functions[index1]+";\n")
+        #index1 = targetCell.outports.index(target_outport) 
+        #outlines.append("assign "+target_outport+" = "+targetCell.functions[index1]+";\n")
+        outlines.append("assign "+targetCell.replace_by_portmap(target_outport)+" = "+targetCell.replace_by_portmap(targetCell.functions[target_outport])+";\n")
 
     ## specify
     outlines.append("\nspecify\n");
     
     for expectationdict in mel.logic_dict[targetCell.logic]["expect"]:
       if expectationdict.specify != "":
-        if expectationdict.tmg_when != "":
-          outlines.append("  if (" + expectationdict.tmg_when + ")");
-        outlines.append("  " + expectationdict.specify + "\n");
-      
+        when   =targetCell.replace_by_portmap(expectationdict.tmg_when)
+
+        flag_ifnone=False
+        if expectationdict.specify.endswith(";"):
+          flag_ifnone=True;
+          
+        specify=targetCell.replace_by_portmap(expectationdict.specify.replace(";;",";"))
+        
+        if when != "":
+          outlines.append("  if (" + when + ") "+specify +"\n");
+        else:
+          outlines.append("  "+specify+"\n");
+
+        if flag_ifnone:
+          outlines.append("  ifnone "+specify + "\n\n");
+        
     outlines.append("endspecify\n");
     outlines.append("endmodule\n")
     outlines.append("`endcelldefine\n\n")

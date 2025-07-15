@@ -28,7 +28,7 @@
 #===========================================================
 
 .SUFFIXES:
-.SUFFIXES: .cmd .md .sp
+.SUFFIXES: .md .sp
 
 FAB_PROCESS := OSU035
 CELL_VENDOR := SAMPLE
@@ -70,7 +70,7 @@ all:prep lib pdf finish
 endif
 
 finish:pdf
-	mv *.lib *.v *.pdf timing/
+	mv *.lib *.v *.pdf *.md timing/
 
 pdf:lib
 	@for f in $(wildcard *.md); do \
@@ -81,14 +81,13 @@ lib:prep
 	time python3 $(LIBRETTO) -f $(FAB_PROCESS) -v $(CELL_VENDOR) --condition $(CONDITION) --process $(PROCESS) --temp $(TEMP) --vdd $(VDD) --vss $(VSS) --vnw $(VNW) --vpw $(VPW)
 
 prep:
-	\rm -rf work cmd *.v *.md *.lib;\
-	\mkdir -p work cmd timing;\
+	\rm -rf work *.v *.md *.lib;\
+	\mkdir -p work timing;\
 
 lc:
 	lc_shell -f tcl/run_lc.tcl 
 
 clean:
-	#	\rm -rf work log.txt  cat_run.sh cmd/* script/__pycache__  *.db *.lib *.v *.log *.md *.pdf __tmp__
 	\rm -rf work log.txt  cat_run.sh script/__pycache__  *.db *.lib *.v *.log *.md *.pdf __tmp__
 
 clean_all:clean

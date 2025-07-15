@@ -14,8 +14,8 @@ import myExpectLogic as mel
 
 
 import numpy as np
-#from char_comb import runCombIn1Out1, runCombIn2Out1, runCombIn3Out1, runCombIn4Out1,  genFileLogic_trial1
-from char_comb import runCombInNOut1,  genFileLogic_trial1
+
+from char_comb import runCombInNOut1
 from char_seq import runFlop, genFileFlop_trial1
 from myFunc import my_exit, startup
 from jsoncomment import JsonComment

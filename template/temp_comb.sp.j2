@@ -1,0 +1,140 @@
+*title: delay meas.
+.option brief nopage nomod post=1 ingold=2 autostop
+
+.inc '{{param.model}}'
+.inc '{{param.netlist}}'
+
+.temp {{param.temp}}
+
+.param _vdd = {{param.vdd_voltage}}
+.param _vss = {{param.vss_voltage}}
+.param _vnw = {{param.vnw_voltage}}
+.param _vpw = {{param.vpw_voltage}}
+.param cap  = {{param.cap}}
+.param slew = {{param.slew}}
+
+.param _tslew   = 'slew'
+.param _tstart  = 'slew'
+.param _tend    = '_tstart + _tslew'
+*.param _tsimend = '10 * _tslew + 1us' 
+.param _tsimend = '_tend + 0.3us' 
+
+.param _Energy_meas_end_extent = {{param.energy_meas_time_extent}}
+ 
+VDD_DYN VDD_DYN 0 DC '_vdd' 
+VSS_DYN VSS_DYN 0 DC '_vss' 
+VNW_DYN VNW_DYN 0 DC '_vnw' 
+VPW_DYN VPW_DYN 0 DC '_vpw' 
+
+VHIGH VHIGH 0 DC '_vdd' 
+VLOW  VLOW  0 DC '_vss' 
+
+
+* output load calculation
+VOCAP VOUT WOUT DC 0
+ 
+##.tran {{param.simulation_timestep}}{{param.time_unit}} '_tsimend'
+.tran {{param.simulation_timestep}} '_tsimend'
+
+##=== set VIN 
+{% if   param.target_inport_val == '01' %}
+VIN VIN 0 PWL(1p '_vss' '_tstart' '_vss' '_tend' '_vdd' '_tsimend' '_vdd') 
+{% elif param.target_inport_val == '10' %}
+VIN VIN 0 PWL(1p '_vdd' '_tstart' '_vdd' '_tend' '_vss' '_tsimend' '_vss') 
+{% elif param.target_inport_val == '11' %}
+VIN VIN 0 DC '_vdd'
+{% elif param.target_inport_val == '00' %}
+VIN VIN 0 DC '_vss'
+{% endif %}
+
+
+** Delay 
+
+##=== 
+* Prop delay 
+
+.measure Tran PROP_IN_OUT
+{%- if   param.target_inport_val == '01' %}
++ trig v(VIN)  VAL={{param.logic_low_to_high_threshold_voltage}} rise=1  TD='_tstart' 
+{%- elif param.target_inport_val == '10' %}
++ trig v(VIN)  VAL={{param.logic_high_to_low_threshold_voltage}} fall=1  TD='_tstart' 
+{% endif %}
+
+{%- if   param.target_outport_val == '01' %}
++ targ v(VOUT) val={{param.logic_low_to_high_threshold_voltage}} rise=1
+{%- elif param.target_outport_val == '10' %}
++ targ v(VOUT) val={{param.logic_high_to_low_threshold_voltage}} fall=1
+{% endif %}
+
+##=== 
+* Trans delay 
+.measure Tran TRANS_OUT
+{%- if   param.target_outport_val == '01' %}
++ trig v(VOUT) VAL={{param.logic_threshold_low_voltage}}  rise=1 TD='_tstart' 
++ targ v(VOUT) VAL={{param.logic_threshold_high_voltage}} rise=1 
+{%- elif param.target_outport_val == '10' %}
++ trig v(VOUT) VAL={{param.logic_threshold_high_voltage}} fall=1 TD='_tstart' 
++ targ v(VOUT) VAL={{param.logic_threshold_low_voltage}}  fall=1 
+{% endif %}
+
+##=== 
+* For energy calculation
+##### ------ before ENERGY calculation
+{% if param.meas_energy == 0 %}
+
+.measure Tran ENERGY_START
+{%- if   param.target_inport_val == '01' %}
++ when v(VIN)={{param.energy_meas_low_threshold_voltage}}  rise=1 TD='_tstart'
+{%- elif param.target_inport_val == '10' %}
++ when v(VIN)={{param.energy_meas_high_threshold_voltage}} fall=1 TD='_tstart'
+{% endif %}
+
+.measure Tran ENERGY_END
+{%- if   param.target_outport_val == '01' %}
++ when v(VOUT)={{param.energy_meas_high_threshold_voltage}} rise=1 TD='_tstart'
+{%- elif param.target_outport_val == '10' %}
++ when v(VOUT)={{param.energy_meas_low_threshold_voltage}}  fall=1 TD='_tstart'
+{% endif %}
+
+##### ------ before ENERGY calculation
+{% else %}
+
+* 
+** In/Out Q, Capacitance 
+* 
+.measure Tran Q_IN_DYN  integ i(VIN)   from={{param.energy_start}} to={{param.energy_end}}
+.measure Tran Q_OUT_DYN integ i(VOCAP) from={{param.energy_start}} to={{param.energy_end_extent}}
+ 
+* 
+** Energy 
+*  (Total charge, Short-Circuit Charge) 
+
+.measure Tran Q_VDD_DYN integ i(VDD_DYN) from={{param.energy_start}} to={{param.energy_end_extent}}
+.measure Tran Q_VSS_DYN integ i(VSS_DYN) from={{param.energy_start}} to={{param.energy_end_extent}}
+ 
+* Leakage current 
+.measure Tran I_VDD_LEAK avg i(VDD_DYN) from='_tstart*0.1' to='_tstart'  
+.measure Tran I_VSS_LEAK avg i(VSS_DYN) from='_tstart*0.1' to='_tstart'  
+ 
+* Gate leak current 
+.measure Tran I_IN_LEAK avg i(VIN) from='_tstart*0.1' to='_tstart'  
+
+{% endif %}
+
+
+##=== 
+*comment out .control for ngspice batch mode 
+*.control 
+*run 
+*plot V(VIN) V(VOUT) 
+*.endc 
+
+##=== 
+XCELL VIN VOUT VHIGH VLOW VDD_DYN VSS_DYN VNW_DYN VPW_DYN DUT 
+C0 WOUT VSS_DYN 'cap'
+ 
+.SUBCKT DUT IN OUT HIGH LOW VDD VSS VNW VPW
+{{param.tb_instance}}
+.ends 
+
+.end 

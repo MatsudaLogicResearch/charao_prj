@@ -78,7 +78,8 @@ def exportHarness2doc(targetLib, targetCell, harnessList2):
             outlines.append("| direction | func | max cap | leak | \n")
             outlines.append("|----|----|----|----|\n")
             #outlines.append("| output | "+targetCell.functions[index1]+" | "+str(targetCell.load[-1])+" | "+str(harnessList2[0][0].pleak)+" |\n")
-            outlines.append("| output | "+targetCell.functions[index1].replace('|','\|')+" | "+str(targetCell.load[-1])+" | "+str(harnessList2[0][0].pleak)+" |\n")
+            #outlines.append("| output | "+targetCell.functions[index1].replace('|','\|')+" | "+str(targetCell.load[-1])+" | "+str(harnessList2[0][0].pleak)+" |\n")
+            outlines.append("| output | "+targetCell.functions[target_outport].replace('|','\|')+" | "+str(targetCell.load[-1])+" | "+str(harnessList2[0][0].pleak)+" |\n")
 
             outlines.append("\n")
 
@@ -91,7 +92,8 @@ def exportHarness2doc(targetLib, targetCell, harnessList2):
                 outlines.append("| related pin | func | max cap |\n")
                 outlines.append("|----|----|----|\n")
                 #outlines.append("| output | "+targetCell.functions[index1].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
-                outlines.append("|" + target_inport + "|"+targetCell.functions[index1].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
+                #outlines.append("|" + target_inport + "|"+targetCell.functions[index1].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
+                outlines.append("|" + target_inport + "|"+targetCell.functions[target_outport].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
 
                 outlines.append("\n")
                 outlines.append("| direction | prop min. | prop center | prop max |\n")
@@ -267,7 +269,8 @@ def exportHarnessFlop2doc(targetLib, targetCell, harnessList2):
             outlines.append("### Output pin : "+target_outport+"\n") ## input pin start
             outlines.append("| direction | func | max cap | leak | \n")
             outlines.append("|----|----|----|----|\n")
-            outlines.append("| output | "+targetCell.functions[index1].replace('|','\|')+" | "+str(targetCell.load[-1])+" | "+str(harnessList2[0][0].pleak)+" |\n")
+            #outlines.append("| output | "+targetCell.functions[index1].replace('|','\|')+" | "+str(targetCell.load[-1])+" | "+str(harnessList2[0][0].pleak)+" |\n")
+            outlines.append("| output | "+targetCell.functions[target_outport].replace('|','\|')+" | "+str(targetCell.load[-1])+" | "+str(harnessList2[0][0].pleak)+" |\n")
             outlines.append("\n")
 
             ## (3-1) clock
@@ -289,7 +292,8 @@ def exportHarnessFlop2doc(targetLib, targetCell, harnessList2):
 
                 outlines.append("| related pin | func | max cap |\n")
                 outlines.append("|----|----|----|\n")
-                outlines.append("| "+targetCell.clock+" | "+targetCell.functions[index1].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
+                #outlines.append("| "+targetCell.clock+" | "+targetCell.functions[index1].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
+                outlines.append("| "+targetCell.clock+" | "+targetCell.functions[target_outport].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
                 outlines.append("\n")
                 outlines.append("| direction | prop min. | prop center | prop max |\n")
                 outlines.append("|----|----|----|----|\n")
@@ -349,7 +353,8 @@ def exportHarnessFlop2doc(targetLib, targetCell, harnessList2):
                 
                 outlines.append("| related pin | func | max cap |\n")
                 outlines.append("|----|----|----|\n")
-                outlines.append("| "+targetCell.reset+" | "+targetCell.functions[index1].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
+                #outlines.append("| "+targetCell.reset+" | "+targetCell.functions[index1].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
+                outlines.append("| "+targetCell.reset+" | "+targetCell.functions[target_outport].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
                 outlines.append("\n")
                 outlines.append("| direction | prop min. | prop center | prop max |\n")
                 outlines.append("|----|----|----|----|\n")
@@ -403,7 +408,8 @@ def exportHarnessFlop2doc(targetLib, targetCell, harnessList2):
                 
                 outlines.append("| related pin | func | max cap |\n")
                 outlines.append("|----|----|----|\n")
-                outlines.append("| "+targetCell.set+" | "+targetCell.functions[index1].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
+                #outlines.append("| "+targetCell.set+" | "+targetCell.functions[index1].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
+                outlines.append("| "+targetCell.set+" | "+targetCell.functions[target_outport].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
                 outlines.append("\n")
                 outlines.append("| direction | prop min. | prop center | prop max |\n")
                 outlines.append("|----|----|----|----|\n")

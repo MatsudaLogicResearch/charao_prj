@@ -4,6 +4,8 @@ import numpy as np
 from typing import List
 
 import myExpectLogic
+import myLibrarySetting as mls 
+import myLogicCell as mlc
 
 from myFunc import my_exit
 
@@ -1265,3 +1267,78 @@ class MyConditionsAndResults:
     self.lut_hold_mintomax.append(str("{:5f}".format(np.median(self.list2_hold)/targetLib.time_mag)))
     # max
     self.lut_hold_mintomax.append(str("{:5f}".format(np.amax(self.list2_hold)/targetLib.time_mag)))
+
+  def gen_instance_for_tb(self, targetLib:mls, targetCell:mlc) -> str :
+
+    # parse subckt definition
+    tmp_array = targetCell.instance.split()
+    tmp_line = tmp_array[0] # XDUT
+    #targetLib.print_msg(tmp_line)
+    
+    for w1 in tmp_array:
+      # match tmp_array and harness 
+      # search target inport
+      is_matched = 0
+      w2 = self.target_inport
+      if(w1 == w2):
+        tmp_line += ' IN'
+        is_matched += 1
+        
+      # search stable inport
+      for w2 in self.stable_inport:
+        if(w1 == w2):
+          # this is stable inport
+          # search index for this port
+          index_val = self.stable_inport_val[self.stable_inport.index(w2)]
+          if(index_val == '1'):
+            tmp_line += ' HIGH'
+            is_matched += 1
+          elif(index_val == '0'):
+            tmp_line += ' LOW'
+            is_matched += 1
+          else:
+            print('Illigal input value for stable input')
+            my_exit()
+            
+      # one target outport for one simulation
+      w2 = self.target_outport
+      #targetLib.print_msg(w1+" "+w2+"\n")
+      if(w1 == w2):
+        tmp_line += ' OUT'
+        is_matched += 1
+      # search non-terget outport
+      for w2 in self.nontarget_outport:
+        if(w1 == w2):
+          # this is non-terget outport
+          # search outdex for this port
+          index_val = self.nontarget_outport_val[self.nontarget_outport.index(w2)]
+          tmp_line += ' WFLOAT'+str(index_val)
+          is_matched += 1
+      if(w1.upper() == targetLib.vdd_name.upper()):
+          # tmp_line += ' '+w1.upper() 
+          tmp_line += ' VDD' 
+          is_matched += 1
+      if(w1.upper() == targetLib.vss_name.upper()):
+          # tmp_line += ' '+w1.upper() 
+          tmp_line += ' VSS' 
+          is_matched += 1
+      if(w1.upper() == targetLib.pwell_name.upper()):
+          # tmp_line += ' '+w1.upper() 
+          tmp_line += ' VPW' 
+          is_matched += 1
+      if(w1.upper() == targetLib.nwell_name.upper()):
+          # tmp_line += ' '+w1.upper() 
+          tmp_line += ' VNW' 
+          is_matched += 1
+      ## show error if this port has not matched
+      if(is_matched == 0):
+        ## if w1 is wire name, abort
+        ## check this is instance tmp_array[0] or circuit name tmp_array[-1]
+        if((w1 != tmp_array[0]) and (w1 != tmp_array[-1])): 
+          print("port: "+str(w1)+" has not matched in netlist parse!!")
+          my_exit()
+          
+    tmp_line += " "+str(tmp_array[len(tmp_array)-1])+"\n" # CIRCUIT NAME
+
+    return(tmp_line)
+    
