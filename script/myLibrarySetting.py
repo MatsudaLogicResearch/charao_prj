@@ -100,7 +100,9 @@ class MyLibrarySetting(BaseModel):
   delay_template_lines : list[float]=[]
   power_template_lines : list[float]=[]
   
-
+  #
+  #model_config ={"frozen":True};  #-- not writable
+  
   #--------------------------------------------------
   #def __init__(self): 
 

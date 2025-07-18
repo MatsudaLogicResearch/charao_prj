@@ -1,19 +1,31 @@
 import argparse, re, os, shutil, subprocess, sys, inspect 
 from myFunc import my_exit
 
-def exportDoc(targetLib, targetCell, harnessList2):
+from myLibrarySetting       import MyLibrarySetting        as Mls 
+from myLogicCell            import MyLogicCell             as Mlc
+from myConditionsAndResults import MyConditionsAndResults  as Mcar
+from myExpectLogic          import MyExpectLogic           as Mel
+from myExpectLogic          import logic_dict              
+
+#def exportDoc(targetLib, targetCell, harnessList2):
+def exportDoc(harnessList:[Mcar]):
+    targetLib = harnessList[0].mls
+    targetCell= harnessList[0].mlc
+    
     if(targetLib.isexport2doc == 0):
         exportLib2doc(targetLib, targetCell)
 
     ## export comb. logic
     if((targetLib.isexport2doc == 1) and (targetCell.isexport2doc == 0) and (targetCell.isflop == 0)):
-        exportHarness2doc(targetLib, targetCell, harnessList2)
+        exportHarness2doc(harnessList)
+        
     ## export seq. logic
     elif((targetLib.isexport2doc == 1) and (targetCell.isexport2doc == 0) and (targetCell.isflop == 1)):
-        exportHarnessFlop2doc(targetLib, targetCell, harnessList2)
+        #exportHarnessFlop2doc(targetLib, targetCell, harnessList2)
+        exportHarnessFlop2doc(harnessList)
 
 ## export library definition to .lib
-def exportLib2doc(targetLib, targetCell):
+def exportLib2doc(targetLib:Mls, targetCell:Mlc):
     print(targetLib.doc_name)
     with open(targetLib.doc_name, 'w') as f:
         outlines = []
@@ -51,14 +63,19 @@ def exportLib2doc(targetLib, targetCell):
     targetLib.set_exported2doc()
 
 ## export harness data to .doc
-def exportHarness2doc(targetLib, targetCell, harnessList2):
+#def exportHarness2doc(targetLib, targetCell, harnessList2):
+def exportHarness2doc(harnessList: list[Mcar]):
+    targetLib = harnessList[0].mls
+    targetCell= harnessList[0].mlc
+    
     with open(targetLib.doc_name, 'a') as f:
         outlines = []
         outlines.append("## Cell : "+targetCell.cell+" \n")
         outlines.append("### Basics\n")
         outlines.append("| name | type | code | area | leak |\n")
         outlines.append("|----|----|----|----|----|\n")
-        outlines.append("| "+targetCell.cell+" | Combinational | "+targetCell.logic+" | "+str(targetCell.area)+" | "+str(harnessList2[0][0].pleak)+" |\n")
+        #outlines.append("| "+targetCell.cell+" | Combinational | "+targetCell.logic+" | "+str(targetCell.area)+" | "+str(harnessList2[0][0].pleak)+" |\n")
+        outlines.append("| "+targetCell.cell+" | Combinational | "+targetCell.logic+" | "+str(targetCell.area)+" | "+str(harnessList[0].avg["pleak"])+" |\n")
         outlines.append("\n")
 
 ## select one input pin from pinlist(target_inports) 
@@ -73,13 +90,17 @@ def exportHarness2doc(targetLib, targetCell, harnessList2):
             
 ## select one output pin from pinlist(target_outports) 
         for target_outport in targetCell.outports:
-            index1 = targetCell.outports.index(target_outport) 
+            index1 = targetCell.outports.index(target_outport)
+
+            h_list=[h for h in harnessList if h.target_outport == target_outport]
+            
             outlines.append("### Output pin : "+target_outport+"\n") ## output pin start
             outlines.append("| direction | func | max cap | leak | \n")
             outlines.append("|----|----|----|----|\n")
             #outlines.append("| output | "+targetCell.functions[index1]+" | "+str(targetCell.load[-1])+" | "+str(harnessList2[0][0].pleak)+" |\n")
             #outlines.append("| output | "+targetCell.functions[index1].replace('|','\|')+" | "+str(targetCell.load[-1])+" | "+str(harnessList2[0][0].pleak)+" |\n")
-            outlines.append("| output | "+targetCell.functions[target_outport].replace('|','\|')+" | "+str(targetCell.load[-1])+" | "+str(harnessList2[0][0].pleak)+" |\n")
+            #outlines.append("| output | "+targetCell.functions[target_outport].replace('|','\|')+" | "+str(targetCell.load[-1])+" | "+str(harnessList2[0][0].pleak)+" |\n")
+            outlines.append("| output | "+targetCell.functions[target_outport].replace('|','\|')+" | "+str(targetCell.load[-1])+" | "+str(harnessList[0].avg["pleak"])+" |\n")
 
             outlines.append("\n")
 
@@ -100,9 +121,13 @@ def exportHarness2doc(targetLib, targetCell, harnessList2):
                 outlines.append("|----|----|----|----|\n")
                 #outlines.append("| rise | "+str(harnessList2[index1][index2*2].lut_prop_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_prop_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_prop_mintomax[2])+" |\n")
                 #outlines.append("| fall | "+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[2])+" |\n")
-                outlines.append("|" + harnessList2[index1][index2*2].direction_prop   + "|"+str(harnessList2[index1][index2*2].lut_prop_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_prop_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_prop_mintomax[2])+" |\n")
-                outlines.append("|" + harnessList2[index1][index2*2+1].direction_prop + "|"+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[2])+" |\n")
+                #outlines.append("|" + harnessList2[index1][index2*2].direction_prop   + "|"+str(harnessList2[index1][index2*2].lut_prop_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_prop_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_prop_mintomax[2])+" |\n")
+                #outlines.append("|" + harnessList2[index1][index2*2+1].direction_prop + "|"+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[2])+" |\n")
+                #outlines.append("|" + harnessList[index1][index2*2].direction_prop   + "|"+str(harnessList2[index1][index2*2].lut_prop_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_prop_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_prop_mintomax[2])+" |\n")
+                #outlines.append("|" + harnessList2[index1][index2*2+1].direction_prop + "|"+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[2])+" |\n")
 
+                for h in h_list:
+                  outlines.append("|" + h.direction_prop   + "|"+str(h.lut_min2max["prop"][0])+" | "+str(h.lut_min2max["prop"][1])+" | "+str(h.lut_min2max["prop"][2])+" |\n")
                 outlines.append("\n")
                 
                 outlines.append("| direction | tran min. | tran center | tran max |\n")
@@ -110,9 +135,11 @@ def exportHarness2doc(targetLib, targetCell, harnessList2):
                 
                 #outlines.append("| rise | "+str(harnessList2[index1][index2*2].lut_tran_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_tran_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_tran_mintomax[2])+" |\n")
                 #outlines.append("| fall | "+str(harnessList2[index1][index2*2+1].lut_tran_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_tran_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_tran_mintomax[2])+" |\n")
-                outlines.append("|" + harnessList2[index1][index2*2].direction_tran   + "|" +str(harnessList2[index1][index2*2].lut_tran_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_tran_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_tran_mintomax[2])+" |\n")
-                outlines.append("|" + harnessList2[index1][index2*2+1].direction_tran + "|"+str(harnessList2[index1][index2*2+1].lut_tran_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_tran_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_tran_mintomax[2])+" |\n")
+                #outlines.append("|" + harnessList2[index1][index2*2].direction_tran   + "|" +str(harnessList2[index1][index2*2].lut_tran_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_tran_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_tran_mintomax[2])+" |\n")
+                #outlines.append("|" + harnessList2[index1][index2*2+1].direction_tran + "|"+str(harnessList2[index1][index2*2+1].lut_tran_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_tran_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_tran_mintomax[2])+" |\n")
 
+                for h in h_list:
+                  outlines.append("|" + h.direction_tran   + "|"+str(h.lut_min2max["trans"][0])+" | "+str(h.lut_min2max["trans"][1])+" | "+str(h.lut_min2max["trans"][2])+" |\n")
                 outlines.append("\n")
 
 
@@ -121,9 +148,11 @@ def exportHarness2doc(targetLib, targetCell, harnessList2):
 
                 #outlines.append("| rise | "+str(harnessList2[index1][index2*2].lut_eintl_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_eintl_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_eintl_mintomax[2])+" |\n")
                 #outlines.append("| fall | "+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[2])+" |\n")
-                outlines.append("|" + harnessList2[index1][index2*2].direction_power   + "|"+str(harnessList2[index1][index2*2].lut_eintl_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_eintl_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_eintl_mintomax[2])+" |\n")
-                outlines.append("|" + harnessList2[index1][index2*2+1].direction_power + "|"+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[2])+" |\n")
+                #outlines.append("|" + harnessList2[index1][index2*2].direction_power   + "|"+str(harnessList2[index1][index2*2].lut_eintl_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_eintl_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_eintl_mintomax[2])+" |\n")
+                #outlines.append("|" + harnessList2[index1][index2*2+1].direction_power + "|"+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[2])+" |\n")
 
+                for h in h_list:
+                  outlines.append("|" + h.direction_power   + "|"+str(h.lut_min2max["eintl"][0])+" | "+str(h.lut_min2max["eintl"][1])+" | "+str(h.lut_min2max["eintl"][2])+" |\n")
                 outlines.append("\n")
                 
                 #-- outlines.append("| direction | ein min. | ein center | ein max |\n")
@@ -135,6 +164,7 @@ def exportHarness2doc(targetLib, targetCell, harnessList2):
                 #-- outlines.append("|" + harnessList2[index1][index2*2+1].direction_power +"|"+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[2])+" |\n")
 
 
+                
                 outlines.append("\n")
         outlines.append("\\newpage \n")
         f.writelines(outlines)

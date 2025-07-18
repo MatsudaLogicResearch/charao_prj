@@ -1,0 +1,5 @@
+[
+  {"timestep_res":0.1,"slope_name":"slope7","load_name":"load7", "spice":"DFFARAS_1X.spi", "cell":"DFFARAS_1X","logic":"DFF_PC_PR_PS","area":1.0
+																																 ,"ports_dict":{"CLK":"c0","DATA":"i0","NRST":"r0","NSET":"s0","Q":"o0","VDD":"vdd","VSS":"vss","VNW":"vnw","VPW":"vpw"}},
+
+]

@@ -65,7 +65,7 @@ all:
 	--RESULT "$(RESULTDIR)";
 
 else
-all:prep lib pdf finish
+all:finish
 
 endif
 

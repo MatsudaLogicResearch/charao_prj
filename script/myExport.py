@@ -3,10 +3,19 @@ import argparse, re, os, shutil, subprocess, sys, inspect, datetime
 from itertools import groupby
 
 from myFunc import my_exit
-import myExpectLogic as mel
+#import myExpectLogic as mel
+from myLibrarySetting       import MyLibrarySetting        as Mls 
+from myLogicCell            import MyLogicCell             as Mlc
+from myConditionsAndResults import MyConditionsAndResults  as Mcar
+from myExpectLogic          import MyExpectLogic           as Mel
+from myExpectLogic          import logic_dict              
 
-def exportFiles(targetLib, targetCell, harnessList2):
+def exportFiles(harnessList:list[Mcar]):
 
+  ## refer to  harness
+  targetLib = harnessList[0].mls
+  targetCell= harnessList[0].mlc
+  
   ## initialize tmp file
   if(targetLib.isexport == 0):
     initLib(targetLib, targetCell)
@@ -16,7 +25,7 @@ def exportFiles(targetLib, targetCell, harnessList2):
 
   ## export comb. logic
   if((targetLib.isexport == 1) and (targetCell.isexport == 0) and (targetCell.isflop == 0)):
-    exportHarness(targetLib, targetCell, harnessList2)
+    exportHarness(harnessList)
     exportVerilog(targetLib, targetCell)
     compressFiles(targetLib, targetCell)
   ## export seq. logic
@@ -26,7 +35,7 @@ def exportFiles(targetLib, targetCell, harnessList2):
     compressFiles(targetLib, targetCell)
 
 ## initialize export lib and verilog 
-def initLib(targetLib, targetCell):
+def initLib(targetLib:Mls, targetCell:Mlc):
   
   ## initilize dotlib file
   outlines = []
@@ -42,7 +51,7 @@ def initLib(targetLib, targetCell):
   f.close()
 
 ## export library definition to .lib
-def exportLib(targetLib, targetCell):
+def exportLib(targetLib:Mls, targetCell:Mlc):
   with open(targetLib.dotlib_name, 'w') as f:
     outlines = []
     ## general settings
@@ -151,14 +160,21 @@ def exportLib(targetLib, targetCell):
 
 
 ## export harness data to .lib
-def exportHarness(targetLib, targetCell, harnessList2):
+def exportHarness(harnessList:list[Mcar]):
+
+  ## refer to  harness
+  targetLib = harnessList[0].mls
+  targetCell= harnessList[0].mlc
+
+  ##
   with open(targetLib.tmp_file, 'a') as f:
     outlines = []
     outlines.append("\n") 
     outlines.append("  cell ("+targetCell.cell+") {\n") ## cell start
     outlines.append("    area : "+str(targetCell.area)+";\n")
     ##outlines.append("    cell_leakage_power : "+targetCell.pleak+";\n")
-    outlines.append("    cell_leakage_power : "+harnessList2[0][0].pleak+";\n") ## use leak of 1st harness
+    #outlines.append("    cell_leakage_power : "+harnessList2[0][0].pleak+";\n") ## use leak of 1st harness
+    outlines.append("    cell_leakage_power : "+str(harnessList[0].avg["pleak"])+";\n") ## use leak of 1st harness
     outlines.append("    pg_pin ("+targetLib.vdd_name+"){\n")
     outlines.append("      pg_type : primary_power;\n")
     outlines.append("      voltage_name : \""+targetLib.vdd_name+"\";\n")
@@ -168,13 +184,14 @@ def exportHarness(targetLib, targetCell, harnessList2):
     outlines.append("      voltage_name : \""+targetLib.vss_name+"\";\n")
     outlines.append("    }\n")
 
-    ## harnessList2
-    harnessList = harnessList2[-1]
+    ## harnessList
+    #harnessList = harnessList2[-1]
     #harnessList = sorted(harnessList2[-1], key=lambda x: (x.target_outport, x.target_inport, x.timing_type, x.timing_when, x.direction_prop))
 
     for target_outport in targetCell.outports:
       dt = [harness for harness in harnessList if harness.target_outport == target_outport]
-      harnessList = sorted(dt, key=lambda x: (x.target_inport, x.timing_type, x.timing_when, x.direction_prop));
+      #harnessList = sorted(dt, key=lambda x: (x.target_inport, x.timing_type, x.timing_when, x.direction_prop));
+      harnessList = sorted(dt, key=lambda x: (x.target_relport, x.timing_type, x.timing_when, x.direction_prop));
       
       if len(harnessList) < 1:
         print(f"Error: no harness result exist for target={target_outport}.")
@@ -192,19 +209,20 @@ def exportHarness(targetLib, targetCell, harnessList2):
       outlines.append("      output_voltage : default_"+targetLib.vdd_name+"_"+targetLib.vss_name+"_output;\n")
         
       ## timing()
-      for (target_inport,timing_type,timing_when),group in groupby(harnessList, key=lambda x:(x.target_inport, x.timing_type, x.timing_when)):
+      #for (target_inport,timing_type,timing_when),group in groupby(harnessList, key=lambda x:(x.target_inport, x.timing_type, x.timing_when)):
+      for (target_relport,timing_type,timing_when),group in groupby(harnessList, key=lambda x:(x.target_relport, x.timing_type, x.timing_when)):
         group_list=list(group);
         size=len(group_list)
-        print(f" group: target_outport={target_outport}, target_inport={target_inport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
+        #print(f" group: target_outport={target_outport}, target_inport={target_inport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
+        print(f" group: target_outport={target_outport}, target_relport={target_relport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
         
-        if size != 2:
+        if size != 2: ## pair of fall/rise
           print(f"Error: len(group) is not 2(={size})")
 
-        #--
-        harness1=group_list[0]
-        harness2=group_list[1]
-
-        ## check 
+        ## check
+        harness1 = group_list[0]
+        harness2 = group_list[1]
+        
         if (harness1.stable_inport != harness2.stable_inport) :
           print("Error: stable_inport missmatch in %s . harness[N]=%s, harness[N+1]=%s." %(targetCell.logic, harness1.stable_inport, harness2.stable_inport));
           my_exit();
@@ -215,7 +233,8 @@ def exportHarness(targetLib, targetCell, harnessList2):
         ## infomation
         outlines.append("      timing () {\n")
         #outlines.append("        related_pin : \""+target_inport+"\";\n")
-        outlines.append("        related_pin : \""+targetCell.replace_by_portmap(target_inport)+"\";\n")
+        #outlines.append("        related_pin : \""+targetCell.replace_by_portmap(target_inport)+"\";\n")
+        outlines.append("        related_pin : \""+targetCell.replace_by_portmap(target_relport)+"\";\n")
 
         #-- when/sense/type
         if harness1.timing_when:
@@ -226,62 +245,48 @@ def exportHarness(targetLib, targetCell, harnessList2):
         outlines.append("        timing_type : \""+harness1.timing_type+"\";\n")
 
         
-        ## propagation delay1/transition delay1
-        outlines.append("        "+harness1.direction_prop+ " ("+targetCell.delay_template_name+") {\n")
-        for lut_line in harness1.lut_prop:
-          outlines.append("          "+lut_line+"\n")
-        outlines.append("        }\n") 
+        ## propagation & transition
+        for harness in group_list:
+          outlines.append("        "+harness.direction_prop+ " ("+targetCell.delay_template_name+") {\n")
+          for lut_line in harness.lut["prop"]:
+            outlines.append("          "+lut_line+"\n")
+          outlines.append("        }\n") 
 
-        outlines.append("        "+harness1.direction_tran+" ("+targetCell.delay_template_name+") {\n")
-        for lut_line in harness1.lut_tran:
-          outlines.append("          "+lut_line+"\n")
-        outlines.append("        }\n")
-        
-        ## propagation delay2/transition delay2
-        outlines.append("        "+harness2.direction_prop+" ("+targetCell.delay_template_name+") {\n")
-        for lut_line in harness2.lut_prop:
-          outlines.append("          "+lut_line+"\n")
-        outlines.append("        }\n") 
+          outlines.append("        "+harness.direction_tran+ " ("+targetCell.delay_template_name+") {\n")
+          for lut_line in harness.lut["trans"]:
+            outlines.append("          "+lut_line+"\n")
+          outlines.append("        }\n") 
 
-        outlines.append("        "+harness2.direction_tran+" ("+targetCell.delay_template_name+") {\n")
-        for lut_line in harness2.lut_tran:
-          outlines.append("          "+lut_line+"\n")
-        outlines.append("        }\n") 
         outlines.append("      }\n") ## timing end
 
       ## power
-      for (target_inport,timing_type,timing_when),group in groupby(harnessList, key=lambda x:(x.target_inport, x.timing_type, x.timing_when)):
+      #for (target_inport,timing_type,timing_when),group in groupby(harnessList, key=lambda x:(x.target_inport, x.timing_type, x.timing_when)):
+      for (target_relport,timing_type,timing_when),group in groupby(harnessList, key=lambda x:(x.target_relport, x.timing_type, x.timing_when)):
         group_list=list(group);
         size=len(group_list)
-        print(f" group: target_outport={target_outport}, target_inport={target_inport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
+        #print(f" group: target_outport={target_outport}, target_inport={target_inport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
+        print(f" group: target_outport={target_outport}, target_relport={target_relport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
         
         if size != 2:
           print(f"Error: len(group) is not 2(={size})")
 
-        #--
-        harness1=group_list[0]
-        harness2=group_list[1]
-
         #-- infomation
         outlines.append("      internal_power () {\n")
-        outlines.append("        related_pin : \""+targetCell.replace_by_portmap(target_inport)+"\";\n")
+        #outlines.append("        related_pin : \""+targetCell.replace_by_portmap(target_inport)+"\";\n")
+        outlines.append("        related_pin : \""+targetCell.replace_by_portmap(target_relport)+"\";\n")
 
         #-- when
         if harness1.timing_when != "":
           outlines.append("        when  : \""+targetCell.replace_by_portmap(harness1.timing_when).replace('&',' ')+"\";\n")
 
         ## rise(fall)
-        outlines.append("        "+harness1.direction_power+" ("+targetCell.power_template_name+") {\n")
-        for lut_line in harness1.lut_eintl:
-          outlines.append("          "+lut_line+"\n")
-        outlines.append("        }\n")
+        for harness in group_list:
+          outlines.append("        "+harness.direction_power+" ("+targetCell.power_template_name+") {\n")
+          for lut_line in harness.lut["eintl"]:
+            outlines.append("          "+lut_line+"\n")
+          outlines.append("        }\n")
         
-        ## fall(rise)
-        outlines.append("        "+harness2.direction_power+" ("+targetCell.power_template_name+") {\n")
-        for lut_line in harness2.lut_eintl:
-          outlines.append("          "+lut_line+"\n")
-        outlines.append("        }\n")
-        outlines.append("      }\n") ## power end
+        outlines.append("      }\n") ## poert end
         
       outlines.append("    }\n") ## out pin end
 
@@ -823,7 +828,7 @@ def exportHarnessFlop(targetLib, targetCell, harnessList2):
   targetCell.set_exported()
 
 ## export library definition to .lib
-def exportVerilog(targetLib, targetCell):
+def exportVerilog(targetLib:Mls, targetCell:Mlc):
   with open(targetLib.verilog_name, 'a') as f:
     outlines = []
 
@@ -884,12 +889,12 @@ def exportVerilog(targetLib, targetCell):
     ## specify
     outlines.append("\nspecify\n");
     
-    for expectationdict in mel.logic_dict[targetCell.logic]["expect"]:
+    for expectationdict in logic_dict[targetCell.logic]["expect"]:
       if expectationdict.specify != "":
         when   =targetCell.replace_by_portmap(expectationdict.tmg_when)
 
         flag_ifnone=False
-        if expectationdict.specify.endswith(";"):
+        if expectationdict.specify.endswith(";;"):
           flag_ifnone=True;
           
         specify=targetCell.replace_by_portmap(expectationdict.specify.replace(";;",";"))

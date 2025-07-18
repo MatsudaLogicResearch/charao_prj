@@ -1,11 +1,18 @@
 import argparse, re, os, shutil, subprocess, inspect
 import copy
 from pydantic import BaseModel, model_validator, Field
-from typing import Any, Dict
+from typing import Any, Dict, TYPE_CHECKING
+import statistics as st
 
 from myFunc import my_exit
 
-import myExpectLogic as mel
+from myLibrarySetting       import MyLibrarySetting as Mls 
+from myExpectLogic          import logic_dict
+#import myExpectLogic                                as mel
+
+
+if TYPE_CHECKING:
+  from myConditionsAndResults import MyConditionsAndResults  as Mcar
 
 class MyLogicCell(BaseModel):
   #=====================================
@@ -28,7 +35,7 @@ class MyLogicCell(BaseModel):
   set       : str= None;      ## set pin for flop
   reset     : str= None;      ## reset pin for flop 
   vports    : list[str] = Field(default_factory=list); ## vdd/vss port pins
-  cins      : list[str] = Field(default_factory=list); ## inport caps
+  cins      : list[float] = Field(default_factory=list); ## inport caps
   cclks     : list[float] = Field(default_factory=list);      ## clock pin cap. for flop
   csets     : list[float] = Field(default_factory=list);      ## set pin cap. for flop
   crsts     : list[float] = Field(default_factory=list);      ## reset pin cap. for flop 
@@ -74,6 +81,9 @@ class MyLogicCell(BaseModel):
   passive_power_template_name  : str = None
   delay_template_name          : str = None
   power_template_name          : str = None 
+
+  #
+  #model_config ={"frozen":True};  #-- not writable
   
   #--def __init__ (self):  #-- not use
 
@@ -308,7 +318,8 @@ class MyLogicCell(BaseModel):
         
   def set_inport_cap_pleak(self, index, harness):
     ## average leak power of all harness
-    self.pleak += harness.pleak 
+    #self.pleak += harness.pleak 
+    self.pleak += harness.avg["pleak"] 
 
     
 ##                                 #
@@ -396,14 +407,12 @@ class MyLogicCell(BaseModel):
     print ("finish add_flop")
 
   def add_function(self):
-    if not self.logic in mel.logic_dict.keys():
+    if not self.logic in logic_dict.keys():
       print("  logic="+self.logic + " is not exist in MyExpectLogic.py.");
       my_exit();
 
-    #-- copy from mel
-    logic_dict=mel.logic_dict[self.logic]
 
-    self.functions = logic_dict["functions"]
+    self.functions = logic_dict[self.logic]["functions"]
     #for k,v in logic_dict["functions"].items():
     #  print(k , v)
     #  for o in self.outports:
@@ -512,53 +521,65 @@ class MyLogicCell(BaseModel):
   ## cin is measured two times and stored into 
   ## neighborhood harness, so cin of (2n)th and 
   ## (2n+1)th harness are averaged out
-  def set_cin_avg(self, targetLib, harnessList, port="data"):
-    tmp_cin = 0;
-    tmp_index = 0;
-    for targetHarness in harnessList:
-      if((port.lower() == 'clock')or(port.lower() == 'clk')):
-        tmp_cin += float(targetHarness.cclk)
-        ## if this is (2n+1) then store averaged 
-        ## cin into targetCell.cins
-        if((tmp_index % 2) == 1):
-          #self.cclks.append(str((tmp_cin / 2)/targetLib.capacitance_mag))
-          self.cclks.append(str("{:5f}".format((tmp_cin / 2)/targetLib.capacitance_mag)))
-          tmp_cin = 0
-        tmp_index += 1
-        #self.print_msg("stored cins:"+str(tmp_index)+" for clk")
-      elif((port.lower() == 'reset')or(port.lower() == 'rst')):
-        tmp_cin += float(targetHarness.cin) # .cin stores rst cap. 
-        ## if this is (2n+1) then store averaged 
-        ## cin into targetCell.cins
-        if((tmp_index % 2) == 1):
-          #self.crsts.append(str((tmp_cin / 2)/targetLib.capacitance_mag))
-          self.crsts.append(str("{:5f}".format((tmp_cin / 2)/targetLib.capacitance_mag)))
-          tmp_cin = 0
-        tmp_index += 1
-        #self.print_msg("stored cins:"+str(tmp_index)+" for rst")
-      elif(port.lower() == 'set'):
-        tmp_cin += float(targetHarness.cin) # .cin stores set cap.
-        ## if this is (2n+1) then store averaged 
-        ## cin into targetCell.cins
-        if((tmp_index % 2) == 1):
-          #self.csets.append(str((tmp_cin / 2)/targetLib.capacitance_mag))
-          self.csets.append(str("{:5f}".format((tmp_cin / 2)/targetLib.capacitance_mag)))
-          tmp_cin = 0
-        tmp_index += 1
-        #self.print_msg("stored cins:"+str(tmp_index)+" for set")
-      else: 
-        tmp_cin += float(targetHarness.cin) # else, .cin stores inport cap.
-        ## if this is (2n+1) then store averaged 
-        ## cin into targetCell.cins
-        if((tmp_index % 2) == 1):
-          #self.cins.append(str((tmp_cin / 2)/targetLib.capacitance_mag))
-          self.cins.append(str("{:5f}".format((tmp_cin / 2)/targetLib.capacitance_mag)))
-          tmp_cin = 0
-        tmp_index += 1
-        #self.print_msg("stored cins:"+str(tmp_index)+" for data")
-      #self.print_msg("stored cins:"+str(tmp_index))
+  #def set_cin_avg(self, targetLib, harnessList, port="data"):
+  #  tmp_cin = 0;
+  #  tmp_index = 0;
+  #  for targetHarness in harnessList:
+  #    if((port.lower() == 'clock')or(port.lower() == 'clk')):
+  #      tmp_cin += float(targetHarness.cclk)
+  #      ## if this is (2n+1) then store averaged 
+  #      ## cin into targetCell.cins
+  #      if((tmp_index % 2) == 1):
+  #        #self.cclks.append(str((tmp_cin / 2)/targetLib.capacitance_mag))
+  #        self.cclks.append(str("{:5f}".format((tmp_cin / 2)/targetLib.capacitance_mag)))
+  #        tmp_cin = 0
+  #      tmp_index += 1
+  #      #self.print_msg("stored cins:"+str(tmp_index)+" for clk")
+  #    elif((port.lower() == 'reset')or(port.lower() == 'rst')):
+  #      tmp_cin += float(targetHarness.cin) # .cin stores rst cap. 
+  #      ## if this is (2n+1) then store averaged 
+  #      ## cin into targetCell.cins
+  #      if((tmp_index % 2) == 1):
+  #        #self.crsts.append(str((tmp_cin / 2)/targetLib.capacitance_mag))
+  #        self.crsts.append(str("{:5f}".format((tmp_cin / 2)/targetLib.capacitance_mag)))
+  #        tmp_cin = 0
+  #      tmp_index += 1
+  #      #self.print_msg("stored cins:"+str(tmp_index)+" for rst")
+  #    elif(port.lower() == 'set'):
+  #      tmp_cin += float(targetHarness.cin) # .cin stores set cap.
+  #      ## if this is (2n+1) then store averaged 
+  #      ## cin into targetCell.cins
+  #      if((tmp_index % 2) == 1):
+  #        #self.csets.append(str((tmp_cin / 2)/targetLib.capacitance_mag))
+  #        self.csets.append(str("{:5f}".format((tmp_cin / 2)/targetLib.capacitance_mag)))
+  #        tmp_cin = 0
+  #      tmp_index += 1
+  #      #self.print_msg("stored cins:"+str(tmp_index)+" for set")
+  #    else: 
+  #      #tmp_cin += float(targetHarness.cin) # else, .cin stores inport cap.
+  #      tmp_cin += float(targetHarness.avg["cin"]) # else, .cin stores inport cap.
+  #      
+  #      ## if this is (2n+1) then store averaged 
+  #      ## cin into targetCell.cins
+  #      if((tmp_index % 2) == 1):
+  #        #self.cins.append(str((tmp_cin / 2)/targetLib.capacitance_mag))
+  #        self.cins.append(str("{:5f}".format((tmp_cin / 2)/targetLib.capacitance_mag)))
+  #        tmp_cin = 0
+  #      tmp_index += 1
+  #      #self.print_msg("stored cins:"+str(tmp_index)+" for data")
+  #    #self.print_msg("stored cins:"+str(tmp_index))
 
+  #def set_cin_avg(self, targetLib:Mls, harnessList:Mcar):
+  def set_cin_avg(self, targetLib:Mls, harnessList:"Mcar"):
 
+    self.cins=[]
+    for inport in self.inports:
+      index = self.inports.index(inport)
+
+      cin_avg= st.mean( h.avg["cin"] for h in harnessList if h.target_relport == inport)
+      self.cins.append(cin_avg)
+
+      
   #--- convert from local port name(i0) to spice port name(A).
   def rvs_portmap(self, local_ports:list):
     rvs_dict={v:k for k,v in self.ports_dict.items()}

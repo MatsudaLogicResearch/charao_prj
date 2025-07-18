@@ -137,12 +137,16 @@ def main():
       #targetCell.print_variable()
   
       ## characterize
-      harnessList2 = characterizeFiles(targetLib, targetCell)
+      #harnessList2 = characterizeFiles(targetLib, targetCell)
+      harnessList = characterizeFiles(targetLib, targetCell)
       os.chdir("../")
 
       ## export
-      me.exportFiles(targetLib, targetCell, harnessList2) 
-      med.exportDoc(targetLib, targetCell, harnessList2) 
+      #me.exportFiles(targetLib, targetCell, harnessList2) 
+      #med.exportDoc(targetLib, targetCell, harnessList2)
+      
+      me.exportFiles(harnessList) 
+      med.exportDoc(harnessList) 
       num_gen_file += 1
 
   ## exit

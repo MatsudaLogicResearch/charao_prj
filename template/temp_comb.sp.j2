@@ -13,39 +13,38 @@
 .param cap  = {{param.cap}}
 .param slew = {{param.slew}}
 
-.param _tslew   = 'slew'
-.param _tstart  = 'slew'
-.param _tend    = '_tstart + _tslew'
-*.param _tsimend = '10 * _tslew + 1us' 
-.param _tsimend = '_tend + 0.3us' 
+.param _tslew   = {slew}
+.param _tstart0 = {slew+10n}
+.param _tstart  = {_tstart0+10n}
 
-.param _Energy_meas_end_extent = {{param.energy_meas_time_extent}}
- 
-VDD_DYN VDD_DYN 0 DC '_vdd' 
-VSS_DYN VSS_DYN 0 DC '_vss' 
-VNW_DYN VNW_DYN 0 DC '_vnw' 
-VPW_DYN VPW_DYN 0 DC '_vpw' 
+.param _tend    = {_tstart+_tslew}
+.param _tsimend = {_tend+0.3us} 
 
-VHIGH VHIGH 0 DC '_vdd' 
-VLOW  VLOW  0 DC '_vss' 
+VDD_DYN VDD_DYN 0 DC {_vdd}
+VSS_DYN VSS_DYN 0 DC {_vss}
+VNW_DYN VNW_DYN 0 DC {_vnw}
+VPW_DYN VPW_DYN 0 DC {_vpw}
+
+VHIGH VHIGH 0 DC {_vdd}
+VLOW  VLOW  0 DC {_vss}
 
 
 * output load calculation
 VOCAP VOUT WOUT DC 0
  
 ##.tran {{param.simulation_timestep}}{{param.time_unit}} '_tsimend'
-.tran {{param.simulation_timestep}} '_tsimend'
+.tran {{param.simulation_timestep}} {_tsimend}
 
 ##=== set VIN 
-{% if   param.target_inport_val == '01' %}
-VIN VIN 0 PWL(1p '_vss' '_tstart' '_vss' '_tend' '_vdd' '_tsimend' '_vdd') 
-{% elif param.target_inport_val == '10' %}
-VIN VIN 0 PWL(1p '_vdd' '_tstart' '_vdd' '_tend' '_vss' '_tsimend' '_vss') 
-{% elif param.target_inport_val == '11' %}
-VIN VIN 0 DC '_vdd'
-{% elif param.target_inport_val == '00' %}
-VIN VIN 0 DC '_vss'
-{% endif %}
+{% if   param.relport_arc == "rise" %}
+VIN VIN 0 PWL(1p {_vss} {_tstart} {_vss} {_tend} {_vdd} {_tsimend} {_vdd}) 
+{%- elif param.relport_arc == "fall" %}
+VIN VIN 0 PWL(1p {_vdd} {_tstart} {_vdd} {_tend} {_vss} {_tsimend} {_vss}) 
+{%- elif param.relport_val0 == "1" %}
+VIN VIN 0 DC {_vdd}
+{%- else %}
+VIN VIN 0 DC {_vss}
+{%- endif %}
 
 
 ** Delay 
@@ -53,74 +52,48 @@ VIN VIN 0 DC '_vss'
 ##=== 
 * Prop delay 
 
-.measure Tran PROP_IN_OUT
-{%- if   param.target_inport_val == '01' %}
-+ trig v(VIN)  VAL={{param.logic_low_to_high_threshold_voltage}} rise=1  TD='_tstart' 
-{%- elif param.target_inport_val == '10' %}
-+ trig v(VIN)  VAL={{param.logic_high_to_low_threshold_voltage}} fall=1  TD='_tstart' 
-{% endif %}
-
-{%- if   param.target_outport_val == '01' %}
-+ targ v(VOUT) val={{param.logic_low_to_high_threshold_voltage}} rise=1
-{%- elif param.target_outport_val == '10' %}
-+ targ v(VOUT) val={{param.logic_high_to_low_threshold_voltage}} fall=1
-{% endif %}
+.MEASURE TRAN prop_in_out
++ TRIG v(VIN)  VAL={{param.relport_prop_vth}} {{param.relport_arc}}=1  TD={_tstart}
++ TARG v(VOUT) VAL={{param.outport_prop_vth}} {{param.outport_arc}}=1
 
 ##=== 
 * Trans delay 
-.measure Tran TRANS_OUT
-{%- if   param.target_outport_val == '01' %}
-+ trig v(VOUT) VAL={{param.logic_threshold_low_voltage}}  rise=1 TD='_tstart' 
-+ targ v(VOUT) VAL={{param.logic_threshold_high_voltage}} rise=1 
-{%- elif param.target_outport_val == '10' %}
-+ trig v(VOUT) VAL={{param.logic_threshold_high_voltage}} fall=1 TD='_tstart' 
-+ targ v(VOUT) VAL={{param.logic_threshold_low_voltage}}  fall=1 
-{% endif %}
+.MEASURE TRAN trans_out
++ TRIG v(VOUT) VAL={{param.outport_tran_v0}} {{param.outport_arc}}=1 TD={_tstart}
++ TARG v(VOUT) VAL={{param.outport_tran_v1}} {{param.outport_arc}}=1 
 
 ##=== 
 * For energy calculation
-##### ------ before ENERGY calculation
-{% if param.meas_energy == 0 %}
 
-.measure Tran ENERGY_START
-{%- if   param.target_inport_val == '01' %}
-+ when v(VIN)={{param.energy_meas_low_threshold_voltage}}  rise=1 TD='_tstart'
-{%- elif param.target_inport_val == '10' %}
-+ when v(VIN)={{param.energy_meas_high_threshold_voltage}} fall=1 TD='_tstart'
-{% endif %}
+###
+.MEASURE TRAN energy_start
++ WHEN V(VIN)={{param.relport_ener_v0}} {{param.relport_arc}}=1 TD={_tstart}
 
-.measure Tran ENERGY_END
-{%- if   param.target_outport_val == '01' %}
-+ when v(VOUT)={{param.energy_meas_high_threshold_voltage}} rise=1 TD='_tstart'
-{%- elif param.target_outport_val == '10' %}
-+ when v(VOUT)={{param.energy_meas_low_threshold_voltage}}  fall=1 TD='_tstart'
-{% endif %}
+.MEASURE TRAN energy_end
++ WHEN V(VOUT)={{param.outport_ener_v1}} {{param.outport_arc}}=1 TD={_tstart}
 
-##### ------ before ENERGY calculation
-{% else %}
+{% if param.meas_energy == 1 %}
 
 * 
 ** In/Out Q, Capacitance 
 * 
-.measure Tran Q_IN_DYN  integ i(VIN)   from={{param.energy_start}} to={{param.energy_end}}
-.measure Tran Q_OUT_DYN integ i(VOCAP) from={{param.energy_start}} to={{param.energy_end_extent}}
- 
+.MEASURE TRAN q_in_dyn INTEG  I(VIN)   FROM={{param.energy_start}} TO={{param.energy_end}}
+.MEASURE TRAN q_out_dyn INTEG I(VOCAP) FROM={{param.energy_start}} TO={{param.energy_end}}
+
 * 
 ** Energy 
 *  (Total charge, Short-Circuit Charge) 
+.MEASURE TRAN q_vdd_dyn INTEG I(VDD_DYN) FROM={{param.energy_start}} TO={{param.energy_end}}
+.MEASURE TRAN q_vss_dyn INTEG I(VSS_DYN) FROM={{param.energy_start}} TO={{param.energy_end}}
 
-.measure Tran Q_VDD_DYN integ i(VDD_DYN) from={{param.energy_start}} to={{param.energy_end_extent}}
-.measure Tran Q_VSS_DYN integ i(VSS_DYN) from={{param.energy_start}} to={{param.energy_end_extent}}
- 
 * Leakage current 
-.measure Tran I_VDD_LEAK avg i(VDD_DYN) from='_tstart*0.1' to='_tstart'  
-.measure Tran I_VSS_LEAK avg i(VSS_DYN) from='_tstart*0.1' to='_tstart'  
- 
+.MEASURE TRAN i_vdd_leak AVG I(VDD_DYN) FROM={_tstart0} TO={_tstart}
+.MEASURE TRAN i_vss_leak AVG I(VSS_DYN) FROM={_tstart0} TO={_tstart}
+
 * Gate leak current 
-.measure Tran I_IN_LEAK avg i(VIN) from='_tstart*0.1' to='_tstart'  
+.MEASURE TRAN i_in_leak avg I(VIN) FROM={_tstart} TO={_tend}
 
 {% endif %}
-
 
 ##=== 
 *comment out .control for ngspice batch mode 
