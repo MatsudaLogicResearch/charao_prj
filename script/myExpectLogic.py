@@ -220,17 +220,17 @@ logic_dict={
     "MUX2":{"logic_type":"comb",
             "functions":{"o0":"(i0&!i2)|(i1&i2)"},  #--- o0 = (i2)? i1 : i0
             "expect":                                                     
-            [MyExpectLogic(pin_otr=["o0","o0""i0"],ival={"o":["0"],"i":["0","0","0"]},mondrv_otr=["1","1","1"],tmg_type="combinational",tmg_sense="pos",arc_otr=["r","r","r"],tmg_when="!i2", specify=""),
-             MyExpectLogic(pin_otr=["o0","o0""i0"],ival={"o":["1"],"i":["1","0","0"]},mondrv_otr=["0","0","0"],tmg_type="combinational",tmg_sense="pos",arc_otr=["f","f","f"],tmg_when="!i2", specify="(i0 => o0) = (0,0);;"),
+            [MyExpectLogic(pin_otr=["o0","o0","i0"],ival={"o":["0"],"i":["0","0","0"]},mondrv_otr=["1","1","1"],tmg_type="combinational",tmg_sense="pos",arc_otr=["r","r","r"],tmg_when="!i2", specify=""),
+             MyExpectLogic(pin_otr=["o0","o0","i0"],ival={"o":["1"],"i":["1","0","0"]},mondrv_otr=["0","0","0"],tmg_type="combinational",tmg_sense="pos",arc_otr=["f","f","f"],tmg_when="!i2", specify="(i0 => o0) = (0,0);;"),
 
-             MyExpectLogic(pin_otr=["o0","o0""i1"],ival={"o":["0"],"i":["0","0","1"]},mondrv_otr=["1","1","1"],tmg_type="combinational",tmg_sense="pos",arc_otr=["r","r","r"],tmg_when="!i2", specify=""),
-             MyExpectLogic(pin_otr=["o0","o0""i1"],ival={"o":["1"],"i":["0","1","1"]},mondrv_otr=["0","0","0"],tmg_type="combinational",tmg_sense="pos",arc_otr=["f","f","f"],tmg_when="!i2", specify="(i1 => o0) = (0,0);;"),
+             MyExpectLogic(pin_otr=["o0","o0","i1"],ival={"o":["0"],"i":["0","0","1"]},mondrv_otr=["1","1","1"],tmg_type="combinational",tmg_sense="pos",arc_otr=["r","r","r"],tmg_when="!i2", specify=""),
+             MyExpectLogic(pin_otr=["o0","o0","i1"],ival={"o":["1"],"i":["0","1","1"]},mondrv_otr=["0","0","0"],tmg_type="combinational",tmg_sense="pos",arc_otr=["f","f","f"],tmg_when="!i2", specify="(i1 => o0) = (0,0);;"),
 
-             MyExpectLogic(pin_otr=["o0","o0""i2"],ival={"o":["0"],"i":["0","1","0"]},mondrv_otr=["1","1","1"],tmg_type="combinational",tmg_sense="pos",arc_otr=["r","r","r"],tmg_when="!i0&i1", specify=""),
-             MyExpectLogic(pin_otr=["o0","o0""i2"],ival={"o":["1"],"i":["0","1","1"]},mondrv_otr=["0","0","0"],tmg_type="combinational",tmg_sense="pos",arc_otr=["f","f","f"],tmg_when="!i0&i1", specify="(i2 => o0) = (0,0);"),
+             MyExpectLogic(pin_otr=["o0","o0","i2"],ival={"o":["0"],"i":["0","1","0"]},mondrv_otr=["1","1","1"],tmg_type="combinational",tmg_sense="pos",arc_otr=["r","r","r"],tmg_when="!i0&i1", specify=""),
+             MyExpectLogic(pin_otr=["o0","o0","i2"],ival={"o":["1"],"i":["0","1","1"]},mondrv_otr=["0","0","0"],tmg_type="combinational",tmg_sense="pos",arc_otr=["f","f","f"],tmg_when="!i0&i1", specify="(i2 => o0) = (0,0);"),
 
-             MyExpectLogic(pin_otr=["o0","o0""i2"],ival={"o":["1"],"i":["1","0","0"]},mondrv_otr=["0","0","1"],tmg_type="combinational",tmg_sense="neg",arc_otr=["f","f","r"],tmg_when="i0&!i1", specify=""),
-             MyExpectLogic(pin_otr=["o0","o0""i2"],ival={"o":["0"],"i":["1","0","1"]},mondrv_otr=["1","1","0"],tmg_type="combinational",tmg_sense="neg",arc_otr=["r","r","f"],tmg_when="i0&!i1", specify="(i2 => o0) = (0,0);;"),]
+             MyExpectLogic(pin_otr=["o0","o0","i2"],ival={"o":["1"],"i":["1","0","0"]},mondrv_otr=["0","0","1"],tmg_type="combinational",tmg_sense="neg",arc_otr=["f","f","r"],tmg_when="i0&!i1", specify=""),
+             MyExpectLogic(pin_otr=["o0","o0","i2"],ival={"o":["0"],"i":["1","0","1"]},mondrv_otr=["1","1","0"],tmg_type="combinational",tmg_sense="neg",arc_otr=["r","r","f"],tmg_when="i0&!i1", specify="(i2 => o0) = (0,0);;"),]
     },
 
     
