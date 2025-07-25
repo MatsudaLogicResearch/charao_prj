@@ -51,7 +51,7 @@ def exportLib2doc(targetLib:Mls, targetCell:Mlc):
         outlines.append("| "+targetLib.operating_conditions+" | "+str(targetLib.temperature)+" | "+str(targetLib.vdd_voltage)+" |\n")
         outlines.append("\n")
         outlines.append("## Logic threshold \n")
-        outlines.append("| input rise | input fall | output rise | output fall |\n")
+        outlines.append("| input rise(%)| input fall(%)| output rise(%)| output fall(%)|\n")
         outlines.append("|----|----|----|----|\n")
         outlines.append("| "+str(targetLib.logic_low_to_high_threshold*100)+" | "+str(targetLib.logic_high_to_low_threshold*100)+" | "+str(targetLib.logic_low_to_high_threshold*100)+" | "+str(targetLib.logic_high_to_low_threshold*100)+" |\n")
         outlines.append("\n")
@@ -75,95 +75,65 @@ def exportHarness2doc(harnessList: list[Mcar]):
         outlines.append("| name | type | code | area | leak |\n")
         outlines.append("|----|----|----|----|----|\n")
         #outlines.append("| "+targetCell.cell+" | Combinational | "+targetCell.logic+" | "+str(targetCell.area)+" | "+str(harnessList2[0][0].pleak)+" |\n")
-        outlines.append("| "+targetCell.cell+" | Combinational | "+targetCell.logic+" | "+str(targetCell.area)+" | "+str(harnessList[0].avg["pleak"])+" |\n")
+        outlines.append("| "+targetCell.cell+" | Combinational | "+targetCell.logic+" | "+str(targetCell.area)+" | "+str(targetCell.pleak_cell)+" |\n")
         outlines.append("\n")
 
 ## select one input pin from pinlist(target_inports) 
-        for target_inport in targetCell.inports:
-            index1 = targetCell.inports.index(target_inport) 
-            outlines.append("### Input pin : "+target_inport+"\n") ## input pin start
+        for inport in targetCell.inports:
+            index1 = targetCell.inports.index(inport) 
+            outlines.append("### Input pin : "+inport+"\n") ## input pin start
             outlines.append("| direction | related pwr pin | related gnd pin | max trans | cap. |\n")
             outlines.append("|----|----|----|----|----|\n")
-            outlines.append("| input | "+targetLib.vdd_name+" | "+targetLib.vss_name+" | "+str(targetCell.slope[-1])+" | "+str(targetCell.cins[index1])+" |\n")
+            #outlines.append("| input | "+targetLib.vdd_name+" | "+targetLib.vss_name+" | "+str(targetCell.slope[-1])+" | "+str(targetCell.cins[index1])+" |\n")
+            outlines.append("| input | "+targetLib.vdd_name+" | "+targetLib.vss_name+" | "+str(targetCell.max_trans4in[inport])+" | "+str(targetCell.cins[inport])+" |\n")
             outlines.append("\n")
 
             
 ## select one output pin from pinlist(target_outports) 
-        for target_outport in targetCell.outports:
-            index1 = targetCell.outports.index(target_outport)
+        for outport in targetCell.outports:
+            #index1 = targetCell.outports.index(outport)
 
-            h_list=[h for h in harnessList if h.target_outport == target_outport]
+            h_list_delay=[h for h in harnessList if (h.target_port == outport) and (h.timing_type == "delay")]
+            h_list_power=[h for h in harnessList if (h.target_port == outport) and (h.timing_type == "power")]
             
-            outlines.append("### Output pin : "+target_outport+"\n") ## output pin start
+            outlines.append("### Output pin : "+outport+"\n") ## output pin start
             outlines.append("| direction | func | max cap | leak | \n")
             outlines.append("|----|----|----|----|\n")
-            #outlines.append("| output | "+targetCell.functions[index1]+" | "+str(targetCell.load[-1])+" | "+str(harnessList2[0][0].pleak)+" |\n")
-            #outlines.append("| output | "+targetCell.functions[index1].replace('|','\|')+" | "+str(targetCell.load[-1])+" | "+str(harnessList2[0][0].pleak)+" |\n")
             #outlines.append("| output | "+targetCell.functions[target_outport].replace('|','\|')+" | "+str(targetCell.load[-1])+" | "+str(harnessList2[0][0].pleak)+" |\n")
-            outlines.append("| output | "+targetCell.functions[target_outport].replace('|','\|')+" | "+str(targetCell.load[-1])+" | "+str(harnessList[0].avg["pleak"])+" |\n")
-
+            outlines.append("| output | "+targetCell.functions[outport].replace('|','\|')+" | "+str(targetCell.max_load4out[outport])+" | " +"-" + " |\n")
             outlines.append("\n")
 
             ## timing / power
-            for target_inport in targetCell.inports:
-                index2 = targetCell.inports.index(target_inport)
+            for inport in targetCell.inports:
+                #index2 = targetCell.inports.index(target_inport)
 
-                outlines.append("#### related pin : " + target_inport + "\n")
+                outlines.append("#### related pin : " + inport + "\n")
                 
                 outlines.append("| related pin | func | max cap |\n")
                 outlines.append("|----|----|----|\n")
-                #outlines.append("| output | "+targetCell.functions[index1].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
-                #outlines.append("|" + target_inport + "|"+targetCell.functions[index1].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
-                outlines.append("|" + target_inport + "|"+targetCell.functions[target_outport].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
+                #outlines.append("|" + target_inport + "|"+targetCell.functions[target_outport].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
+                outlines.append("|" + inport + "|"+targetCell.functions[outport].replace('|','\|')+" | "+str(targetCell.cins[inport])+" |\n")
 
                 outlines.append("\n")
                 outlines.append("| direction | prop min. | prop center | prop max |\n")
                 outlines.append("|----|----|----|----|\n")
-                #outlines.append("| rise | "+str(harnessList2[index1][index2*2].lut_prop_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_prop_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_prop_mintomax[2])+" |\n")
-                #outlines.append("| fall | "+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[2])+" |\n")
-                #outlines.append("|" + harnessList2[index1][index2*2].direction_prop   + "|"+str(harnessList2[index1][index2*2].lut_prop_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_prop_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_prop_mintomax[2])+" |\n")
-                #outlines.append("|" + harnessList2[index1][index2*2+1].direction_prop + "|"+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[2])+" |\n")
-                #outlines.append("|" + harnessList[index1][index2*2].direction_prop   + "|"+str(harnessList2[index1][index2*2].lut_prop_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_prop_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_prop_mintomax[2])+" |\n")
-                #outlines.append("|" + harnessList2[index1][index2*2+1].direction_prop + "|"+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_prop_mintomax[2])+" |\n")
-
-                for h in h_list:
+                for h in h_list_delay:
                   outlines.append("|" + h.direction_prop   + "|"+str(h.lut_min2max["prop"][0])+" | "+str(h.lut_min2max["prop"][1])+" | "+str(h.lut_min2max["prop"][2])+" |\n")
                 outlines.append("\n")
+
                 
                 outlines.append("| direction | tran min. | tran center | tran max |\n")
                 outlines.append("|----|----|----|----|\n")
-                
-                #outlines.append("| rise | "+str(harnessList2[index1][index2*2].lut_tran_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_tran_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_tran_mintomax[2])+" |\n")
-                #outlines.append("| fall | "+str(harnessList2[index1][index2*2+1].lut_tran_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_tran_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_tran_mintomax[2])+" |\n")
-                #outlines.append("|" + harnessList2[index1][index2*2].direction_tran   + "|" +str(harnessList2[index1][index2*2].lut_tran_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_tran_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_tran_mintomax[2])+" |\n")
-                #outlines.append("|" + harnessList2[index1][index2*2+1].direction_tran + "|"+str(harnessList2[index1][index2*2+1].lut_tran_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_tran_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_tran_mintomax[2])+" |\n")
-
-                for h in h_list:
+                for h in h_list_delay:
                   outlines.append("|" + h.direction_tran   + "|"+str(h.lut_min2max["trans"][0])+" | "+str(h.lut_min2max["trans"][1])+" | "+str(h.lut_min2max["trans"][2])+" |\n")
                 outlines.append("\n")
 
 
                 outlines.append("| direction | eintl min. | eintl center | eintl max |\n")
                 outlines.append("|----|----|----|----|\n")
-
-                #outlines.append("| rise | "+str(harnessList2[index1][index2*2].lut_eintl_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_eintl_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_eintl_mintomax[2])+" |\n")
-                #outlines.append("| fall | "+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[2])+" |\n")
-                #outlines.append("|" + harnessList2[index1][index2*2].direction_power   + "|"+str(harnessList2[index1][index2*2].lut_eintl_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_eintl_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_eintl_mintomax[2])+" |\n")
-                #outlines.append("|" + harnessList2[index1][index2*2+1].direction_power + "|"+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[2])+" |\n")
-
-                for h in h_list:
+                for h in h_list_power:
                   outlines.append("|" + h.direction_power   + "|"+str(h.lut_min2max["eintl"][0])+" | "+str(h.lut_min2max["eintl"][1])+" | "+str(h.lut_min2max["eintl"][2])+" |\n")
                 outlines.append("\n")
-                
-                #-- outlines.append("| direction | ein min. | ein center | ein max |\n")
-                #-- outlines.append("|----|----|----|----|\n")
-                #-- 
-                #-- #outlines.append("| rise | "+str(harnessList2[index1][index2*2].lut_ein_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_ein_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_ein_mintomax[2])+" |\n")
-                #-- #outlines.append("| fall | "+str(harnessList2[index1][index2*2+1].lut_ein_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_ein_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_ein_mintomax[2])+" |\n")
-                #-- outlines.append("|" + harnessList2[index1][index2*2].direction_power   +"|"+str(harnessList2[index1][index2*2].lut_eintl_mintomax[0])+" | "+str(harnessList2[index1][index2*2].lut_eintl_mintomax[1])+" | "+str(harnessList2[index1][index2*2].lut_eintl_mintomax[2])+" |\n")
-                #-- outlines.append("|" + harnessList2[index1][index2*2+1].direction_power +"|"+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[0])+" | "+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[1])+" | "+str(harnessList2[index1][index2*2+1].lut_eintl_mintomax[2])+" |\n")
-
-
                 
                 outlines.append("\n")
         outlines.append("\\newpage \n")

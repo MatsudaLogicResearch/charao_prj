@@ -1,15 +1,16 @@
 import argparse, re, os, shutil, subprocess, inspect
 import copy
 from pydantic import BaseModel, model_validator, Field
-from typing import Any, Dict, TYPE_CHECKING
+from typing import Any, Dict, TYPE_CHECKING, List, Optional
 import statistics as st
+from itertools import groupby
 
 from myFunc import my_exit
 
 from myLibrarySetting       import MyLibrarySetting as Mls 
 from myExpectLogic          import logic_dict
 #import myExpectLogic                                as mel
-
+from myItem                 import MyItemTemplate
 
 if TYPE_CHECKING:
   from myConditionsAndResults import MyConditionsAndResults  as Mcar
@@ -21,6 +22,9 @@ class MyLogicCell(BaseModel):
   #=====================================
   # instance variable by BaseModel
 
+  #-- reference
+  mls: Optional[Mls] = None
+  
   cell      : str = None;     ## cell name
   logic     : str = None;     ## logic name
   area      : float= None;    ## set area
@@ -35,36 +39,53 @@ class MyLogicCell(BaseModel):
   set       : str= None;      ## set pin for flop
   reset     : str= None;      ## reset pin for flop 
   vports    : list[str] = Field(default_factory=list); ## vdd/vss port pins
-  cins      : list[float] = Field(default_factory=list); ## inport caps
-  cclks     : list[float] = Field(default_factory=list);      ## clock pin cap. for flop
-  csets     : list[float] = Field(default_factory=list);      ## set pin cap. for flop
-  crsts     : list[float] = Field(default_factory=list);      ## reset pin cap. for flop 
-  flops     : list[str]   = Field(default_factory=list);      ## registers 
+  #cins      : list[float] = Field(default_factory=list); ## inport caps
+  cins      : dict[str,float] = Field(default_factory=dict); ## inport caps. cins={"inport",cap}
+  
+  #cclks     : list[float] = Field(default_factory=list);      ## clock pin cap. for flop
+  #csets     : list[float] = Field(default_factory=list);      ## set pin cap. for flop
+  #crsts     : list[float] = Field(default_factory=list);      ## reset pin cap. for flop 
+  #flops     : list[str]   = Field(default_factory=list);      ## registers 
   #functions : list[str]   = Field(default_factory=list);  ## logic/flop functions 
-  slope     : list[float] = Field(default_factory=list);      ## inport slope
-  cslope    : float          = 0;      ## inport clock slope
-  load      : list[float] = Field(default_factory=list);       ## outport load
-  timestep_res  : float       = 0.1;   ## simulation timestep resolution in slope[0]
+  #slope     : list[float] = Field(default_factory=list);      ## inport slope
+  template_kgn: list[list[str]]= Field(default_factory=list);     ## kind/grid/name of template
+  template: dict[str,MyItemTemplate] = Field(default_factory=lambda:{
+    "const"  :None,
+    "delay"  :None,
+    "mpw"    :None,
+    "passive":None,
+    "power"  :None})
+  
+  #cslope    : float          = 0;      ## inport clock slope
+  #load      : list[float] = Field(default_factory=list);       ## outport load
+  #load_name      : str         = "load";  ## load name
+  max_load4out: dict[str,float] = Field(default_factory=dict);   ## outport load {"outport",max capacitance}
+  max_trans4in: dict[str,float] = Field(default_factory=dict);   ## max transition {"inport",max transition}
+
+
+  #timestep_res  : float       = 0.1;   ## simulation timestep resolution in slope[0]
+  #timestep_res  : float       = 0.001;   ## simulation timestep
   #slope_name : list[str]  = Field(default_factory=list); ## slope name
   #load_name  : list[str]  = Field(default_factory=list);  ## load name
-  slope_name : str         = "slope"; ## slope name
-  load_name  : str         = "load";  ## load name
-  simulation_timestep : float = 0;      ## simulation timestep 
+  #simulation_timestep : float = 0;      ## simulation timestep 
   isexport            : int = 0;   ## exported or not
   isexport2doc        : int = 0; ## exported to doc or not
   isflop              : int = 0;     ## DFF or not
   ## setup 
-  sim_setup_lowest    : float = 0.0;    ## fastest simulation edge (pos. val.) 
-  sim_setup_highest   : float = 0.0;   ## lowest simulation edge (pos. val.) 
-  sim_setup_timestep  : float = 0.0;  ## timestep for setup search (pos. val.) 
+  #sim_setup_lowest    : float = 0.0;    ## fastest simulation edge (pos. val.) 
+  #sim_setup_highest   : float = 0.0;   ## lowest simulation edge (pos. val.) 
+  #sim_setup_timestep  : float = 0.0;  ## timestep for setup search (pos. val.) 
   ## hold                        
-  sim_hold_lowest     : float = 0.0;     ## fastest simulation edge (pos. val.) 
-  sim_hold_highest    : float = 0.0;    ## lowest simulation edge (pos. val.) 
-  sim_hold_timestep   : float = 0.0;   ## timestep for hold search (pos. val.) 
+  #sim_hold_lowest     : float = 0.0;     ## fastest simulation edge (pos. val.) 
+  #sim_hold_highest    : float = 0.0;    ## lowest simulation edge (pos. val.) 
+  #sim_hold_timestep   : float = 0.0;   ## timestep for hold search (pos. val.) 
   ## power
-  pleak        : list[list[float]] = Field(default_factory=list);        ## cell leak power
-  inport_pleak : list[list[float]] = Field(default_factory=list); ## inport leak power
-  inport_cap   : list[float]       = Field(default_factory=list);   ## inport cap
+  pleak_cell   : float=0.0;          ## cell leakage power
+  pleak_icrs   : dict[str,float] = Field(default_factory=dict);## leakage power with input condition. pleak_icrs={"condition",val}
+  #pleak        : list[list[float]] = Field(default_factory=list);   ## cell leak power
+  
+  #inport_pleak : list[list[float]] = Field(default_factory=list);   ## inport leak power
+  #inport_cap   : list[float]       = Field(default_factory=list);   ## inport cap
   ## message
   supress_msg  : str = None;        ## supress message
 
@@ -74,19 +95,24 @@ class MyLogicCell(BaseModel):
   instance     : str  = None;    ## DUT instance name in TB.
   model        : str  = "./model/TT.sp";
   
-  constraint_template_name     : str = None
-  recovery_template_name       : str = None
-  removal_template_name        : str = None
-  mpw_constraint_template_name : str = None
-  passive_power_template_name  : str = None
-  delay_template_name          : str = None
-  power_template_name          : str = None 
+  #constraint_template_name     : str = None
+  #recovery_template_name       : str = None
+  #removal_template_name        : str = None
+  #mpw_constraint_template_name : str = None
+  #passive_power_template_name  : str = None
+  #delay_template_name          : str = None
+  #power_template_name          : str = None 
 
   #
   #model_config ={"frozen":True};  #-- not writable
   
   #--def __init__ (self):  #-- not use
 
+  lut_names  : list[str]= Field(default_factory=list);     ## template name(const,delay,energy,passive)
+  lut_template: Dict[str, MyItemTemplate] = Field(default_factory=lambda: {"const"  : MyItemTemplate(name="", index_1=[], index_2=[]),
+                                                                           "delay"  : MyItemTemplate(name="", index_1=[], index_2=[]),
+                                                                           "energy" : MyItemTemplate(name="", index_1=[], index_2=[]),
+                                                                           "passive": MyItemTemplate(name="", index_1=[], index_2=[])})
   
   def print_variable(self):
     for k,v in self.__dict__.items():
@@ -155,8 +181,8 @@ class MyLogicCell(BaseModel):
 #--    # do not use print_msg 
 #--    print ("finish add_cell")
 
-  def set_supress_message(self, targetLib):
-    self.supress_msg = targetLib.supress_msg 
+  def set_supress_message(self):
+    self.supress_msg = self.mls.supress_msg 
 
   def print_msg(self, message=""):
     if((self.supress_msg.lower() == "false")or(self.supress_msg.lower() == "f")):
@@ -168,64 +194,140 @@ class MyLogicCell(BaseModel):
   #    self.slope.append(float(w))
   #  #print (self.slope)
 
-  def add_slope(self, targetLib):
-    flag_match = 0
-    jlist = []
-    # search slope name from 2D slope array
-    for jlist in targetLib.slope:
-        if (jlist[-1] != self.slope_name):
-          continue
-        else:
-          flag_match = 1
-          break
-    if (flag_match == 0): # exit loop w/o match
-      print("cannot find slope: "+self.slope_name)
-      print(targetLib.slope)
-      my_exit()
-    self.slope = copy.deepcopy(jlist)
-    self.slope.pop(-1) # delete slope name
-    self.print_msg("add slope "+self.slope_name) 
+  def add_template(self):
 
-  def add_load(self, targetLib):
-    flag_match = 0
-    jlist = []
-    # search load name from 2D load array
-    for jlist in targetLib.load:
-        if (jlist[-1] != self.load_name):
-          continue
-        else:
-          flag_match = 1
-          break
-    if (flag_match == 0): # exit loop w/o match
-      print("cannot find load: "+self.load_name)
-      my_exit()
-    self.load = copy.deepcopy(jlist)
-    self.load.pop(-1) # delete load name
-    self.print_msg("add load "+self.load_name) 
+    for kgn in self.template_kgn:
+      k=kgn[0]
+      g=kgn[1]
+      n=kgn[2]
 
-  def return_slope(self):
-    jlist = self.slope
-    outline = "(\""
-    #mmm self.lut_prop = []
-    for j in range(len(jlist)-1):
-      outline += str(jlist[j])+", " 
-    outline += str(jlist[len(jlist)-1])+"\");" 
-    return outline
+      # check kind/grid/name in library
+      idx_src = next(
+        (i for i, t in enumerate(self.mls.templates) if t.kind == k and t.grid == g and t.name == n),
+        None  # no entry
+      )
 
-  def return_load(self):
-    jlist = self.load
-    outline = "(\""
-    #mmm self.lut_prop = []
-    for j in range(len(jlist)-1):
-      outline += str(jlist[j])+", " 
-    outline += str(jlist[len(jlist)-1])+"\");" 
-    return outline
+      if not idx_src:
+        print(f"[Error] unique template ={k}/{g}/{n} is not exist in targetLib.templates.")
+        my_exit()
+        
+      # check kind in targetCell
+      if k in self.template.keys():
+        self.template[k] = self.mls.templates[idx_src]
+        print(f"   [Info] add template={k}{g}{n}.")
+
+      else:
+        print(f"   [Error] unknown template kind{k}.")
+        my_exit()
+        
+        
+  
+#  def add_slope_load(self, targetLib:Mls):
+#                                                     
+#    for typ in ["out","in_tmg","in_pwr"]:
+#      if (typ in self.slope_load_name.keys())  and (self.slope_load_name[typ] != ""):
+#        name=self.slope_load_name[typ];
+#        if not name in targetLib.slope_loads.keys():
+#          print(f"[Error] slope_load name ={name} is not exist in targetLib.load_sopes.")
+#          my_exit()
+#        else:
+#          self.slope_load_val[typ]=targetLib.slope_loads[name]; #--- reference copy
+#          self.print_msg(f" add slope/load name={name} for {typ} analyze.") 
+
+#nouse  def return_index_str(self, typ:str, kind:str):
+#nouse    typ_list=self.slope_load_val.keys() 
+#nouse    if not typ in typ_list:
+#nouse      print(f"[Error] typ ={typ} is not exist in targetCell.slope_load_val.")
+#nouse      my_exit()
+#nouse      
+#nouse    kind_list=["slope","load"]
+#nouse    if not kind in kind_list:
+#nouse      print(f"[Error] kind ={kind} is not exist in targetCell.slope_load_val.")
+#nouse      my_exit()
+#nouse
+#nouse    index_list=self.slope_load_val[typ][kind]
+#nouse    outline = '("' + ','.join(str(x) for x in index_list) + '");'
+#nouse
+#nouse    return outline
+      
+#  def add_load(self, targetLib):
+#    flag_match = 0
+#    jlist = []
+#    # search load name from 2D load array
+#    for jlist in targetLib.load:
+#        if (jlist[-1] != self.load_name):
+#          continue
+#        else:
+#          flag_match = 1
+#          break
+#    if (flag_match == 0): # exit loop w/o match
+#      print("cannot find load: "+self.load_name)
+#      my_exit()
+#    self.load = copy.deepcopy(jlist)
+#    self.load.pop(-1) # delete load name
+#    self.print_msg("add load "+self.load_name) 
+
+#  def return_slope(self):
+#    jlist = self.slope
+#    outline = "(\""
+#    #mmm self.lut_prop = []
+#    for j in range(len(jlist)-1):
+#      outline += str(jlist[j])+", " 
+#    outline += str(jlist[len(jlist)-1])+"\");" 
+#    return outline
+#
+#  def return_load(self):
+#    jlist = self.load
+#    outline = "(\""
+#    #mmm self.lut_prop = []
+#    for j in range(len(jlist)-1):
+#      outline += str(jlist[j])+", " 
+#    outline += str(jlist[len(jlist)-1])+"\");" 
+#    return outline
 
   #def add_area(self, line="tmp"):
   #  tmp_array = line.split()
   #  self.area = float(tmp_array[1]) 
 
-  def chk_netlist(self, targetLib):
+  def update_max_trans4in(self, port_name:str, new_value:float):
+
+    ## check port
+    if not port_name in self.inports:
+      print(f"[Error] inport={port_name} is not exist in logic={self.logic}.")
+      my_exit()
+      
+    ## initialize
+    if not port_name in self.max_trans4in.keys():
+      self.max_trans4in[port_name]=0.0
+
+    ## update value
+    #mag=self.mls.time_mag
+    #self.max_trans4in[port_name] = max(new_value/mag, self.max_trans4in[port_name])
+    self.max_trans4in[port_name] = max(new_value, self.max_trans4in[port_name])
+
+
+    
+  def update_max_load4out(self, port_name:str, new_value:float):
+
+    ## check port
+    if not port_name in self.outports:
+      print(f"[Error] outport={port_name} is not exist in logic={self.logic}.")
+      my_exit()
+      
+    ## initialize
+    if not port_name in self.max_load4out.keys():
+      self.max_load4out[port_name]=0.0
+
+    ## update value
+    #mag=self.mls.capacitance_mag
+    #self.max_load4out[port_name] = max(new_value/mag, self.max_load4out[port_name])
+    self.max_load4out[port_name] = max(new_value, self.max_load4out[port_name])
+
+
+
+    
+  def chk_netlist(self):
+    targetLib=self.mls
     self.netlist = targetLib.cell_spice_path +"/"+self.spice
     self.definition = None
 
@@ -300,15 +402,16 @@ class MyLogicCell(BaseModel):
       
     self.instance = 'XDUT' + self.instance + " " + cell_name
     
-  def add_model(self, targetLib):
+  def add_model(self):
+    targetLib=self.mls
     self.model = targetLib.model_path +"/.model_"+targetLib.process_name +"_"+targetLib.operating_conditions+".sp"
 
     if not os.path.exists(self.model):
       print("  model file is not exits. {0}".format(self.model))
       my_exit()
       
-  def add_simulation_timestep(self):
-    self.simulation_timestep =self.slope[0] * self.timestep_res 
+  #def add_simulation_timestep(self):
+  #  self.simulation_timestep =self.slope[0] * self.timestep_res 
 
   def set_exported(self):
     self.isexport = 1 
@@ -316,12 +419,12 @@ class MyLogicCell(BaseModel):
   def set_exported2doc(self):
     self.isexport2doc = 1
         
-  def set_inport_cap_pleak(self, index, harness):
-    ## average leak power of all harness
-    #self.pleak += harness.pleak 
-    self.pleak += harness.avg["pleak"] 
-
-    
+#  def set_inport_cap_pleak(self, index, harness):
+#    ## average leak power of all harness
+#    #self.pleak += harness.pleak 
+#    self.pleak += harness.avg["pleak"] 
+#
+#    
 ##                                 #
 ##-- add functions for seq. cell --#    
 ##                                 #
@@ -429,93 +532,94 @@ class MyLogicCell(BaseModel):
           
     print("add function: " + str(self.functions))
     
-  def add_clock_slope(self, line="tmp"):
-    tmp_array = line.split()
-    ## if auto, amd slope is defined, use mininum slope
-    if (tmp_array[1] == 'auto'):
-      self.cslope = float(self.slope[0]) 
-      self.print_msg ("auto set clock slope as mininum slope.")
-    else:
-      self.cslope = float(tmp_array[1]) 
+#  def add_clock_slope(self, line="tmp"):
+#    tmp_array = line.split()
+#    ## if auto, amd slope is defined, use mininum slope
+#    if (tmp_array[1] == 'auto'):
+#      self.cslope = float(self.slope[0]) 
+#      self.print_msg ("auto set clock slope as mininum slope.")
+#    else:
+#      self.cslope = float(tmp_array[1]) 
 
-  def gen_lut_templates(self):
-    if ((not self.slope_name) and (not self.load_name)):
-      print("slope / load are not registered!\n")
-      my_exit()
-    else:
-      self.constraint_template_name = "constraint_template_"+self.slope_name
-      self.recovery_template_name = "recovery_template_"+self.slope_name
-      self.removal_template_name = "removal_template_"+self.slope_name
-      self.mpw_constraint_template_name = "mpw_constraint_template_"+self.slope_name
-      self.passive_power_template_name = "passive_power_template_"+self.slope_name
-      self.delay_template_name = "delay_template_"+self.load_name+"_"+self.slope_name
-      self.power_template_name = "power_template_"+self.load_name+"_"+self.slope_name
-      #print("Done targetCell.gen_lut_template\n")
+#  def gen_lut(self):
+#
+#    if ((not self.slope_name) and (not self.load_name)):
+#      print("slope / load are not registered!\n")
+#      my_exit()
+#    else:
+#      self.constraint_template_name = "constraint_template_"+self.slope_name
+#      self.recovery_template_name = "recovery_template_"+self.slope_name
+#      self.removal_template_name = "removal_template_"+self.slope_name
+#      self.mpw_constraint_template_name = "mpw_constraint_template_"+self.slope_name
+#      self.passive_power_template_name = "passive_power_template_"+self.slope_name
+#      self.delay_template_name = "delay_template_"+self.load_name+"_"+self.slope_name
+#      self.power_template_name = "power_template_"+self.load_name+"_"+self.slope_name
+#      #print("Done targetCell.gen_lut_template\n")
 
-  ## this defines lowest limit of setup edge
-  def add_simulation_setup_lowest(self, line="tmp"):
-    tmp_array = line.split()
-    ## if auto, amd slope is defined, use 10x of max slope 
-    ## "10" should be the same value of tstart1 and tclk5 in spice 
-    if ((tmp_array[1] == 'auto') and (self.slope[-1] != None)):
-      self.sim_setup_lowest = float(self.slope[-1]) * -10 
-      self.print_msg ("auto set setup simulation time lowest limit")
-    else:
-      self.sim_setup_lowest = float(tmp_array[1]) 
-      
-  ## this defines highest limit of setup edge
-  def add_simulation_setup_highest(self, line="tmp"):
-    tmp_array = line.split()
-    ## if auto, amd slope is defined, use 10x of max slope 
-    if ((tmp_array[1] == 'auto') and (self.slope[-1] != None)):
-      self.sim_setup_highest = float(self.slope[-1]) * 10 
-      self.print_msg ("auto set setup simulation time highest limit")
-    else:
-      self.sim_setup_highest = float(tmp_array[1])
-      
-  def add_simulation_setup_timestep(self, line="tmp"):
-    tmp_array = line.split()
-    ## if auto, amd slope is defined, use 1/10x min slope
-    if ((tmp_array[1] == 'auto') and (self.slope[0] != None)):
-      self.sim_setup_timestep = float(self.slope[0])/10
-      self.print_msg ("auto set setup simulation timestep")
-    else:
-      self.sim_setup_timestep = float(tmp_array[1])
-      
-  ## this defines lowest limit of hold edge
-  def add_simulation_hold_lowest(self, line="tmp"):
-    tmp_array = line.split()
-    ## if auto, amd slope is defined, use very small val. 
-    #remove# if hold is less than zero, pwl time point does not be incremental
-    #remove# and simulation failed
-    if ((tmp_array[1] == 'auto') and (self.slope[-1] != None)):
-      #self.sim_hold_lowest = float(self.slope[-1]) * -5 
-      self.sim_hold_lowest = float(self.slope[-1]) * -10 
-      #self.sim_hold_lowest = float(self.slope[-1]) * 0.001 
-      self.print_msg ("auto set hold simulation time lowest limit")
-    else:
-      self.sim_hold_lowest = float(tmp_array[1])
-      
-  ## this defines highest limit of hold edge
-  def add_simulation_hold_highest(self, line="tmp"):
-    tmp_array = line.split()
-    ## if auto, amd slope is defined, use 5x of max slope 
-    ## value should be smaller than "tmp_max_val_loop" in holdSearchFlop
-    if ((tmp_array[1] == 'auto') and (self.slope[-1] != None)):
-      #self.sim_hold_highest = float(self.slope[-1]) * 5 
-      self.sim_hold_highest = float(self.slope[-1]) * 10 
-      self.print_msg ("auto set hold simulation time highest limit")
-    else:
-      self.sim_hold_highest = float(tmp_array[1])
-      
-  def add_simulation_hold_timestep(self, line="tmp"):
-    tmp_array = line.split()
-    ## if auto, amd slope is defined, use 1/10x min slope
-    if ((tmp_array[1] == 'auto') and (self.slope[0] != None)):
-      self.sim_hold_timestep = float(self.slope[0])/10 
-      self.print_msg ("auto set hold simulation timestep")
-    else:
-      self.sim_hold_timestep = float(tmp_array[1])
+#nouse?  ## this defines lowest limit of setup edge
+#nouse?  def add_simulation_setup_lowest(self, line="tmp"):
+#nouse?    tmp_array = line.split()
+#nouse?    ## if auto, amd slope is defined, use 10x of max slope 
+#nouse?    ## "10" should be the same value of tstart1 and tclk5 in spice 
+#nouse?    if ((tmp_array[1] == 'auto') and (self.slope[-1] != None)):
+#nouse?      self.sim_setup_lowest = float(self.slope[-1]) * -10 
+#nouse?      self.print_msg ("auto set setup simulation time lowest limit")
+#nouse?    else:
+#nouse?      self.sim_setup_lowest = float(tmp_array[1]) 
+#nouse?      
+#nouse?  ## this defines highest limit of setup edge
+#nouse?  def add_simulation_setup_highest(self, line="tmp"):
+#nouse?    tmp_array = line.split()
+#nouse?    ## if auto, amd slope is defined, use 10x of max slope 
+#nouse?    if ((tmp_array[1] == 'auto') and (self.slope[-1] != None)):
+#nouse?      self.sim_setup_highest = float(self.slope[-1]) * 10 
+#nouse?      self.print_msg ("auto set setup simulation time highest limit")
+#nouse?    else:
+#nouse?      self.sim_setup_highest = float(tmp_array[1])
+#nouse?      
+#nouse?  def add_simulation_setup_timestep(self, line="tmp"):
+#nouse?    tmp_array = line.split()
+#nouse?    ## if auto, amd slope is defined, use 1/10x min slope
+#nouse?    if ((tmp_array[1] == 'auto') and (self.slope[0] != None)):
+#nouse?      self.sim_setup_timestep = float(self.slope[0])/10
+#nouse?      self.print_msg ("auto set setup simulation timestep")
+#nouse?    else:
+#nouse?      self.sim_setup_timestep = float(tmp_array[1])
+#nouse?      
+#nouse?  ## this defines lowest limit of hold edge
+#nouse?  def add_simulation_hold_lowest(self, line="tmp"):
+#nouse?    tmp_array = line.split()
+#nouse?    ## if auto, amd slope is defined, use very small val. 
+#nouse?    #remove# if hold is less than zero, pwl time point does not be incremental
+#nouse?    #remove# and simulation failed
+#nouse?    if ((tmp_array[1] == 'auto') and (self.slope[-1] != None)):
+#nouse?      #self.sim_hold_lowest = float(self.slope[-1]) * -5 
+#nouse?      self.sim_hold_lowest = float(self.slope[-1]) * -10 
+#nouse?      #self.sim_hold_lowest = float(self.slope[-1]) * 0.001 
+#nouse?      self.print_msg ("auto set hold simulation time lowest limit")
+#nouse?    else:
+#nouse?      self.sim_hold_lowest = float(tmp_array[1])
+#nouse?      
+#nouse?  ## this defines highest limit of hold edge
+#nouse?  def add_simulation_hold_highest(self, line="tmp"):
+#nouse?    tmp_array = line.split()
+#nouse?    ## if auto, amd slope is defined, use 5x of max slope 
+#nouse?    ## value should be smaller than "tmp_max_val_loop" in holdSearchFlop
+#nouse?    if ((tmp_array[1] == 'auto') and (self.slope[-1] != None)):
+#nouse?      #self.sim_hold_highest = float(self.slope[-1]) * 5 
+#nouse?      self.sim_hold_highest = float(self.slope[-1]) * 10 
+#nouse?      self.print_msg ("auto set hold simulation time highest limit")
+#nouse?    else:
+#nouse?      self.sim_hold_highest = float(tmp_array[1])
+#nouse?      
+#nouse?  def add_simulation_hold_timestep(self, line="tmp"):
+#nouse?    tmp_array = line.split()
+#nouse?    ## if auto, amd slope is defined, use 1/10x min slope
+#nouse?    if ((tmp_array[1] == 'auto') and (self.slope[0] != None)):
+#nouse?      self.sim_hold_timestep = float(self.slope[0])/10 
+#nouse?      self.print_msg ("auto set hold simulation timestep")
+#nouse?    else:
+#nouse?      self.sim_hold_timestep = float(tmp_array[1])
 
   ## calculate ave of cin for each inports
   ## cin is measured two times and stored into 
@@ -570,15 +674,88 @@ class MyLogicCell(BaseModel):
   #    #self.print_msg("stored cins:"+str(tmp_index))
 
   #def set_cin_avg(self, targetLib:Mls, harnessList:Mcar):
-  def set_cin_avg(self, targetLib:Mls, harnessList:"Mcar"):
 
-    self.cins=[]
+  ## average of cin in all harness.dict_list2["cin"]["index_2"]["index_1"]
+  def set_cin_avg(self, harnessList:list["Mcar"]):
+
     for inport in self.inports:
-      index = self.inports.index(inport)
+      cin_all=[]
+      for h in harnessList:
+        if h.target_relport == inport:
+          #-- list of dict_list2["cin"]["index_1"]["index_2"]
+          cin_list=[v for index_1 in h.dict_list2["cin"].values() for v in index_1.values()]
+          cin_all.extend(cin_list)
+          #print(f"{inport}:{cin_all}")
+          
+      if len(cin_all)<1:
+        print(f'[Error] dict_list2["cin"] size is 0.')
+        my_exit()
 
-      cin_avg= st.mean( h.avg["cin"] for h in harnessList if h.target_relport == inport)
-      self.cins.append(cin_avg)
+      #
+      mag=self.mls.capacitance_mag
+      val_avr=st.mean(cin_all)/mag
+      self.cins[inport]=val_avr
 
+  ## leak_power=max(i_vdd_leak) in all harness.dict_list2["i_vdd_leak"]["index_2"]["index_1"]
+  def set_pleak_icrs(self, harnessList:list["Mcar"]):
+
+    #-- sort by when-condition
+    sorted_harnessList=sorted(harnessList, key=lambda x: (tuple(x.mel.rval.get("i",[])),
+                                                          tuple(x.mel.rval.get("c",[])),
+                                                          tuple(x.mel.rval.get("r",[])),
+                                                          tuple(x.mel.rval.get("s",[]))))
+
+    #-- generate pleak by when-condition
+    for (i,c,r,s),group in groupby(
+        sorted_harnessList, key=lambda x:(tuple(x.mel.rval.get("i",[])),
+                                          tuple(x.mel.rval.get("c",[])),
+                                          tuple(x.mel.rval.get("r",[])),
+                                          tuple(x.mel.rval.get("s",[])))):
+      rval={"i":i, "c":c, "r":r, "s":s}
+      h_group=list(group);
+      size=len(h_group)
+      #print(rval)
+
+      ##-- generate when condition from harnessList.mel
+      ##---  str_when = "i0","!i1","c0","r1"
+      cond_when=[]
+      for port_type in ["i", "c", "r", "s"]:
+        for index,val in enumerate(rval[port_type]):
+          neg_str="!" if val=="0" else ""
+          cond_when.append(f"{neg_str}{port_type}{index}")
+
+      str_when=" ".join(cond_when)
+      
+      ##-- get max(pleak) when same input condition
+      pleak_all=[]
+      for h in h_group:
+        pleak_list=[v for index_1 in h.dict_list2["i_vdd_leak"].values() for v in index_1.values()]
+        pleak_all.extend(pleak_list)
+
+      if len(pleak_all)<1:
+        continue
+
+      mag=self.mls.leakage_power_mag
+      pleak_max=max(abs(x/mag) for x in pleak_all)
+      
+      ##-- update
+      if not str_when in self.pleak_icrs.keys():
+        self.pleak_icrs[str_when]=0.0
+
+      self.pleak_icrs[str_when]=max(pleak_max, self.pleak_icrs[str_when])
+
+    #--
+    #print(f"[DEBUG] pleak_icrs={self.pleak_icrs}.")
+
+  ## cell_cleak=average of leak_power
+  def set_pleak_cell(self):
+
+    if len(self.pleak_icrs)<1:
+      print(f"[Error] pleak_icrs is empty.")
+      my_exit()
+      
+    self.pleak_cell=st.mean(self.pleak_icrs.values())
+    #print(f"[DEBUG] pleak_cell={self.pleak_cell}.")
       
   #--- convert from local port name(i0) to spice port name(A).
   def rvs_portmap(self, local_ports:list):

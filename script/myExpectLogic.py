@@ -1,16 +1,45 @@
+import re
+import copy
+
 from dataclasses import dataclass, field
 
 @dataclass
 class MyExpectLogic:
   pin_otr     : list[str]      =field(default_factory=list); #pin definition, {"o0", "i0", "c0"} for outport, targetport, relatedport
   arc_otr     : list[str]      =field(default_factory=list); #arc             {"r" ,"r"  , "f"}  for outport, targetport, relatedport
-  ival        : dict[str,list[str]]=field(default_factory=list)    ; #initial value  {"o":["0","1",,],"i":["0","1",,],"b":["0""1",,],"c":["0","1",,],"r":["0","1",,],"s":["0","1",,]]
+  ival        : dict[str,list[str]]=field(default_factory=lambda:{"o":[],"i":[],"b":[],"c":[],"r":[],"s":[]});#initial value  {"o":["0","1",,],"i":["0","1",,],"b":["0""1",,],"c":["0","1",,],"r":["0","1",,],"s":["0","1",,]]
   mondrv_otr  : list[str]      =field(default_factory=list); #new value.     {"0", "0", "1"} for outport, targetport, relatedport
+  rval        : dict[str,list[str]]=field(default_factory=dict); #result value {"o":["0","1",,],"i":["0","1",,],"b":["0""1",,],"c":["0","1",,],"r":["0","1",,],"s":["0","1",,]]
   tmg_type    : str = "combinational"  ; #timing_type for related pin
   tmg_sense   : str = "pos"            ; #timing_sense=pos,neg,non
   tmg_when    : str = ""               ; #when condition in .lib/.v (optional)
   specify     : str = ""               ; #specify code in .v (optional). 
 
+  def __post_init__(self):
+
+    ##-- generate rval(result value) from ival/mondrv_otr
+    tval=copy.deepcopy(self.ival); # copy initial value
+
+    for i, pin_pos in  enumerate(self.pin_otr):
+      #-- get new value
+      val_new=self.mondrv_otr[i];
+      
+      #-- get output/target/related port name
+      flag=re.match(r"([oibcrs])([0-9]+)", pin_pos)
+      pin=flag.group(1)
+      pos=flag.group(2)
+      if not flag:
+        print(f"[Error] unknown pin name={pin} in pin_otr.")
+        my_exit()
+
+      #-- change value
+      tval[pin][int(pos)]=val_new
+
+    #
+    self.rval=tval.copy()
+    #print(f"ival1 ={self.ival}")
+    #print(f"rval ={self.rval}\n")
+      
 #-----
 #--- order of expect is (val1_r=1 -> val1_r=0)
 #--- ";;" in specify block means ifnon statement. 
@@ -266,7 +295,7 @@ logic_dict={
 #                        ,tmg_type="recovery_rising",tmg_sense="neg",arc="r", tmg_when="", specify="$recovery(posedge s0, posedge c0, 0, notifier)"),
 #            #--- removal set(keep current value)
 #            MyExpectLogic(pin_otr={"o":"o0","t":"s0", "rel":"c0"}, ival={"o":["1"],"i":["0"],"b":[],"c":["0"],"r":["0"],"s":["1"]}, mondrv_otr={"o":"1","t":"0","rel":"1"}
-#                        ,tmg_type="recovery_rising",tmg_sense="neg",arc="r", tmg_when="", specify="$removal(posedge c0, posedge s0, 0, notifier)"),
+#                        ,tmg_type="removal_rising",tmg_sense="neg",arc="r", tmg_when="", specify="$removal(posedge c0, posedge s0, 0, notifier)"),
 #            #--- q delay (clk)
 #            MyExpectLogic(pin_otr={"o":"o0","t":"o0", "rel":"c0"}, ival={"o":["0"],"i":["1"],"b":[],"c":["0"],"r":["0"],"s":["0"]}, mondrv_otr={"o":"1","t":"1","rel":"1"}
 #                        ,tmg_type="rising_edge" ,tmg_sense="pos",arc="r", tmg_when="", specify=""),

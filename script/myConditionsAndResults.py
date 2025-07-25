@@ -1,9 +1,10 @@
 import argparse, re, os, shutil, subprocess
 import numpy as np
 import statistics as st
+import threading
 
 from pydantic import BaseModel, model_validator, Field, PrivateAttr
-from typing import Any, Dict, List, DefaultDict,Annotated,Literal
+from typing import Any, Dict, List, DefaultDict,Annotated,Literal, Optional
 from collections import defaultdict
 
 
@@ -12,6 +13,7 @@ from myExpectLogic    import MyExpectLogic as Mel
 
 from myLibrarySetting import MyLibrarySetting as Mls 
 from myLogicCell      import MyLogicCell as Mlc
+from myItem           import MyItemTemplate
 
 from myFunc import my_exit
 
@@ -22,7 +24,7 @@ DictKey=Literal["prop","trans",
   
 LutKey = Literal["prop","trans","eintl","ein"]
 
-AvgKey = Literal["cin","pleak"]
+#AvgKey = Literal["cin","pleak"]
 
 NestedDefaultDict = Annotated[
     DefaultDict[float, float],  # slope -> value
@@ -35,7 +37,7 @@ Level2Dict = Annotated[
 ]
 
 Level3Dict = Annotated[
-    DefaultDict[DictKey, Level2Dict],  # name -> load -> slope -> value
+    DefaultDict[DictKey, Level2Dict],  #Level3Dict["prop"][index_2][index_1] = 1.234
     Field(default_factory=lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(float))))
 ]
 
@@ -48,12 +50,15 @@ class MyConditionsAndResults(BaseModel):
   #self.instance = None          ## instance name
 
   #-- reference
-  mls: Mls
-  mlc: Mlc
+  mls: Optional[Mls]=None
+  mlc: Optional[Mlc]=None
   
   #-- for myExpectLogic
   mel: Mel = Field(default_factory=Mel)
 
+  template_timing  : MyItemTemplate = None
+  template_energy  : MyItemTemplate = None
+  
   direction_prop : str = ""
   direction_tran : str = ""
   direction_power: str = ""
@@ -63,6 +68,8 @@ class MyConditionsAndResults(BaseModel):
   timing_when    : str = ""
   constraint     : str = ""
 
+  target_port           : str = ""
+  target_port_val       : str = ""
   target_relport        : str = ""
   target_relport_val    : str = ""
   target_outport        : str = ""
@@ -74,25 +81,8 @@ class MyConditionsAndResults(BaseModel):
   nontarget_outport_val : list[str] = Field(default_factory=list)
 
   #-- hold result from spice simulation ([load][slope])
-  dict_list2: Level3Dict  
+  dict_list2: Level3Dict  ; # initial value is set in Level3Dict
     
-  #dict_prop_in_out : DefaultDict[str, NestedDefaultDict] = Field(default_factory=lambda: defaultdict(lambda: defaultdict(float))); 
-  #dict_trans_out   : DefaultDict[str, NestedDefaultDict] = Field(default_factory=lambda: defaultdict(lambda: defaultdict(float))); 
-  #dict_energy_start: DefaultDict[str, NestedDefaultDict] = Field(default_factory=lambda: defaultdict(lambda: defaultdict(float))); 
-  #dict_energy_end  : DefaultDict[str, NestedDefaultDict] = Field(default_factory=lambda: defaultdict(lambda: defaultdict(float))); 
-  #dict_q_in_dyn    : DefaultDict[str, NestedDefaultDict] = Field(default_factory=lambda: defaultdict(lambda: defaultdict(float))); 
-  #dict_q_out_dyn   : DefaultDict[str, NestedDefaultDict] = Field(default_factory=lambda: defaultdict(lambda: defaultdict(float))); 
-  #dict_q_vdd_dyn   : DefaultDict[str, NestedDefaultDict] = Field(default_factory=lambda: defaultdict(lambda: defaultdict(float))); 
-  #dict_q_vss_dyn   : DefaultDict[str, NestedDefaultDict] = Field(default_factory=lambda: defaultdict(lambda: defaultdict(float))); 
-  #dict_i_in_leak   : DefaultDict[str, NestedDefaultDict] = Field(default_factory=lambda: defaultdict(lambda: defaultdict(float))); 
-  #dict_i_vdd_leak  : DefaultDict[str, NestedDefaultDict] = Field(default_factory=lambda: defaultdict(lambda: defaultdict(float))); 
-  #dict_i_vss_leak  : DefaultDict[str, NestedDefaultDict] = Field(default_factory=lambda: defaultdict(lambda: defaultdict(float))); 
-  #
-  #dict_eintl       : DefaultDict[str, NestedDefaultDict] = Field(default_factory=lambda: defaultdict(lambda: defaultdict(float)));
-  #dict_ein         : DefaultDict[str, NestedDefaultDict] = Field(default_factory=lambda: defaultdict(lambda: defaultdict(float)));
-  #dict_cin         : DefaultDict[str, NestedDefaultDict] = Field(default_factory=lambda: defaultdict(lambda: defaultdict(float)));
-  #dict_pleak       : DefaultDict[str, NestedDefaultDict] = Field(default_factory=lambda: defaultdict(lambda: defaultdict(float)));
-  
   #
   lut: dict[LutKey, list[float]] = Field(
     default_factory=lambda: {key: [] for key in LutKey.__args__}
@@ -101,38 +91,16 @@ class MyConditionsAndResults(BaseModel):
   lut_min2max: dict[LutKey, list[float]] = Field(
     default_factory=lambda: {key: [] for key in LutKey.__args__}
   )
-  
+
   #
-  avg: dict[AvgKey, float] = Field(
-    default_factory=lambda: {key: [] for key in AvgKey.__args__}
-  )
+#  avg: dict[AvgKey, float] = Field(
+#    default_factory=lambda: {key: [] for key in AvgKey.__args__}
+#  )
+
   
-  #list2_prop        : list[float] = Field(default_factory=list)
-  #lut_prop          : list[float] = Field(default_factory=list)
-  #lut_prop_mintomax : list[float] = Field(default_factory=list)
-  
-  #list2_tran        : list[float] = Field(default_factory=list)
-  #lut_tran          : list[float] = Field(default_factory=list)
-  #lut_tran_mintomax : list[float] = Field(default_factory=list)
-
-  #list2_eintl       : list[float] = Field(default_factory=list)
-  #lut_eintl         : list[float] = Field(default_factory=list)
-  #lut_eintl_mintomax: list[float] = Field(default_factory=list)
-
-  #list2_ein         : list[float] = Field(default_factory=list)
-  #lut_ein           : list[float] = Field(default_factory=list)
-  #lut_ein_mintomax  : list[float] = Field(default_factory=list)
-
-  #cin               : float       = 0.0
-  #list2_cin         : list[float] = Field(default_factory=list)
-  #lut_cin           : list[float] = Field(default_factory=list)
-  #lut_cin_mintomax  : list[float] = Field(default_factory=list)
-
-  #pleak               : float       = 0.0
-  #list2_pleak         : list[float] = Field(default_factory=list)
-  #lut_pleak           : list[float] = Field(default_factory=list)
-  #lut_pleak_mintomax  : list[float] = Field(default_factory=list)
-  
+  # lock はモデルフィールドにしない（検証やシリアライズ対象に含めない）
+  _lock: threading.Lock = PrivateAttr(default_factory=threading.Lock)
+    
   #def __init__ (self):
 
   #@property
@@ -149,6 +117,7 @@ class MyConditionsAndResults(BaseModel):
     self.set_timing_when()
     self.set_direction()
     self.set_constraint()
+    self.set_target_port()
     self.set_target_relport()
     self.set_target_outport()
     self.set_stable_inport()
@@ -209,22 +178,6 @@ class MyConditionsAndResults(BaseModel):
 #    #print(self.target_inport_val)
 #    #print(self.target_inport)
 
-  def set_target_relport(self):
-    rel=self.mel.pin_otr[2]
-    pin=rel[0]
-    pos=int(rel[1:])
-
-    ival = self.mel.ival;          #initial value dict
-    nval = self.mel.mondrv_otr[2]; #next    value of relatedpin
-    
-    val0 = ival[pin][pos] if (pin in ival and pos < len(ival[pin])) else ""
-
-    if val0 and nval:
-      self.target_relport      = rel
-      self.target_relport_val  = val0 + nval
-    else :
-      print(f"Error related port value error(ival={val0},mondrv={nval}).")
-      my_exit();
 
 #  def set_target_outport(self, outport="tmp", function="tmp", val="01"):
 #    self.target_outport = outport
@@ -236,27 +189,80 @@ class MyConditionsAndResults(BaseModel):
 #    #print(self.target_function)
 
   def set_target_outport(self):
-    out=self.mel.pin_otr[0]
-    pin=out[0]
-    pos=int(out[1:])
+    
+    #-- get pin name & pin position
+    pin_pos=self.mel.pin_otr[0]
+    flag=re.match(r"([a-zA-Z]+)(\d+)", pin_pos)
+    if flag:
+      pin=flag.group(1)
+      pos=int(flag.group(2))
+    else:
+      print(f"  [Error] out port name={pin_pos} is illegal name.")
+      my_exit()
 
+
+    #-- get pin value
     ival = self.mel.ival;          #initial value dict
-    nval = self.mel.mondrv_otr[0]; #next    value of outport
+    nval = self.mel.mondrv_otr[0]; #next    value 
     
     val0 = ival[pin][pos] if (pin in ival and pos < len(ival[pin])) else ""
 
     if val0 and  nval:
-      self.target_outport      = out
+      self.target_outport      = pin_pos
       self.target_outport_val  = val0 + nval
     else :
       print(f"Error out port value error(ival={val0},mondrv={nval}).")
       my_exit();
 
-#  def set_stable_inport(self, inport="tmp", val="1"):
-#    self.stable_inport.append(inport)
-#    self.stable_inport_val.append(val)
-#    #print(self.stable_inport)
-#    #print(self.stable_inport_val)
+  def set_target_port(self):
+    
+    #-- get pin name & pin position
+    pin_pos=self.mel.pin_otr[1]
+    flag=re.match(r"([a-zA-Z]+)(\d+)", pin_pos)
+    if flag:
+      pin=flag.group(1)
+      pos=int(flag.group(2))
+    else:
+      print(f"  [Error] target port name={pin_pos} is illegal name.")
+      my_exit()
+
+    #-- get pin value
+    ival = self.mel.ival;          #initial value dict
+    nval = self.mel.mondrv_otr[1]; #next    value 
+    
+    val0 = ival[pin][pos] if (pin in ival and pos < len(ival[pin])) else ""
+
+    if val0 and  nval:
+      self.target_port      = pin_pos
+      self.target_port_val  = val0 + nval
+    else :
+      print(f"Error target port value error(ival={val0},mondrv={nval}).")
+      my_exit();
+
+  def set_target_relport(self):
+
+    #-- get pin name & pin position
+    pin_pos=self.mel.pin_otr[2]
+    flag=re.match(r"([a-zA-Z]+)(\d+)", pin_pos)
+    if flag:
+      pin=flag.group(1)
+      pos=int(flag.group(2))
+    else:
+      print(f"  [Error] related port name={pin_pos} is illegal name.")
+      my_exit()
+
+    #-- get pin value
+    ival = self.mel.ival;          #initial value dict
+    nval = self.mel.mondrv_otr[2]; #next    value of relatedpin
+    
+    val0 = ival[pin][pos] if (pin in ival and pos < len(ival[pin])) else ""
+
+    if val0 and nval:
+      self.target_relport      = pin_pos
+      self.target_relport_val  = val0 + nval
+    else :
+      print(f"Error related port value error(ival={val0},mondrv={nval}).")
+      my_exit();
 
   def set_stable_inport(self):
     rel_pin=self.mel.pin_otr[2]
@@ -460,65 +466,78 @@ class MyConditionsAndResults(BaseModel):
   #  for i in range(len(self.lut_tran)):
   #    print(self.lut_tran[i])
 
-  def set_lut(self, name:str):
+  #def set_lut(self, template_kind:str, value_name:str):
+  def set_lut(self, value_name:str):
     outline=""
-    self.lut[name]         = []
-    self.lut_min2max[name] = []
+    self.lut[value_name]         = []
+    self.lut_min2max[value_name] = []
 
-    mag = self.mls.energy_mag if name in ["eintl","ein"] else self.mls.time_mag
+    ## select mag
+    mag = self.mls.energy_mag if value_name in ["eintl","ein"] else self.mls.time_mag
+
+    ## get index
+    if value_name in ["eintl", "ein"]:
+      index_1_list=self.template_energy.index_1
+      index_2_list=self.template_energy.index_2
+    else:
+      index_1_list=self.template_timing.index_1
+      index_2_list=self.template_timing.index_2
     
     ## index_1
-    #outline = "index_1(\"" + ','.join(self.mlc.slope) + "\");"
-    outline = 'index_1("' + ','.join(map(str, self.mlc.slope)) + '");'
-    
-    self.lut[name].append(outline)
+    outline = 'index_1("' + ','.join(map(str, index_1_list)) + '");'
+    self.lut[value_name].append(outline)
     
     ## index_2
-    #outline = "index_1(\"" + ','.join(self.mlc.load) + "\");"
-    outline = 'index_2("' + ','.join(map(str, self.mlc.load)) + '");'
-    
-    self.lut[name].append(outline)
+    if len(index_2_list)>0:
+      outline = 'index_2("' + ','.join(map(str, index_2_list)) + '");'
+      self.lut[value_name].append(outline)
     
     ## values
-    self.lut[name].append("values ( \\")
-
-    for i,load in enumerate(self.mlc.load):
-      outline = "\""
-
-      ## do not add "," 
-      str_colon=""
-      for slope in self.mlc.slope:
-        tmp_line = str_colon + str("{:5f}".format(self.dict_list2[name][load][slope]/mag))
-        outline += tmp_line
-        
-        str_colon = ","
-
-      ## do not add \ for last line
-      if i == (len(self.mlc.load) - 1):
-        outline += "\""
-      else:
-        outline += "\",\\"
-
-      ##
-      self.lut[name].append(outline)
-      
-    self.lut[name].append(");")
+    self.lut[value_name].append("values ( \\")
     
+    if len(index_2_list)<1:
+      index_2_list=[0];  #-- dummy
+
+    str_colon=""
+    outline=""
+    for index2 in index_2_list:
+      #tmp      =",".join(str("{:5f}".format(x/mag)) for x in self.dict_list2[value_name][index2].values())
+      tmp      =", ".join(str("{:.4g}".format(x/mag)) for x in self.dict_list2[value_name][index2].values())
+      #tmp      =",".join(str("{:7.4f}".format(x/mag)) for x in self.dict_list2[value_name][index2].values())
+      outline +=str_colon+'"' + tmp + '"'
+
+      str_colon = ",\\\n          "
+
+    self.lut[value_name].append(outline+");")
+
     # store min/center/max for doc
-    load_index=int(len(self.mlc.load)/2)
-    load=self.mlc.load[load_index]
+    index_2_center=index_2_list[int(len(index_2_list)/2)]
+    values=list(self.dict_list2[value_name][index_2_center].values())
+
+    val_min=np.amin  (values)
+    val_mid=np.median(values)
+    val_max=np.amax  (values)
     
-    # min
-    #self.lut_tran_mintomax.append(str("{:5f}".format(np.amin(self.list2_tran)/targetLib.time_mag)))
-    self.lut_min2max[name].append(str("{:5f}".format(min(self.dict_list2[name][load].values())/mag)))
+    self.lut_min2max[value_name].append(str("{:5f}".format(val_min/mag)))
+    self.lut_min2max[value_name].append(str("{:5f}".format(val_mid/mag)))
+    self.lut_min2max[value_name].append(str("{:5f}".format(val_max/mag)))
     
-    # center
-    #self.lut_tran_mintomax.append(str("{:5f}".format(np.median(self.list2_tran)/targetLib.time_mag)))
-    self.lut_min2max[name].append(str("{:5f}".format(st.median(self.dict_list2[name][load].values())/mag)))
     
-    # max
-    #self.lut_tran_mintomax.append(str("{:5f}".format(np.amax(self.list2_tran)/targetLib.time_mag)))
-    self.lut_min2max[name].append(str("{:5f}".format(max(self.dict_list2[name][load].values())/mag)))
+#    # store min/center/max for doc
+#    load_index=int(len(self.mlc.load)/2)
+#    load=self.mlc.load[load_index]
+#    
+#    # min
+#    #self.lut_tran_mintomax.append(str("{:5f}".format(np.amin(self.list2_tran)/targetLib.time_mag)))
+#    self.lut_min2max[name].append(str("{:5f}".format(min(self.dict_list2[name][load].values())/mag)))
+#    
+#    # center
+#    #self.lut_tran_mintomax.append(str("{:5f}".format(np.median(self.list2_tran)/targetLib.time_mag)))
+#    self.lut_min2max[name].append(str("{:5f}".format(st.median(self.dict_list2[name][load].values())/mag)))
+#    
+#    # max
+#    #self.lut_tran_mintomax.append(str("{:5f}".format(np.amax(self.list2_tran)/targetLib.time_mag)))
+#    self.lut_min2max[name].append(str("{:5f}".format(max(self.dict_list2[name][load].values())/mag)))
 
   
   
@@ -1233,17 +1252,32 @@ class MyConditionsAndResults(BaseModel):
 #    #print("store cin:"+str(self.cin))
 
 
-  def set_average(self, name:str):
-    ## output average of input capacitance
-    ## (do not write table)
-
-    mag = self.mls.capacitance_mag if name in ["cin"] else self.mls.energy_mag
-
-    avg_list=[]
-    for load in self.mlc.load:
-      avg_list.append(st.mean(self.dict_list2[name][load].values()))
-
-    self.avg[name] = st.mean(avg_list)/mag
+#  def set_average(self, value_name:str):
+#    ## output average of input capacitance
+#    ## (do not write table)
+#
+#    ## select mag
+#    mag = self.mls.capacitance_mag if value_name in ["cin"] else self.mls.energy_mag
+#
+#    ## select template
+#    temp = self.template_energy;
+#
+#    ## get index
+#    index_1_list=temp.index_1
+#    index_2_list=temp.index_2
+#
+#    avg_list=[]
+#    if len(index_2_list)<1:
+#      index_2_list=[0];  #-- dummy
+#
+#
+#    ## average for list2
+#    for index2 in index_2_list:
+#      avg_list.append(st.mean(self.dict_list2[value_name][index2].values()))
+#    
+#    ## avarage for all
+#    self.avg[value_name] = st.mean(avg_list)/mag
+    
 
     
 #  ## clock input energy 

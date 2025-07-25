@@ -1,0 +1,72 @@
+{
+   "process_name"       :"OSU035"
+  ,"lib_vendor_id"      :"SAMPLE"
+  ,"cell_name_prefix"   :"_V1"
+	,"model_path"         :"./target/OSU035"
+	,"cell_spice_path"    :"/home/synology_nfs/Techlibs/Techlib/OSU035/std/fromXXX/v00.00/spice"
+  ,"vdd_name"           :"VDD"
+  ,"vss_name"           :"VSS"
+  ,"pwell_name"         :"VPW"
+  ,"nwell_name"         :"VNW"
+  ,"voltage_unit"       :"V"
+  ,"capacitance_unit"   :"pf"
+  ,"resistance_unit"    :"Ohm"
+  ,"current_unit"       :"mA"
+  ,"leakage_power_unit" :"pW"
+  ,"energy_unit"        :"fJ"
+  ,"time_unit"          :"ns"
+
+//--- characterization conditions
+// "operating_conditions"        : "TCCOM"   //--- set by argv of libretto.py
+//."process"                     : 1.0       //--- set by argv of libretto.py
+//,"temperature"                 : 25.0      //--- set by argv of libretto.py
+//,"vdd_voltage"                 : 5.0       //--- set by argv of libretto.py
+//,"vss_voltage"                 : 0.0       //--- set by argv of libretto.py
+//,"pwell_voltage"               : 0.0       //--- set by argv of libretto.py
+//,"nwell_voltage"               : 5.0       //--- set by argv of libretto.py
+  ,"logic_threshold_high"        : 0.8
+  ,"logic_threshold_low"         : 0.2
+  ,"logic_high_to_low_threshold" : 0.5
+  ,"logic_low_to_high_threshold" : 0.5
+  ,"energy_meas_low_threshold"   : 0.01
+  ,"energy_meas_high_threshold"  : 0.99
+	,"templates"                   :[{"kind":"const"  ,"grid":"2x1","name":"d1","index_1":[0.1,1.1], "index_2":[]},
+																 	 {"kind":"delay"  ,"grid":"2x2","name":"d1","index_1":[0.2,1.2], "index_2":[0.22,1.22]},
+																 	 {"kind":"delay"  ,"grid":"2x2","name":"d2","index_1":[0.2,1.2], "index_2":[0.222,1.222]},
+																 	 {"kind":"mpw"    ,"grid":"2x1","name":"d1","index_1":[0.3,1.3], "index_2":[]},
+																 	 {"kind":"passive","grid":"2x1","name":"d1","index_1":[0.4,1.4], "index_2":[]},
+																 	 {"kind":"power"  ,"grid":"2x2","name":"d1","index_1":[0.21,1.21], "index_2":[0.211,1.211]},
+																 	 {"kind":"power"  ,"grid":"2x2","name":"d2","index_1":[0.21,1.21], "index_2":[0.2111,1.2111]},
+																	 ]
+	
+//characterizer settings
+  ,"work_dir"  :"work"
+  ,"tmp_dir"   :"work"
+  ,"tmp_file"  :"_tmp__"
+  ,"simulator" :"ngspice"
+//,"simulator" :/"usr/local/bin/ngspice"
+//,"simulator" :"/eda/synopsys/hspice/T-2022.06/hspice/linux64/hspice"
+  ,"run_sim"    :"true"
+  ,"num_thread" : 6
+  ,"sim_nice"   : 19
+  ,"simulation_timestep"        : 0.001
+	,"sim_pulse_max"              : 1.0
+	,"sim_prop_max"               :20.0
+	,"sim_prop_tri_max"           :20.0
+	,"sim_prop_io_max"            :25.0
+	,"sim_prop_io_tri_max"        :25.0
+	,"sim_d2c_max"                : 5.0
+	,"sim_c2d_max"                : 5.0
+	,"sim_segment_timestep_start" : 1.0
+  ,"sim_segment_timestep_ratio" : 0.1
+  ,"sim_segment_timestep_min"   : 0.01
+  ,"sim_time_end_extent"        : 3
+  ,"compress_result" :"False"
+//,"supress_message" :"true"
+//,"supress_sim_message:"true"
+//,"supress_debug_message:"true"
+  ,"supress_message"     :"false"
+  ,"supress_sim_message" :"false"
+  ,"supress_debug_message":"true"
+}
+

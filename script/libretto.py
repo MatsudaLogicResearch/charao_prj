@@ -16,7 +16,7 @@ import myExpectLogic as mel
 import numpy as np
 
 from char_comb import runCombInNOut1
-from char_seq import runFlop, genFileFlop_trial1
+#from char_seq import runFlop, genFileFlop_trial1
 from myFunc import my_exit, startup
 from jsoncomment import JsonComment
 from pydantic import BaseModel, ConfigDict
@@ -24,8 +24,7 @@ from pydantic import BaseModel, ConfigDict
 def main():
   parser = argparse.ArgumentParser(description='argument')
   #parser.add_argument('-b','--batch'      , type=str, default="./cmd/gen_cmd.py", help='inport batch file')
-  parser.add_argument('-l','--config_lib' , type=str, default="", help='inport jsonc file for lib_common')
-  parser.add_argument('-c','--config_char', type=str, default="", help='inport jsonc file for char_cond')
+  parser.add_argument('-l','--config_lib' , type=str, default="", help='inport jsonc file for lib')
   parser.add_argument('-m','--cell_comb'  , type=str, default="", help='inport jsonc file for cell_comb')
   parser.add_argument('-s','--cell_seq'   , type=str, default="", help='inport jsonc file for cell_seq')
 
@@ -44,10 +43,8 @@ def main():
   #print(args.batch)
 
   #--- set json file
-  if args.config_char == "":
-    args.config_char = "./target/"+args.fab_process + "/" + args.cell_vendor + "/config_char_cond.jsonc"
   if args.config_lib == "":
-    args.config_lib = "./target/"+args.fab_process + "/" + args.cell_vendor + "/config_lib_common.jsonc"
+    args.config_lib = "./target/"+args.fab_process + "/" + args.cell_vendor + "/config_lib.jsonc"
   if args.cell_comb == "":
     args.cell_comb = "./target/"+args.fab_process + "/" + args.cell_vendor + "/cell_comb.jsonc"
   if args.cell_seq == "":
@@ -60,12 +57,6 @@ def main():
     print (" [ERR]: not detected config_lib=" + args.config_lib)
     my_exit()
   
-  if os.path.isfile(args.config_char):
-    print (" [INF]: detected config_char=" + args.config_char)
-  else:
-    print (" [ERR]: not detected config_char=" + args.config_char)
-    my_exit()
-
   if os.path.isfile(args.cell_comb):
     print (" [INF]: detected cell_comb=" + args.cell_comb)
   else:
@@ -84,14 +75,10 @@ def main():
   
   parser=JsonComment()
   with open (args.config_lib, "r") as f:
-    config_lib_dict = parser.load(f)
-    targetLib = targetLib.model_copy(update=config_lib_dict)
+    config_lib = parser.load(f)
+    #targetLib = targetLib.model_copy(update=config_lib)
+    targetLib = mls.MyLibrarySetting(**config_lib)
     
-  parser=JsonComment()
-  with open (args.config_char, "r") as f:
-    config_char_dict = parser.load(f)
-    targetLib = targetLib.model_copy(update=config_char_dict)
-
   #--- targetLib : update from args
   config_from_args={"operating_conditions":args.condition,
                     "process"             :args.process,
@@ -111,17 +98,55 @@ def main():
 
   #--- targetLib : initialize workspace
   initializeFiles(targetLib) 
+  targetLib.gen_lut_templates()
 
   #=====================================================
   # characterization
   num_gen_file = 0
   
-  #--- targetCell : get cell info from jsonc(char_cond) and execute
+  #--- cell_comb.jsonc
   cell_comb_info_list=[]
   parser=JsonComment()
   with open (args.cell_comb, "r") as f:
     cell_comb_info_list = parser.load(f)
     for info in cell_comb_info_list:
+      print(info)
+      
+      targetCell = mlc.MyLogicCell(mls=targetLib, **info)
+      targetCell.set_supress_message() 
+      targetCell.add_template()
+      targetCell.chk_netlist() 
+      targetCell.chk_ports()
+      targetCell.add_model() 
+      #targetCell.add_simulation_timestep()
+      targetCell.add_function()
+      #targetCell.add_max_load4out()
+      
+      #targetCell.print_variable()
+  
+      ## characterize
+      #harnessList2 = characterizeFiles(targetLib, targetCell)
+      harnessList = characterizeFiles(targetLib, targetCell)
+      os.chdir("../")
+
+      ## export
+      #me.exportFiles(targetLib, targetCell, harnessList2) 
+      #med.exportDoc(targetLib, targetCell, harnessList2)
+      
+      me.exportFiles(harnessList) 
+      med.exportDoc(harnessList) 
+      num_gen_file += 1
+      
+  ## exit
+  me.exitFiles(targetLib, num_gen_file) 
+  exit()
+
+  #--- cell_comb.jsonc
+  cell_seq_info_list=[]
+  parser=JsonComment()
+  with open (args.cell_seq, "r") as f:
+    cell_seq_info_list = parser.load(f)
+    for info in cell_seq_info_list:
       print(info)
       
       targetCell = mlc.MyLogicCell(**info)
@@ -148,7 +173,7 @@ def main():
       me.exportFiles(harnessList) 
       med.exportDoc(harnessList) 
       num_gen_file += 1
-
+      
   ## exit
   me.exitFiles(targetLib, num_gen_file) 
   exit()
@@ -854,8 +879,8 @@ def characterizeFiles(targetLib, targetCell):
   os.chdir(targetLib.work_dir)
 
   ## Register lut_template
-  targetLib.gen_lut_templates(targetCell)
-  targetCell.gen_lut_templates()
+  #targetLib.gen_lut_templates(targetCell)
+  #targetCell.gen_lut()
 
   ## Branch to each logic function
   if not targetCell.logic in mel.logic_dict.keys():
@@ -865,8 +890,13 @@ def characterizeFiles(targetLib, targetCell):
 
   #--
   print("cell=" + targetCell.cell + "(" + targetCell.logic + ")");
-  rslt=runCombInNOut1(targetLib, targetCell,mel.logic_dict[targetCell.logic]["expect"])
 
+  if mel.logic_dict[targetCell.logic]["logic_type"] == "comb":
+    rslt=runCombInNOut1(targetLib, targetCell, mel.logic_dict[targetCell.logic]["expect"])
+  else:
+    rslt=runFlop(targetLib, targetCell, mel.logic_dict[targetCell.logic]["expect"])
+
+  #
   return rslt
 
   #expectationList2 = [['01','10'],['10','01']]

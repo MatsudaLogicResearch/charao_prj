@@ -95,52 +95,15 @@ def exportLib(targetLib:Mls, targetCell:Mlc):
     outlines.append("    voltage : "+str(targetLib.vdd_voltage)+";\n")
     outlines.append("  }\n")
     outlines.append("  default_operating_conditions : "+targetLib.operating_conditions+";\n")
+    
     ## definition of LUT template
-    outlines.extend(targetLib.constraint_template_lines)
-    outlines.extend(targetLib.delay_template_lines)
-    outlines.extend(targetLib.recovery_template_lines)
-    outlines.extend(targetLib.removal_template_lines)
-    outlines.extend(targetLib.mpw_constraint_template_lines)
-    outlines.extend(targetLib.passive_power_template_lines)
-    outlines.extend(targetLib.power_template_lines)
-#    outlines.append("  lu_table_template (constraint_template) {\n")
-#    outlines.append("    variable_1 : constrained_pin_transition;\n")
-#    outlines.append("    variable_2 : related_pin_transition;\n")
-#    outlines.append("    index_1 "+targetCell.return_slope()+"\n")
-#    outlines.append("    index_2 "+targetCell.return_slope()+"\n")
-#    outlines.append("  }\n")
-#    outlines.append("  lu_table_template (delay_template) {\n")
-#    outlines.append("    variable_1 : input_net_transition;\n")
-#    outlines.append("    variable_2 : total_output_net_capacitance;\n")
-#    outlines.append("    index_1 "+targetCell.return_slope()+"\n")
-#    outlines.append("    index_2 "+targetCell.return_load()+"\n")
-#    outlines.append("  }\n")
-#    outlines.append("  lu_table_template (recovery_template) {\n")
-#    outlines.append("    variable_1 : related_pin_transition;    \n")
-#    outlines.append("    variable_2 : constrained_pin_transition;\n")
-#    outlines.append("    index_1 "+targetCell.return_slope()+"\n")
-#    outlines.append("    index_2 "+targetCell.return_slope()+"\n")
-#    outlines.append("  }\n")
-#    outlines.append("  lu_table_template (removal_template) {\n")
-#    outlines.append("    variable_1 : related_pin_transition;    \n")
-#    outlines.append("    variable_2 : constrained_pin_transition;\n")
-#    outlines.append("    index_1 "+targetCell.return_slope()+"\n")
-#    outlines.append("    index_2 "+targetCell.return_slope()+"\n")
-#    outlines.append("  }\n")
-#    outlines.append("  lu_table_template (mpw_constraint_template) {\n")
-#    outlines.append("    variable_1 : constrained_pin_transition;\n")
-#    outlines.append("    index_1 "+targetCell.return_slope()+"\n")
-#    outlines.append("  }\n")
-#    outlines.append("  power_lut_template (passive_power_template) {\n")
-#    outlines.append("    variable_1 : input_transition_time;\n")
-#    outlines.append("    index_1 "+targetCell.return_slope()+"\n")
-#    outlines.append("  }\n")
-#    outlines.append("  power_lut_template (power_template) {\n")
-#    outlines.append("    variable_1 : input_transition_time;\n")
-#    outlines.append("    variable_2 : total_output_net_capacitance;\n")
-#    outlines.append("    index_1 "+targetCell.return_slope()+"\n")
-#    outlines.append("    index_2 "+targetCell.return_load()+"\n")
-#    outlines.append("  }\n")
+    outlines.extend(targetLib.template_lines["const"])
+    outlines.extend(targetLib.template_lines["delay"])
+    outlines.extend(targetLib.template_lines["mpw"])
+    outlines.extend(targetLib.template_lines["passive"])
+    outlines.extend(targetLib.template_lines["power"])
+
+    ## voltage
     outlines.append("  input_voltage (default_"+targetLib.vdd_name+"_"+targetLib.vss_name+"_input) {\n")
     outlines.append("    vil : "+str(targetLib.vss_voltage)+";\n")
     outlines.append("    vih : "+str(targetLib.vdd_voltage)+";\n")
@@ -174,7 +137,8 @@ def exportHarness(harnessList:list[Mcar]):
     outlines.append("    area : "+str(targetCell.area)+";\n")
     ##outlines.append("    cell_leakage_power : "+targetCell.pleak+";\n")
     #outlines.append("    cell_leakage_power : "+harnessList2[0][0].pleak+";\n") ## use leak of 1st harness
-    outlines.append("    cell_leakage_power : "+str(harnessList[0].avg["pleak"])+";\n") ## use leak of 1st harness
+    #outlines.append("    cell_leakage_power : "+str(harnessList[0].avg["pleak"])+";\n") ## use leak of 1st harness
+    outlines.append("    cell_leakage_power : "+str(targetCell.pleak_cell)+";\n")
     outlines.append("    pg_pin ("+targetLib.vdd_name+"){\n")
     outlines.append("      pg_type : primary_power;\n")
     outlines.append("      voltage_name : \""+targetLib.vdd_name+"\";\n")
@@ -184,105 +148,120 @@ def exportHarness(harnessList:list[Mcar]):
     outlines.append("      voltage_name : \""+targetLib.vss_name+"\";\n")
     outlines.append("    }\n")
 
-    ## harnessList
-    #harnessList = harnessList2[-1]
-    #harnessList = sorted(harnessList2[-1], key=lambda x: (x.target_outport, x.target_inport, x.timing_type, x.timing_when, x.direction_prop))
-
-    for target_outport in targetCell.outports:
-      dt = [harness for harness in harnessList if harness.target_outport == target_outport]
-      #harnessList = sorted(dt, key=lambda x: (x.target_inport, x.timing_type, x.timing_when, x.direction_prop));
-      harnessList = sorted(dt, key=lambda x: (x.target_relport, x.timing_type, x.timing_when, x.direction_prop));
+    ## for output port
+    for outport in targetCell.outports:
+      h_list = [h for h in harnessList if h.target_port == outport]
       
-      if len(harnessList) < 1:
+      h_list_out = sorted(h_list, key=lambda x: (x.target_relport, x.timing_type, x.timing_when, x.direction_prop));
+      
+      if len(h_list_out) < 1:
         print(f"Error: no harness result exist for target={target_outport}.")
         my_exit()
 
       ## output pin infomation
       #outlines.append("    pin ("+ target_outport+"){\n") ## out pin start
-      outlines.append("    pin ("+ targetCell.replace_by_portmap(target_outport)+"){\n") ## out pin start
+      outlines.append("    pin ("+ targetCell.replace_by_portmap(outport)+"){\n") ## out pin start
       outlines.append("      direction : output;\n")
       #outlines.append("      function : \"("+targetCell.functions[target_outport]+")\";\n")
-      outlines.append("      function : \"("+targetCell.replace_by_portmap(targetCell.functions[target_outport])+")\";\n")
+      outlines.append("      function : \"("+targetCell.replace_by_portmap(targetCell.functions[outport])+")\";\n")
       outlines.append("      related_power_pin : \""+targetLib.vdd_name+"\";\n")
       outlines.append("      related_ground_pin : \""+targetLib.vss_name+"\";\n")
-      outlines.append("      max_capacitance : \""+str(targetCell.load[-1])+"\";\n") ## use max val. of load table
+      outlines.append("      max_capacitance : \""+str(targetCell.max_load4out[outport])+"\";\n") ## use max val. of load table
       outlines.append("      output_voltage : default_"+targetLib.vdd_name+"_"+targetLib.vss_name+"_output;\n")
-        
-      ## timing()
-      #for (target_inport,timing_type,timing_when),group in groupby(harnessList, key=lambda x:(x.target_inport, x.timing_type, x.timing_when)):
-      for (target_relport,timing_type,timing_when),group in groupby(harnessList, key=lambda x:(x.target_relport, x.timing_type, x.timing_when)):
+
+      h_list_out_t = [h for h in h_list_out if (h.template_timing is not None ) and (h.template_timing.kind== "delay")]
+      h_list_out_e = [h for h in h_list_out if (h.template_energy is not None ) and (h.template_energy.kind== "power")]
+
+
+      ## timing(delay)
+      sorted_harnessList=sorted(h_list_out_t, key=lambda x: (x.target_relport, x.timing_type, x.timing_when))
+      for (target_relport,timing_type,timing_when),group in groupby(sorted_harnessList, key=lambda x:(x.target_relport, x.timing_type, x.timing_when)):
         group_list=list(group);
         size=len(group_list)
-        #print(f" group: target_outport={target_outport}, target_inport={target_inport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
-        print(f" group: target_outport={target_outport}, target_relport={target_relport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
+        print(f" group: target={outport}, relport={target_relport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
         
         if size != 2: ## pair of fall/rise
           print(f"Error: len(group) is not 2(={size})")
+          my_exit()
 
         ## check
-        harness1 = group_list[0]
-        harness2 = group_list[1]
+        h1 = group_list[0]
+        h2 = group_list[1]
         
-        if (harness1.stable_inport != harness2.stable_inport) :
-          print("Error: stable_inport missmatch in %s . harness[N]=%s, harness[N+1]=%s." %(targetCell.logic, harness1.stable_inport, harness2.stable_inport));
+        if (h1.stable_inport != h2.stable_inport) :
+          print("Error: stable_inport missmatch in %s . harness[N]=%s, harness[N+1]=%s." %(targetCell.logic, h1.stable_inport, h2.stable_inport));
           my_exit();
-        if (harness1.timing_sense != harness2.timing_sense) :
-          print("Error: timing_sense missmatch in %s. harness[N]=%s, harness[N+1]=%s." %(targetCell.logic, harness1.timing_sense, harness2.timing_sense));
+          
+        if (h1.timing_sense != h2.timing_sense) :
+          print("Error: timing_sense missmatch in %s. harness[N]=%s, harness[N+1]=%s." %(targetCell.logic, h1.timing_sense, h2.timing_sense));
           my_exit();
 
         ## infomation
         outlines.append("      timing () {\n")
-        #outlines.append("        related_pin : \""+target_inport+"\";\n")
-        #outlines.append("        related_pin : \""+targetCell.replace_by_portmap(target_inport)+"\";\n")
         outlines.append("        related_pin : \""+targetCell.replace_by_portmap(target_relport)+"\";\n")
 
         #-- when/sense/type
-        if harness1.timing_when:
-          outlines.append("        when  : \""+targetCell.replace_by_portmap(harness1.timing_when).replace('&',' ')+"\";\n")
-          outlines.append("        sdf_cond  : \""+targetCell.replace_by_portmap(harness1.timing_when).replace('&',' ')+"\";\n")
+        if h1.timing_when:
+          outlines.append("        when  : \""+targetCell.replace_by_portmap(h1.timing_when).replace('&',' ')+"\";\n")
+          outlines.append("        sdf_cond  : \""+targetCell.replace_by_portmap(h1.timing_when).replace('&',' ')+"\";\n")
         
-        outlines.append("        timing_sense : \""+harness1.timing_sense+"\";\n")
-        outlines.append("        timing_type : \""+harness1.timing_type+"\";\n")
+        outlines.append("        timing_sense : \""+h1.timing_sense+"\";\n")
+        outlines.append("        timing_type : \""+h1.timing_type+"\";\n")
 
         
         ## propagation & transition
-        for harness in group_list:
-          outlines.append("        "+harness.direction_prop+ " ("+targetCell.delay_template_name+") {\n")
-          for lut_line in harness.lut["prop"]:
+        for h in group_list:
+          t=h.template_timing
+          outlines.append("        " + h.direction_prop + " (" + t.kind + "_template_" + t.grid + ") {\n")
+          
+          for lut_line in h.lut["prop"]:
             outlines.append("          "+lut_line+"\n")
           outlines.append("        }\n") 
 
-          outlines.append("        "+harness.direction_tran+ " ("+targetCell.delay_template_name+") {\n")
-          for lut_line in harness.lut["trans"]:
+          #
+          outlines.append("        " + h.direction_tran + " (" + t.kind + "_template_" + t.grid + ") {\n")
+          for lut_line in h.lut["trans"]:
             outlines.append("          "+lut_line+"\n")
           outlines.append("        }\n") 
 
         outlines.append("      }\n") ## timing end
 
-      ## power
-      #for (target_inport,timing_type,timing_when),group in groupby(harnessList, key=lambda x:(x.target_inport, x.timing_type, x.timing_when)):
-      for (target_relport,timing_type,timing_when),group in groupby(harnessList, key=lambda x:(x.target_relport, x.timing_type, x.timing_when)):
+      ## energy(power)
+      sorted_harnessList=sorted(h_list_out_e, key=lambda x: (x.target_relport, x.timing_type, x.timing_when))
+      for (target_relport,timing_type,timing_when),group in groupby(sorted_harnessList, key=lambda x:(x.target_relport, x.timing_type, x.timing_when)):
         group_list=list(group);
         size=len(group_list)
-        #print(f" group: target_outport={target_outport}, target_inport={target_inport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
-        print(f" group: target_outport={target_outport}, target_relport={target_relport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
+        print(f" group: target_outport={outport}, target_relport={target_relport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
         
         if size != 2:
           print(f"Error: len(group) is not 2(={size})")
 
+        ## check
+        h1 = group_list[0]
+        h2 = group_list[1]
+        
+        if (h1.stable_inport != h2.stable_inport) :
+          print("Error: stable_inport missmatch in %s . harness[N]=%s, harness[N+1]=%s." %(targetCell.logic, h1.stable_inport, h2.stable_inport));
+          my_exit();
+          
+        if (h1.timing_sense != h2.timing_sense) :
+          print("Error: timing_sense missmatch in %s. harness[N]=%s, harness[N+1]=%s." %(targetCell.logic, h1.timing_sense, h2.timing_sense));
+          my_exit();
+          
         #-- infomation
         outlines.append("      internal_power () {\n")
-        #outlines.append("        related_pin : \""+targetCell.replace_by_portmap(target_inport)+"\";\n")
         outlines.append("        related_pin : \""+targetCell.replace_by_portmap(target_relport)+"\";\n")
 
         #-- when
-        if harness1.timing_when != "":
-          outlines.append("        when  : \""+targetCell.replace_by_portmap(harness1.timing_when).replace('&',' ')+"\";\n")
+        if h1.timing_when != "":
+          outlines.append("        when  : \""+targetCell.replace_by_portmap(h1.timing_when).replace('&',' ')+"\";\n")
 
         ## rise(fall)
-        for harness in group_list:
-          outlines.append("        "+harness.direction_power+" ("+targetCell.power_template_name+") {\n")
-          for lut_line in harness.lut["eintl"]:
+        for h in group_list:
+          t = h.template_energy
+          outlines.append("        "+h.direction_power+" (" + t.kind + "_energy_template_" + t.grid + ") {\n")
+          
+          for lut_line in h.lut["eintl"]:
             outlines.append("          "+lut_line+"\n")
           outlines.append("        }\n")
         
@@ -290,15 +269,17 @@ def exportHarness(harnessList:list[Mcar]):
         
       outlines.append("    }\n") ## out pin end
 
-    ## select one input pin from pinlist(target_inports) 
-    for target_inport in targetCell.inports:
-      index1 = targetCell.inports.index(target_inport) 
-      outlines.append("    pin ("+targetCell.replace_by_portmap(target_inport)+"){\n") ## out pin start
+    ## select one input pin from pinlist 
+    for inport in targetCell.inports:
+      index1 = targetCell.inports.index(inport) 
+      outlines.append("    pin ("+targetCell.replace_by_portmap(inport)+"){\n") ## out pin start
       outlines.append("      direction : input; \n")
       outlines.append("      related_power_pin : "+targetLib.vdd_name+";\n")
       outlines.append("      related_ground_pin : "+targetLib.vss_name+";\n")
-      outlines.append("      max_transition : "+str(targetCell.slope[-1])+";\n")
-      outlines.append("      capacitance : \""+str(targetCell.cins[index1])+"\";\n")
+      #outlines.append("      max_transition : "+str(targetCell.slope[-1])+";\n")
+      #outlines.append("      capacitance : \""+str(targetCell.cins[index1])+"\";\n")
+      outlines.append("      max_transition : "+str(targetCell.max_trans4in[inport])+";\n")
+      outlines.append("      capacitance : \""+str(targetCell.cins[inport])+"\";\n")
       outlines.append("      input_voltage : default_"+targetLib.vdd_name+"_"+targetLib.vss_name+"_input;\n")
       outlines.append("    }\n") ## in pin end
 
