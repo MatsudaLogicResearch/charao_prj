@@ -29,17 +29,17 @@ class MyLogicCell(BaseModel):
   logic     : str = None;     ## logic name
   area      : float= None;    ## set area
   spice     : str  = None;    ## spice file name
-  #functions : list[str] = Field(default_factory=list); ## cell function (must be remove )
   functions : Dict[str,str] = Field(default_factory=dict); ## cell function
+  
   ports_dict: Dict[str,str] = Field(default_factory=dict); ## spice-port/name mapper
   inports   : list[str] = Field(default_factory=list); ## inport pins
   outports  : list[str] = Field(default_factory=list); ## outport pins
   biports   : list[str] = Field(default_factory=list); ## inout port pins
   clock     : str= None;      ## clock pin for flop
-  set       : str= None;      ## set pin for flop
-  reset     : str= None;      ## reset pin for flop 
+  #set       : str= None;      ## set pin for flop
+  #reset     : str= None;      ## reset pin for flop 
   vports    : list[str] = Field(default_factory=list); ## vdd/vss port pins
-  #cins      : list[float] = Field(default_factory=list); ## inport caps
+
   cins      : dict[str,float] = Field(default_factory=dict); ## inport caps. cins={"inport",cap}
   
   #cclks     : list[float] = Field(default_factory=list);      ## clock pin cap. for flop
@@ -207,7 +207,7 @@ class MyLogicCell(BaseModel):
         None  # no entry
       )
 
-      if not idx_src:
+      if idx_src is None:
         print(f"[Error] unique template ={k}/{g}/{n} is not exist in targetLib.templates.")
         my_exit()
         
@@ -292,7 +292,7 @@ class MyLogicCell(BaseModel):
   def update_max_trans4in(self, port_name:str, new_value:float):
 
     ## check port
-    if not port_name in self.inports:
+    if not port_name in self.inports + [self.clock]:
       print(f"[Error] inport={port_name} is not exist in logic={self.logic}.")
       my_exit()
       
@@ -386,11 +386,13 @@ class MyLogicCell(BaseModel):
       elif name_tb.upper().startswith("B"):
         self.biports.append(name_tb.lower())
       elif name_tb.upper().startswith("C"):
-        self.clock.append(name_tb.lower())
+        self.clock = name_tb.lower()
       elif name_tb.upper().startswith("S"):
-        self.set.append(name_tb.lower())
+        #self.set = name_tb.lower()
+        self.inports.append(name_tb.lower())
       elif name_tb.upper().startswith("R"):
-        self.reset.append(name_tb.lower())
+        #self.reset = name_tb.lower()
+        self.inports.append(name_tb.lower())
       elif name_tb.upper().startswith("V"):
         self.vports.append(name_tb.lower())
       else:
@@ -425,93 +427,95 @@ class MyLogicCell(BaseModel):
 #    self.pleak += harness.avg["pleak"] 
 #
 #    
-##                                 #
-##-- add functions for seq. cell --#    
-##                                 #
-  def add_flop(self, line="tmp"):
-    tmp_array = line.split('-')
-    ## expected format : add_floop -n(name) DFFRS_X1 /
-    ##                             -l(logic)    DFFARAS : DFF w async RST and async SET
-    ##                              -i(inports)  DATA 
-    ##                              -c(clock)    CLK 
-    ##                              -s(set)      SET   (if used) 
-    ##                              -r(reset)    RESET (if used)
-    ##                              -o(outports) Q QN
-    ##                              -q(flops)    IQ IQN
-    ##                              -f(function) Q=IQ QN=IQN
-    self.isflop = 1  ## set as flop
-    for options in tmp_array:
 
-      ## add_flop command 
-      if(re.match("^add_flop", options)):
-        continue
-      ## -n option (subckt name)
-      elif(re.match("^n ", options)):
-        tmp_array2 = options.split() 
-        self.cell = tmp_array2[1] 
-        #print (self.cell)
-      ## -l option (logic type)
-      elif(re.match("^l ", options)):
-        tmp_array2 = options.split() 
-        self.logic = tmp_array2[1] 
-        #print (self.logic)
-      ## -i option (input name)
-      elif(re.match("^i ", options)):
-        tmp_array2 = options.split() 
-        for w in tmp_array2:
-          self.inports.append(w)
-        self.inports.pop(0) # delete first object("-i")
-        #print (self.inports)
-      ## -c option (clock name)
-      elif(re.match("^c ", options)):
-        tmp_array2 = options.split() 
-        self.clock = tmp_array2[1] 
-        #print (self.clock)
-      ## -s option (set name)
-      elif(re.match("^s ", options)):
-        tmp_array2 = options.split() 
-        self.set = tmp_array2[1] 
-        #print (self.set)
-      ## -r option (reset name)
-      elif(re.match("^r ", options)):
-        tmp_array2 = options.split() 
-        self.reset = tmp_array2[1] 
-        print (self.reset)
-      ## -o option (output name)
-      elif(re.match("^o ", options)):
-        tmp_array2 = options.split() 
-        for w in tmp_array2:
-          self.outports.append(w)
-        self.outports.pop(0) ## delete first object("-o")
-        #print (self.outports)
-      ## -q option (storage name)
-      elif(re.match("^q ", options)):
-        tmp_array2 = options.split() 
-        for w in tmp_array2:
-          self.flops.append(w)
-        self.flops.pop(0) ## delete first object("-q")
-        #print (self.flops)
-      ## -f option (function name)
-      elif(re.match("^f ", options)):
-        tmp_array2 = options.split() 
-        #print (tmp_array2)
-        tmp_array2.pop(0) ## delete first object("-f")
-        for w in tmp_array2:
-          tmp_array3 = w.split('=') 
-          for o in self.outports:
-            if(o == tmp_array3[0]):
-              self.functions.append(tmp_array3[1])
-        #print (self.functions)
-      ## undefined option 
-      else:
-        print("ERROR: undefined option:"+options+"\n")  
-        my_exit() 
-    # do not use print_msg 
-    print ("finish add_flop")
+
+###                                 #
+###-- add functions for seq. cell --#    
+###                                 #
+#  def add_flop(self, line="tmp"):
+#    tmp_array = line.split('-')
+#    ## expected format : add_floop -n(name) DFFRS_X1 /
+#    ##                             -l(logic)    DFFARAS : DFF w async RST and async SET
+#    ##                              -i(inports)  DATA 
+#    ##                              -c(clock)    CLK 
+#    ##                              -s(set)      SET   (if used) 
+#    ##                              -r(reset)    RESET (if used)
+#    ##                              -o(outports) Q QN
+#    ##                              -q(flops)    IQ IQN
+#    ##                              -f(function) Q=IQ QN=IQN
+#    self.isflop = 1  ## set as flop
+#    for options in tmp_array:
+#
+#      ## add_flop command 
+#      if(re.match("^add_flop", options)):
+#        continue
+#      ## -n option (subckt name)
+#      elif(re.match("^n ", options)):
+#        tmp_array2 = options.split() 
+#        self.cell = tmp_array2[1] 
+#        #print (self.cell)
+#      ## -l option (logic type)
+#      elif(re.match("^l ", options)):
+#        tmp_array2 = options.split() 
+#        self.logic = tmp_array2[1] 
+#        #print (self.logic)
+#      ## -i option (input name)
+#      elif(re.match("^i ", options)):
+#        tmp_array2 = options.split() 
+#        for w in tmp_array2:
+#          self.inports.append(w)
+#        self.inports.pop(0) # delete first object("-i")
+#        #print (self.inports)
+#      ## -c option (clock name)
+#      elif(re.match("^c ", options)):
+#        tmp_array2 = options.split() 
+#        self.clock = tmp_array2[1] 
+#        #print (self.clock)
+#      ## -s option (set name)
+#      elif(re.match("^s ", options)):
+#        tmp_array2 = options.split() 
+#        self.set = tmp_array2[1] 
+#        #print (self.set)
+#      ## -r option (reset name)
+#      elif(re.match("^r ", options)):
+#        tmp_array2 = options.split() 
+#        self.reset = tmp_array2[1] 
+#        print (self.reset)
+#      ## -o option (output name)
+#      elif(re.match("^o ", options)):
+#        tmp_array2 = options.split() 
+#        for w in tmp_array2:
+#          self.outports.append(w)
+#        self.outports.pop(0) ## delete first object("-o")
+#        #print (self.outports)
+#      ## -q option (storage name)
+#      elif(re.match("^q ", options)):
+#        tmp_array2 = options.split() 
+#        for w in tmp_array2:
+#          self.flops.append(w)
+#        self.flops.pop(0) ## delete first object("-q")
+#        #print (self.flops)
+#      ## -f option (function name)
+#      elif(re.match("^f ", options)):
+#        tmp_array2 = options.split() 
+#        #print (tmp_array2)
+#        tmp_array2.pop(0) ## delete first object("-f")
+#        for w in tmp_array2:
+#          tmp_array3 = w.split('=') 
+#          for o in self.outports:
+#            if(o == tmp_array3[0]):
+#              self.functions.append(tmp_array3[1])
+#        #print (self.functions)
+#      ## undefined option 
+#      else:
+#        print("ERROR: undefined option:"+options+"\n")  
+#        my_exit() 
+#    # do not use print_msg 
+#    print ("finish add_flop")
 
   def add_function(self):
     if not self.logic in logic_dict.keys():
-      print("  logic="+self.logic + " is not exist in MyExpectLogic.py.");
+      print(f"[Error] logic="+self.logic + " is not exist in MyExpectLogic.py.");
       my_exit();
 
 
@@ -678,9 +682,12 @@ class MyLogicCell(BaseModel):
   ## average of cin in all harness.dict_list2["cin"]["index_2"]["index_1"]
   def set_cin_avg(self, harnessList:list["Mcar"]):
 
-    for inport in self.inports:
+    for inport in self.inports + [self.clock]:
+      
       cin_all=[]
       for h in harnessList:
+        #print(f"inport={inport}, relport={h.target_relport}")
+        
         if h.target_relport == inport:
           #-- list of dict_list2["cin"]["index_1"]["index_2"]
           cin_list=[v for index_1 in h.dict_list2["cin"].values() for v in index_1.values()]
@@ -688,8 +695,9 @@ class MyLogicCell(BaseModel):
           #print(f"{inport}:{cin_all}")
           
       if len(cin_all)<1:
-        print(f'[Error] dict_list2["cin"] size is 0.')
-        my_exit()
+        continue
+        #print(f'[Error] dict_list2["cin"] size is 0.')
+        #my_exit()
 
       #
       mag=self.mls.capacitance_mag
@@ -700,18 +708,29 @@ class MyLogicCell(BaseModel):
   def set_pleak_icrs(self, harnessList:list["Mcar"]):
 
     #-- sort by when-condition
-    sorted_harnessList=sorted(harnessList, key=lambda x: (tuple(x.mel.rval.get("i",[])),
-                                                          tuple(x.mel.rval.get("c",[])),
-                                                          tuple(x.mel.rval.get("r",[])),
-                                                          tuple(x.mel.rval.get("s",[]))))
+    #sorted_harnessList=sorted(harnessList, key=lambda x: (tuple(x.mel.rval.get("i",[])),
+    #                                                      tuple(x.mel.rval.get("c",[])),
+    #                                                      tuple(x.mel.rval.get("r",[])),
+    #                                                      tuple(x.mel.rval.get("s",[]))))
+    sorted_harnessList=sorted(harnessList, key=lambda x: (tuple(x.mel.ival.get("i",[])),
+                                                          tuple(x.mel.ival.get("c",[])),
+                                                          tuple(x.mel.ival.get("r",[])),
+                                                          tuple(x.mel.ival.get("s",[]))))
 
     #-- generate pleak by when-condition
+    #for (i,c,r,s),group in groupby(
+    #    sorted_harnessList, key=lambda x:(tuple(x.mel.rval.get("i",[])),
+    #                                      tuple(x.mel.rval.get("c",[])),
+    #                                      tuple(x.mel.rval.get("r",[])),
+    #                                      tuple(x.mel.rval.get("s",[])))):
+    #  rval={"i":i, "c":c, "r":r, "s":s}
     for (i,c,r,s),group in groupby(
-        sorted_harnessList, key=lambda x:(tuple(x.mel.rval.get("i",[])),
-                                          tuple(x.mel.rval.get("c",[])),
-                                          tuple(x.mel.rval.get("r",[])),
-                                          tuple(x.mel.rval.get("s",[])))):
+        sorted_harnessList, key=lambda x:(tuple(x.mel.ival.get("i",[])),
+                                          tuple(x.mel.ival.get("c",[])),
+                                          tuple(x.mel.ival.get("r",[])),
+                                          tuple(x.mel.ival.get("s",[])))):
       rval={"i":i, "c":c, "r":r, "s":s}
+
       h_group=list(group);
       size=len(h_group)
       #print(rval)
@@ -729,7 +748,8 @@ class MyLogicCell(BaseModel):
       ##-- get max(pleak) when same input condition
       pleak_all=[]
       for h in h_group:
-        pleak_list=[v for index_1 in h.dict_list2["i_vdd_leak"].values() for v in index_1.values()]
+        #pleak_list=[v for index_1 in h.dict_list2["i_vdd_leak"].values() for v in index_1.values()]
+        pleak_list=[v for index_1 in h.dict_list2["pleak"].values() for v in index_1.values()]
         pleak_all.extend(pleak_list)
 
       if len(pleak_all)<1:

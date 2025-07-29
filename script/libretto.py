@@ -15,7 +15,8 @@ import myExpectLogic as mel
 
 import numpy as np
 
-from char_comb import runCombInNOut1
+from char_run import runExpectation
+#from char_comb import runCombInNOut1
 #from char_seq import runFlop, genFileFlop_trial1
 from myFunc import my_exit, startup
 from jsoncomment import JsonComment
@@ -104,26 +105,54 @@ def main():
   # characterization
   num_gen_file = 0
   
-  #--- cell_comb.jsonc
-  cell_comb_info_list=[]
-  parser=JsonComment()
-  with open (args.cell_comb, "r") as f:
-    cell_comb_info_list = parser.load(f)
-    for info in cell_comb_info_list:
-      print(info)
+#  #--- cell_comb.jsonc
+#  cell_comb_info_list=[]
+#  parser=JsonComment()
+#  with open (args.cell_comb, "r") as f:
+#    cell_comb_info_list = parser.load(f)
+#    for info in cell_comb_info_list:
+#      print(info)
+#      
+#      targetCell = mlc.MyLogicCell(mls=targetLib, **info)
+#      targetCell.set_supress_message() 
+#      targetCell.add_template()
+#      targetCell.chk_netlist() 
+#      targetCell.chk_ports()
+#      targetCell.add_model() 
+#      targetCell.add_function()
+#      
+#      #targetCell.print_variable()
+#  
+#      ## characterize
+#      #harnessList2 = characterizeFiles(targetLib, targetCell)
+#      harnessList = characterizeFiles(targetLib, targetCell)
+#      os.chdir("../")
+#
+#      ## export
+#      #me.exportFiles(targetLib, targetCell, harnessList2) 
+#      #med.exportDoc(targetLib, targetCell, harnessList2)
+#      
+#      me.exportFiles(harnessList) 
+#      med.exportDoc(harnessList) 
+#      num_gen_file += 1
       
+  #--- cell_seq.jsonc
+  cell_seq_info_list=[]
+  parser=JsonComment()
+  with open (args.cell_seq, "r") as f:
+    
+    cell_seq_info_list = parser.load(f)
+    for info in cell_seq_info_list:
+      print(info)
+
       targetCell = mlc.MyLogicCell(mls=targetLib, **info)
       targetCell.set_supress_message() 
       targetCell.add_template()
       targetCell.chk_netlist() 
       targetCell.chk_ports()
       targetCell.add_model() 
-      #targetCell.add_simulation_timestep()
       targetCell.add_function()
-      #targetCell.add_max_load4out()
-      
-      #targetCell.print_variable()
-  
+
       ## characterize
       #harnessList2 = characterizeFiles(targetLib, targetCell)
       harnessList = characterizeFiles(targetLib, targetCell)
@@ -139,330 +168,6 @@ def main():
       
   ## exit
   me.exitFiles(targetLib, num_gen_file) 
-  exit()
-
-  #--- cell_comb.jsonc
-  cell_seq_info_list=[]
-  parser=JsonComment()
-  with open (args.cell_seq, "r") as f:
-    cell_seq_info_list = parser.load(f)
-    for info in cell_seq_info_list:
-      print(info)
-      
-      targetCell = mlc.MyLogicCell(**info)
-      targetCell.set_supress_message(targetLib) 
-      targetCell.add_slope(targetLib) 
-      targetCell.add_load(targetLib)
-      targetCell.chk_netlist(targetLib) 
-      targetCell.chk_ports()
-      targetCell.add_model(targetLib) 
-      targetCell.add_simulation_timestep()
-      targetCell.add_function()
-      
-      #targetCell.print_variable()
-  
-      ## characterize
-      #harnessList2 = characterizeFiles(targetLib, targetCell)
-      harnessList = characterizeFiles(targetLib, targetCell)
-      os.chdir("../")
-
-      ## export
-      #me.exportFiles(targetLib, targetCell, harnessList2) 
-      #med.exportDoc(targetLib, targetCell, harnessList2)
-      
-      me.exportFiles(harnessList) 
-      med.exportDoc(harnessList) 
-      num_gen_file += 1
-      
-  ## exit
-  me.exitFiles(targetLib, num_gen_file) 
-  exit()
-      
-# # file open
-  with open(args.batch, 'r') as f:
-    lines = f.readlines()
-    
-    for line in lines:
-      line = line.strip('\n')
-      ##-- set function : common settings--#
-      #--## set_lib_name
-      #--if(line.startswith('set_lib_name')):
-      #--  targetLib.set_lib_name(line) 
-      #--
-      #--if(line.startswith('set_dotlib_name')):
-      #--  targetLib.set_dotlib_name(line) 
-      #--
-      #--if(line.startswith('set_doc_name')):
-      #--  targetLib.set_doc_name(line)
-      #--          
-      #--if(line.startswith('set_verilog_name')):
-      #--  targetLib.set_verilog_name(line) 
-      #--
-      #--## set_cell_name_suffix
-      #--elif(line.startswith('set_cell_name_suffix')):
-      #--  targetLib.set_cell_name_suffix(line) 
-      #--
-      #--## set_cell_name_prefix
-      #--elif(line.startswith('set_cell_name_prefix')):
-      #--  targetLib.set_cell_name_prefix(line) 
-      #--
-      #--## set_voltage_unit
-      #--elif(line.startswith('set_voltage_unit')):
-      #--  targetLib.set_voltage_unit(line) 
-      #--
-      #--## set_capacitance_unit
-      #--elif(line.startswith('set_capacitance_unit')):
-      #--  targetLib.set_capacitance_unit(line) 
-      #--
-      #--## set_resistance_unit
-      #--elif(line.startswith('set_resistance_unit')):
-      #--  targetLib.set_resistance_unit(line) 
-      #--
-      #--## set_time_unit
-      #--elif(line.startswith('set_time_unit')):
-      #--  targetLib.set_time_unit(line) 
-      #--
-      #--## set_current_unit
-      #--elif(line.startswith('set_current_unit')):
-      #--  targetLib.set_current_unit(line) 
-      #--
-      #--## set_leakage_power_unit
-      #--elif(line.startswith('set_leakage_power_unit')):
-      #--  targetLib.set_leakage_power_unit(line) 
-      #--
-      #--## set_energy_unit
-      #--elif(line.startswith('set_energy_unit')):
-      #--  targetLib.set_energy_unit(line) 
-      #--
-      #--## set_vdd_name
-      #--elif(line.startswith('set_vdd_name')):
-      #--  targetLib.set_vdd_name(line) 
-      #--
-      #--## set_vss_name
-      #--elif(line.startswith('set_vss_name')):
-      #--  #print(line)
-      #--  targetLib.set_vss_name(line) 
-      #--
-      #--## set_pwell_name
-      #--elif(line.startswith('set_pwell_name')):
-      #--  #print(line)
-      #--  targetLib.set_pwell_name(line) 
-      #--
-      #--## set_nwell_name
-      #--elif(line.startswith('set_nwell_name')):
-      #--  targetLib.set_nwell_name(line) 
-      #--
-##-- s#--et function : characterization settings--#
-      #--## set_process
-      #--elif(line.startswith('set_process')):
-      #--  targetLib.set_process(line) 
-      #--
-      #--## set_temperature
-      #--elif(line.startswith('set_temperature')):
-      #--  targetLib.set_temperature(line) 
-      #--
-      #--## set_vdd_voltage
-      #--elif(line.startswith('set_vdd_voltage')):
-      #--  targetLib.set_vdd_voltage(line) 
-      #--
-      #--## set_vss_voltage
-      #--elif(line.startswith('set_vss_voltage')):
-      #--  targetLib.set_vss_voltage(line) 
-      #--
-      #--## set_pwell_voltage
-      #--elif(line.startswith('set_pwell_voltage')):
-      #--  targetLib.set_pwell_voltage(line) 
-      #--
-      #--## set_nwell_voltage
-      #--elif(line.startswith('set_nwell_voltage')):
-      #--  targetLib.set_nwell_voltage(line) 
-      #--
-      #--## set_logic_threshold_high
-      #--elif(line.startswith('set_logic_threshold_high')):
-      #--  targetLib.set_logic_threshold_high(line) 
-      #--
-      #--## set_logic_threshold_low
-      #--elif(line.startswith('set_logic_threshold_low')):
-      #--  targetLib.set_logic_threshold_low(line) 
-      #--
-      #--## set_logic_high_to_low_threshold
-      #--elif(line.startswith('set_logic_high_to_low_threshold')):
-      #--  targetLib.set_logic_high_to_low_threshold(line) 
-      #--
-      #--## set_logic_low_to_high_threshold
-      #--elif(line.startswith('set_logic_low_to_high_threshold')):
-      #--  targetLib.set_logic_low_to_high_threshold(line) 
-      #--## set_energy_meas_low_threshold
-      #--elif(line.startswith('set_energy_meas_low_threshold')):
-      #--  targetLib.set_energy_meas_low_threshold(line) 
-      #--
-      #--## set_energy_meas_high_threshold
-      #--elif(line.startswith('set_energy_meas_high_threshold')):
-      #--  targetLib.set_energy_meas_high_threshold(line) 
-      #--
-      #--## set_energy_meas_time_extent
-      #--elif(line.startswith('set_energy_meas_time_extent')):
-      #--  targetLib.set_energy_meas_time_extent(line) 
-      #--
-      #--## set_energy_meas_time_extent
-      #--elif(line.startswith('set_operating_conditions')):
-      #--  targetLib.set_operating_conditions(line) 
-      #--
-      #--## set_load
-      #--elif(line.startswith('set_load')):
-      #--  targetLib.set_load(line) 
-      #--
-      #--## set_slope
-      #--elif(line.startswith('set_slope')):
-      #--  targetLib.set_slope(line) 
-      #--
-      #--
-##-- s#--et function : characterizer settings--#
-      #--## set_work_dir
-      #--elif(line.startswith('set_work_dir')):
-      #--  targetLib.set_work_dir(line) 
-      #--
-      #--## set_tmp_dir
-      #--elif(line.startswith('set_tmp_dir')):
-      #--  targetLib.set_tmp_dir(line) 
-      #--
-      #--## set_tmp_file
-      #--elif(line.startswith('set_tmp_file')):
-      #--  targetLib.set_tmp_file(line) 
-      #--
-      #--## set_simulator
-      #--elif(line.startswith('set_simulator')):
-      #--  targetLib.set_simulator(line) 
-      #--
-      #--## set_runsim_option
-      #--elif(line.startswith('set_run_sim')):
-      #--  targetLib.set_run_sim(line) 
-      #--
-      #--## set_multithread_option
-      #--elif(line.startswith('set_num_thread')):
-      #--  targetLib.set_num_thread(line) 
-      #--
-      #--## set_simulator_nice
-      #--elif(line.startswith('set_sim_nice')):
-      #--  targetLib.set_sim_nice(line) 
-      #--
-      #--## set_supress_message
-      #--elif(line.startswith('set_supress_message')):
-      #--  targetLib.set_supress_message(line) 
-      #--
-      #--## set_supress_sim_message
-      #--elif(line.startswith('set_supress_sim_message')):
-      #--  targetLib.set_supress_sim_message(line) 
-      #--
-      #--## set_supress_debug_message
-      #--elif(line.startswith('set_supress_debug_message')):
-      #--  targetLib.set_supress_debug_message(line) 
-      #--
-      #--## set_compress_result
-      #--elif(line.startswith('set_compress_result')):
-      #--  targetLib.set_compress_result(line) 
-
-##-- add function : common for comb. and seq. --#
-      ## add_cell
-      if(line.startswith('add_cell')):
-        targetCell = mlc.MyLogicCell()
-        targetCell.add_cell(line) 
-        targetCell.set_supress_message(targetLib) 
-
-      ## add_slope
-      elif(line.startswith('add_slope')):
-        targetCell.add_slope(targetLib, line) 
-      
-      ## add_load
-      elif(line.startswith('add_load')):
-        targetCell.add_load(targetLib, line) 
-
-      ## add_area
-      elif(line.startswith('add_area')):
-        targetCell.add_area(line) 
-
-      ## add_netlist
-      elif(line.startswith('add_netlist')):
-        targetCell.add_netlist(line) 
-
-      ## add_model
-      elif(line.startswith('add_model')):
-        targetCell.add_model(line) 
-
-      ## add_simulation_timestep
-      elif(line.startswith('add_simulation_timestep')):
-        targetCell.add_simulation_timestep(line) 
-
-##-- add function : for seq. cell --#
-      ## add_flop
-      elif(line.startswith('add_flop')):
-        targetCell = mlc.MyLogicCell()
-        targetCell.add_flop(line) 
-        targetCell.set_supress_message(targetLib) 
-
-      ## add_clock_slope
-      elif(line.startswith('add_clock_slope')):
-        targetCell.add_clock_slope(line) 
-
-      ## add_simulation_setup_auto
-      elif(line.startswith('add_simulation_setup_auto')):
-        tmp_array = line.split()
-        targetCell.add_simulation_setup_lowest('add_simulation_setup_lowest auto '+str(tmp_array[1])) 
-        targetCell.add_simulation_setup_highest('add_simulation_setup_highest auto '+str(tmp_array[1])) 
-        targetCell.add_simulation_setup_timestep('add_simulation_setup_timestep auto '+str(tmp_array[1])) 
-
-      ## add_simulation_setup_lowest
-      elif(line.startswith('add_simulation_setup_lowest')):
-        targetCell.add_simulation_setup_lowest(line) 
-
-      ## add_simulation_setup_highest
-      elif(line.startswith('add_simulation_setup_highest')):
-        targetCell.add_simulation_setup_highest(line) 
-
-      ## add_simulation_setup_timestep
-      elif(line.startswith('add_simulation_setup_timestep')):
-        targetCell.add_simulation_setup_timestep(line) 
-
-      ## add_simulation_hold_auto
-      elif(line.startswith('add_simulation_hold_auto')):
-        tmp_array = line.split()
-        targetCell.add_simulation_hold_lowest('add_simulation_hold_lowest auto '+str(tmp_array[1])) 
-        targetCell.add_simulation_hold_highest('add_simulation_hold_highest auto '+str(tmp_array[1])) 
-        targetCell.add_simulation_hold_timestep('add_simulation_hold_timestep auto '+str(tmp_array[1])) 
-
-      ## add_simulation_hold_lowest
-      elif(line.startswith('add_simulation_hold_lowest')):
-        targetCell.add_simulation_hold_lowest(line) 
-
-      ## add_simulation_hold_highest
-      elif(line.startswith('add_simulation_hold_highest')):
-        targetCell.add_simulation_hold_highest(line) 
-
-      ## add_simulation_hold_timestep
-      elif(line.startswith('add_simulation_hold_timestep')):
-        targetCell.add_simulation_hold_timestep(line) 
-
-##-- execution --#
-      ## initialize
-      elif(line.startswith('create')):
-        initializeFiles(targetLib, targetCell) 
-
-      ## create
-      elif(line.startswith('characterize')):
-        harnessList2 = characterizeFiles(targetLib, targetCell) 
-        os.chdir("../")
-        #print(len(harnessList))
-
-      ## export
-      elif(line.startswith('export')):
-        me.exportFiles(targetLib, targetCell, harnessList2) 
-        med.exportDoc(targetLib, targetCell, harnessList2) 
-        num_gen_file += 1
-
-      ## exit
-      elif(line.startswith('quit') or line.startswith('exit')):
-        me.exitFiles(targetLib, num_gen_file) 
-
 
 
 #def initializeFiles(targetLib, targetCell):
@@ -878,10 +583,6 @@ def characterizeFiles(targetLib, targetCell):
   print ("characterize\n")
   os.chdir(targetLib.work_dir)
 
-  ## Register lut_template
-  #targetLib.gen_lut_templates(targetCell)
-  #targetCell.gen_lut()
-
   ## Branch to each logic function
   if not targetCell.logic in mel.logic_dict.keys():
     print ("Target logic:"+targetCell.logic+" is not registered for characterization(not exist in myExpectLogic.py)!\n")
@@ -891,11 +592,16 @@ def characterizeFiles(targetLib, targetCell):
   #--
   print("cell=" + targetCell.cell + "(" + targetCell.logic + ")");
 
-  if mel.logic_dict[targetCell.logic]["logic_type"] == "comb":
-    rslt=runCombInNOut1(targetLib, targetCell, mel.logic_dict[targetCell.logic]["expect"])
+  logic_type=mel.logic_dict[targetCell.logic]["logic_type"]
+  if   logic_type  == "comb":
+    #rslt=runCombInNOut1(targetLib, targetCell, mel.logic_dict[targetCell.logic]["expect"])
+    rslt=runExpectation(targetLib, targetCell, mel.logic_dict[targetCell.logic]["expect"])
+  elif logic_type  == "seq":
+    rslt=runExpectation(targetLib, targetCell, mel.logic_dict[targetCell.logic]["expect"])
   else:
-    rslt=runFlop(targetLib, targetCell, mel.logic_dict[targetCell.logic]["expect"])
-
+    print(f"[Error] unknown logic_type={logic_type}.")
+    my_exit()
+    
   #
   return rslt
 

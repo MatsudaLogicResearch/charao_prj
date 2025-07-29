@@ -1,4 +1,4 @@
 [
-  {"template_kgn":[["const","2x2","d2"],["delay","2x2","d1"],["power","2x2","d1"],["passive":"2x1","d1"]], "spice":"DFFARAS_1X.spi", "cell":"DFFARAS_1X","logic":"DFF_PC_NR_NS","area":1.0
+  {"template_kgn":[["const","2x2","d1"],["delay","2x2","d1"],["power","2x2","d1"],["passive","2x1","d1"]], "spice":"DFFARAS_1X.spi", "cell":"DFFARAS_1X","logic":"DFF_PC_NR_NS","area":1.0
 	    ,"ports_dict":{"CLK":"c0","DATA":"i0","NRST":"r0","NSET":"s0","Q":"o0","VDD":"vdd","VSS":"vss","VNW":"vnw","VPW":"vpw"}},
 ]

@@ -85,7 +85,11 @@ def exportHarness2doc(harnessList: list[Mcar]):
             outlines.append("| direction | related pwr pin | related gnd pin | max trans | cap. |\n")
             outlines.append("|----|----|----|----|----|\n")
             #outlines.append("| input | "+targetLib.vdd_name+" | "+targetLib.vss_name+" | "+str(targetCell.slope[-1])+" | "+str(targetCell.cins[index1])+" |\n")
-            outlines.append("| input | "+targetLib.vdd_name+" | "+targetLib.vss_name+" | "+str(targetCell.max_trans4in[inport])+" | "+str(targetCell.cins[inport])+" |\n")
+
+            max_trans= targetCell.max_trans4in[inport] if (inport in targetCell.max_trans4in.keys()) else 3.0
+            max_cap  = targetCell.cins[inport]         if (inport in targetCell.cins.keys())         else 3.0
+            
+            outlines.append("| input | "+targetLib.vdd_name+" | "+targetLib.vss_name+" | "+str(max_trans)+" | "+str(max_cap)+" |\n")
             outlines.append("\n")
 
             
@@ -93,26 +97,27 @@ def exportHarness2doc(harnessList: list[Mcar]):
         for outport in targetCell.outports:
             #index1 = targetCell.outports.index(outport)
 
-            h_list_delay=[h for h in harnessList if (h.target_port == outport) and (h.timing_type == "delay")]
-            h_list_power=[h for h in harnessList if (h.target_port == outport) and (h.timing_type == "power")]
+            h_list_delay=[h for h in harnessList if (h.template_kind == "delay")]
+            h_list_power=[h for h in harnessList if (h.template_kind == "power")]
             
             outlines.append("### Output pin : "+outport+"\n") ## output pin start
             outlines.append("| direction | func | max cap | leak | \n")
             outlines.append("|----|----|----|----|\n")
-            #outlines.append("| output | "+targetCell.functions[target_outport].replace('|','\|')+" | "+str(targetCell.load[-1])+" | "+str(harnessList2[0][0].pleak)+" |\n")
-            outlines.append("| output | "+targetCell.functions[outport].replace('|','\|')+" | "+str(targetCell.max_load4out[outport])+" | " +"-" + " |\n")
+
+            max_load = targetCell.max_load4out[outport] if (outport in targetCell.max_load4out.keys()) else 3.0
+            outlines.append("| output | "+targetCell.functions[outport].replace('|','\|')+" | "+str(max_load)+" | " +"-" + " |\n")
             outlines.append("\n")
 
             ## timing / power
             for inport in targetCell.inports:
-                #index2 = targetCell.inports.index(target_inport)
 
                 outlines.append("#### related pin : " + inport + "\n")
                 
                 outlines.append("| related pin | func | max cap |\n")
                 outlines.append("|----|----|----|\n")
-                #outlines.append("|" + target_inport + "|"+targetCell.functions[target_outport].replace('|','\|')+" | "+str(targetCell.load[-1])+" |\n")
-                outlines.append("|" + inport + "|"+targetCell.functions[outport].replace('|','\|')+" | "+str(targetCell.cins[inport])+" |\n")
+
+                max_cap= targetCell.cins[inport]     if (inport in targetCell.cins.keys()) else 3.0                
+                outlines.append("|" + inport + "|"+targetCell.functions[outport].replace('|','\|')+" | "+str(max_cap)+" |\n")
 
                 outlines.append("\n")
                 outlines.append("| direction | prop min. | prop center | prop max |\n")

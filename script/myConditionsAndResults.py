@@ -17,12 +17,12 @@ from myItem           import MyItemTemplate
 
 from myFunc import my_exit
 
-DictKey=Literal["prop","trans",
-                "energy_start","energy_end",
-                "q_in_dyn", "q_out_dyn", "q_vdd_dyn","q_vss_dyn","i_in_leak","i_vdd_leak","i_vss_leak",
+DictKey=Literal["prop","trans","setup","hold","removal","recovery",
+                #"energy_start","energy_end",
+                #"q_in_dyn", "q_out_dyn", "q_vdd_dyn","q_vss_dyn","i_in_leak","i_vdd_leak","i_vss_leak",
                 "eintl","ein","cin", "pleak"]
   
-LutKey = Literal["prop","trans","eintl","ein"]
+LutKey = Literal["prop","trans","setup","hold","recovery","removal","eintl","ein"]
 
 #AvgKey = Literal["cin","pleak"]
 
@@ -56,8 +56,10 @@ class MyConditionsAndResults(BaseModel):
   #-- for myExpectLogic
   mel: Mel = Field(default_factory=Mel)
 
-  template_timing  : MyItemTemplate = None
-  template_energy  : MyItemTemplate = None
+  template_kind    : str = ""
+  template         : MyItemTemplate = None
+  #template_timing  : MyItemTemplate = None
+  #template_energy  : MyItemTemplate = None
   
   direction_prop : str = ""
   direction_tran : str = ""
@@ -68,17 +70,23 @@ class MyConditionsAndResults(BaseModel):
   timing_when    : str = ""
   constraint     : str = ""
 
-  target_port           : str = ""
-  target_port_val       : str = ""
+  target_inport         : str = ""
+  target_inport_val     : str = ""
   target_relport        : str = ""
   target_relport_val    : str = ""
   target_outport        : str = ""
   target_outport_val    : str = ""
+  target_clkport        : str = ""
+  target_clkport_val    : str = ""
+
+  clk_role              : str = "nouse"
   
-  stable_inport         : list[str] = Field(default_factory=list)
-  stable_inport_val     : list[str] = Field(default_factory=list)
-  nontarget_outport     : list[str] = Field(default_factory=list)
-  nontarget_outport_val : list[str] = Field(default_factory=list)
+  #stable_inport         : list[str] = Field(default_factory=list)
+  #stable_inport_val     : list[str] = Field(default_factory=list)
+  #nontarget_outport     : list[str] = Field(default_factory=list)
+  #nontarget_outport_val : list[str] = Field(default_factory=list)
+  stable_inport_val      : dict[str,str] = Field(default_factory=dict); ## {"i0":"1"}
+  nontarget_outport      : list[str] = Field(default_factory=list)
 
   #-- hold result from spice simulation ([load][slope])
   dict_list2: Level3Dict  ; # initial value is set in Level3Dict
@@ -116,32 +124,54 @@ class MyConditionsAndResults(BaseModel):
     self.set_timing_sense()
     self.set_timing_when()
     self.set_direction()
-    self.set_constraint()
     self.set_target_port()
-    self.set_target_relport()
-    self.set_target_outport()
     self.set_stable_inport()
     self.set_nontarget_outport()
     
   def set_direction(self):
-    arc=self.mel.arc_otr[1]
-    if(arc == 'r'):
-      self.set_direction_rise()
-    elif(arc == 'f'):
-      self.set_direction_fall()
-    else:
-      print("Illegal arc: "+arc+", check direction in myExpectLogic2.py")
-      my_exit()
-      
-  def set_direction_rise(self):
-    self.direction_prop  = "cell_rise"
-    self.direction_tran  = "rise_transition"
-    self.direction_power = "rise_power"
 
-  def set_direction_fall(self):
-    self.direction_prop = "cell_fall"
-    self.direction_tran = "fall_transition"
-    self.direction_power = "fall_power"
+    arc_out=self.mel.arc_oir[0]
+    arc_in =self.mel.arc_oir[1]
+
+    ## -- for output
+    if   (arc_out == 'r'):
+      self.direction_prop  ="cell_rise"
+      self.direction_tran  ="rise_transition"
+      self.direction_power ="rise_power"
+      
+    elif (arc_out == 'f'):
+      self.direction_prop  ="cell_fall"
+      self.direction_tran  ="fall_transition"
+      self.direction_power ="fall_power"
+      
+    else:
+      print(f"[Error] unknown arc_out[0]={arc_out}(output).")
+      my_exit()
+
+    ## -- for input
+    if   (arc_in == 'r'):
+      self.constraint = "rise_constraint"
+      
+    elif (arc_in == 'f'):
+      self.constraint = "fall_constraint"
+
+    else:
+      if self.template_kind in ["const"]:
+        print(f"[Error] unknown arc_out[1]={arc_in}(input).")
+        my_exit()
+      else:
+        self.constraint = "stable(not_support)"; ##-- not used this value
+        
+      
+#  def set_direction_rise(self):
+#    self.direction_prop  = "cell_rise"
+#    self.direction_tran  = "rise_transition"
+#    self.direction_power = "rise_power"
+#
+#  def set_direction_fall(self):
+#    self.direction_prop = "cell_fall"
+#    self.direction_tran = "fall_transition"
+#    self.direction_power = "fall_power"
 
   def set_timing_type(self):
     self.timing_type = self.mel.tmg_type
@@ -160,38 +190,20 @@ class MyConditionsAndResults(BaseModel):
   def set_timing_when(self):
     self.timing_when = self.mel.tmg_when
 
-  def set_constraint(self):
-    arc=self.mel.arc_otr[1]
-    if (arc == "r"):
-      self.constraint = "rise_constraint"
-    elif (arc == "f"):
-      self.constraint = "fall_constraint"
-    else:
-      print("Illegal arc_t: "+ arc +", check arc")
-
   def set_function(self):
     self.function = self.mel.function 
 
-#  def set_target_inport(self, inport="tmp", val="01"):
-#    self.target_inport = inport
-#    self.target_inport_val = val
-#    #print(self.target_inport_val)
-#    #print(self.target_inport)
-
-
-#  def set_target_outport(self, outport="tmp", function="tmp", val="01"):
-#    self.target_outport = outport
-#    self.target_function = function
-#    self.target_outport_val = val
-#    
-#    #print(self.target_outport_val)
-#    #print(self.target_outport)
-#    #print(self.target_function)
-
+  def set_target_port(self):
+    self.set_target_outport()
+    self.set_target_inport()
+    self.set_target_relport()
+    self.set_target_clkport()
+    
+    
   def set_target_outport(self):
     
     #-- get pin name & pin position
-    pin_pos=self.mel.pin_otr[0]
+    pin_pos=self.mel.pin_oir[0]
     flag=re.match(r"([a-zA-Z]+)(\d+)", pin_pos)
     if flag:
       pin=flag.group(1)
@@ -203,21 +215,22 @@ class MyConditionsAndResults(BaseModel):
 
     #-- get pin value
     ival = self.mel.ival;          #initial value dict
-    nval = self.mel.mondrv_otr[0]; #next    value 
-    
     val0 = ival[pin][pos] if (pin in ival and pos < len(ival[pin])) else ""
 
-    if val0 and  nval:
+    #if val0 and  nval:
+    #  self.target_outport      = pin_pos
+    #  self.target_outport_val  = val0 + nval
+    if val0 :
       self.target_outport      = pin_pos
-      self.target_outport_val  = val0 + nval
+      self.target_outport_val  = val0
     else :
       print(f"Error out port value error(ival={val0},mondrv={nval}).")
       my_exit();
 
-  def set_target_port(self):
+  def set_target_inport(self):
     
     #-- get pin name & pin position
-    pin_pos=self.mel.pin_otr[1]
+    pin_pos=self.mel.pin_oir[1]
     flag=re.match(r"([a-zA-Z]+)(\d+)", pin_pos)
     if flag:
       pin=flag.group(1)
@@ -228,13 +241,14 @@ class MyConditionsAndResults(BaseModel):
 
     #-- get pin value
     ival = self.mel.ival;          #initial value dict
-    nval = self.mel.mondrv_otr[1]; #next    value 
-    
     val0 = ival[pin][pos] if (pin in ival and pos < len(ival[pin])) else ""
 
-    if val0 and  nval:
-      self.target_port      = pin_pos
-      self.target_port_val  = val0 + nval
+    #if val0 and  nval:
+    #  self.target_inport      = pin_pos
+    #  self.target_inport_val  = val0 + nval
+    if val0 :
+      self.target_inport      = pin_pos
+      self.target_inport_val  = val0
     else :
       print(f"Error target port value error(ival={val0},mondrv={nval}).")
       my_exit();
@@ -242,7 +256,7 @@ class MyConditionsAndResults(BaseModel):
   def set_target_relport(self):
 
     #-- get pin name & pin position
-    pin_pos=self.mel.pin_otr[2]
+    pin_pos=self.mel.pin_oir[2]
     flag=re.match(r"([a-zA-Z]+)(\d+)", pin_pos)
     if flag:
       pin=flag.group(1)
@@ -253,88 +267,71 @@ class MyConditionsAndResults(BaseModel):
 
     #-- get pin value
     ival = self.mel.ival;          #initial value dict
-    nval = self.mel.mondrv_otr[2]; #next    value of relatedpin
-    
     val0 = ival[pin][pos] if (pin in ival and pos < len(ival[pin])) else ""
 
-    if val0 and nval:
+    if val0:
       self.target_relport      = pin_pos
-      self.target_relport_val  = val0 + nval
+      self.target_relport_val  = val0
     else :
       print(f"Error related port value error(ival={val0},mondrv={nval}).")
       my_exit();
 
+  def set_target_clkport(self):
+
+    #----val
+    if self.mlc.clock != None:
+      
+      #-- get pin name & pin position
+      #pin_pos=self.mel.pin_oir[2]
+      pin_pos= self.mlc.clock
+      flag=re.match(r"([a-zA-Z]+)(\d+)", pin_pos)
+      if flag:
+        pin=flag.group(1)
+        pos=int(flag.group(2))
+      else:
+        print(f"  [Error] clock port name={pin_pos} is illegal name.")
+        my_exit()
+
+      #-- get pin value
+      ival = self.mel.ival;          #initial value dict
+      val0 = ival[pin][pos] if (pin in ival and pos < len(ival[pin])) else ""
+
+      if val0:
+        self.target_clkport      = pin_pos
+        self.target_clkport_val  = val0
+      else :
+        print(f"Error clock port value error(ival={val0}).")
+        my_exit();
+
+    #---- role
+    self.clk_role= "related" if self.mel.pin_oir[2]=="c0" else "input" if self.mel.pin_oir[1] =="c0" else "nouse"
+
+    
   def set_stable_inport(self):
-    rel_pin=self.mel.pin_otr[2]
-    for typ in ["i", "b", "c", "r", "s"]:
+    in_pin =self.target_inport
+    rel_pin=self.target_outport
+    clk_pin=self.target_clkport
+    
+    #for typ in ["i", "b", "c", "r", "s"]:
+    for typ in ["i", "b", "r", "s"]: #-- except clock port
       values=self.mel.ival.get(typ,[])
+      
       for i in range (len(values)):
         pin=typ+"{:}".format(i)
-        if rel_pin != pin:
-          self.stable_inport.append(pin)
-          self.stable_inport_val.append(self.mel.ival[typ][i])
+        if not pin in [rel_pin, in_pin, clk_pin]:
+          self.stable_inport_val[pin]=self.mel.ival[typ][i]
 
-          
-#  def set_nontarget_outport(self, outport="tmp"):
-#    self.stable_nontarget.append(outport)
-#    #print(self.outport)
-
-  def set_nontarget_outport(self, outport="tmp"):
+  def set_nontarget_outport(self):
     typ="o"
     values=self.mel.ival.get(typ,[])
-    out_pin=self.mel.pin_otr[0]
+    out_pin=self.target_outport
     for i in range (len(values)):
       pin=typ+"{:}".format(i)
       if out_pin != pin:
         self.nontarget_outport.append(pin)
-        self.nontarget_outport.append(self.mel.ival[typ][i])
+        #self.nontarget_outport.append(self.mel.ival[typ][i])
 
-#  def set_target_clock(self, inport="tmp", val="01"):
-#    self.target_clock = inport
-#    self.target_clock_val = val
-#    #print(self.target_clock_val)
-#    #print(self.target_clock)
-#
-#  def set_target_reset(self, inport="tmp", val="01"):
-#    self.target_reset = inport
-#    self.target_reset_val = val
-#    #print(self.target_reset_val)
-#    #print(self.target_reset)
-#
-#  def set_target_set(self, inport="tmp", val="01"):
-#    self.target_set = inport
-#    self.target_set_val = val
-#    #print(self.target_set_val)
-#    #print(self.target_set)
-#
-#  def invert_set_reset_val(self):
-#    if(self.target_reset_val == '01'):
-#      self.target_reset_val = '10'
-#    elif(self.target_reset_val == '10'):
-#      self.target_reset_val = '01'
-#    if(self.target_set_val == '01'):
-#      self.target_set_val = '10'
-#    elif(self.target_set_val == '10'):
-#      self.target_set_val = '01'
-#
-#  def invert_outport_val(self):
-#    if(self.target_outport_val == '01'):
-#      self.target_outport_val = '10'
-#    elif(self.target_outport_val == '10'):
-#      self.target_outport_val = '01'
 
-  ## propagation delay table
-  #def set_list2_prop(self, list2_prop=[]):
-  #  self.list2_prop = list2_prop 
-  #
-  #def print_list2_prop(self, ilist, jlist):
-  #  for i in range(len(ilist)):
-  #    for j in range(len(jlist)):
-  #      print(self.list2_prop[i][j])
-  
-  #def print_lut_prop(self):
-  #  for i in range(len(self.lut_prop)):
-  #    print(self.lut_prop[i])
 
 #  def write_list2_prop(self, targetLib, ilist, jlist):
 #    ## index_1
@@ -468,20 +465,32 @@ class MyConditionsAndResults(BaseModel):
 
   #def set_lut(self, template_kind:str, value_name:str):
   def set_lut(self, value_name:str):
-    outline=""
-    self.lut[value_name]         = []
-    self.lut_min2max[value_name] = []
-
+    
     ## select mag
     mag = self.mls.energy_mag if value_name in ["eintl","ein"] else self.mls.time_mag
 
     ## get index
     if value_name in ["eintl", "ein"]:
-      index_1_list=self.template_energy.index_1
-      index_2_list=self.template_energy.index_2
+      if not self.template_kind in ["power","passive"]:
+        print(f"[Error] value_name={value_name}/template_kind={self.template_kind} are missmatch.")
+        my_exit()
     else:
-      index_1_list=self.template_timing.index_1
-      index_2_list=self.template_timing.index_2
+      if not self.template_kind in ["delay","const"]:
+        print(f"[Error] value_name={value_name}/template_kind={self.template_kind} are missmatch.")
+        my_exit()
+
+    ## skip if not dict_list2
+    if not value_name in self.dict_list2.keys():
+      print(f"[ERROR] dict_list2[{value_name}] is not exist.")
+      my_exit()
+
+    ##
+    outline=""
+    self.lut[value_name]         = []
+    self.lut_min2max[value_name] = []
+
+    index_1_list=self.template.index_1
+    index_2_list=self.template.index_2
     
     ## index_1
     outline = 'index_1("' + ','.join(map(str, index_1_list)) + '");'
@@ -1524,36 +1533,45 @@ class MyConditionsAndResults(BaseModel):
       # match tmp_array and harness 
       # search target inport
       is_matched = 0
-      #w2 = self.target_inport
+
+      # DO NOT CHANGE ORDER(CLK->REL->IN)
+      if(w1 == self.target_clkport):
+        tmp_line += ' CLK'
+        is_matched += 1
+        continue
       
-      w2 = self.target_relport
-      if(w1 == w2):
+      if(w1 == self.target_relport):
+        tmp_line += ' REL'
+        is_matched += 1
+        continue
+      
+      if(w1 == self.target_inport):
         tmp_line += ' IN'
         is_matched += 1
         continue
       
       # search stable inport
-      for w2 in self.stable_inport:
+      is_matched2=0
+      for w2 in self.stable_inport_val.keys():
         if(w1 == w2):
-          # this is stable inport
-          # search index for this port
-          index_val = self.stable_inport_val[self.stable_inport.index(w2)]
-          if(index_val == '1'):
+          val = self.stable_inport_val[w2]
+          if(val == '1'):
             tmp_line += ' HIGH'
             is_matched += 1
-          elif(index_val == '0'):
+            is_matched2  =1
+          elif(val == '0'):
             tmp_line += ' LOW'
             is_matched += 1
+            is_matched2  =1
           else:
-            print('Illigal input value for stable input')
+            print(f'Illigal input value for stable input({w1})={val}')
             my_exit()
 
-          continue
+      if is_matched2:
+        continue
             
       # one target outport for one simulation
-      w2 = self.target_outport
-      #targetLib.print_msg(w1+" "+w2+"\n")
-      if(w1 == w2):
+      if(w1 == self.target_outport):
         tmp_line += ' OUT'
         is_matched += 1
         continue
@@ -1563,8 +1581,7 @@ class MyConditionsAndResults(BaseModel):
         if(w1 == w2):
           # this is non-terget outport
           # search outdex for this port
-          index_val = self.nontarget_outport_val[self.nontarget_outport.index(w2)]
-          tmp_line += ' WFLOAT'+str(index_val)
+          tmp_line += ' WFLOAT'
           is_matched += 1
           continue
 
@@ -1592,6 +1609,10 @@ class MyConditionsAndResults(BaseModel):
           tmp_line += ' VNW' 
           is_matched += 1
           continue
+
+      #
+      print(f"[Error] not used port name={w1} in XDUT")
+      my_exit()
         
     ## show error if this port has not matched
     if(is_matched == 0):

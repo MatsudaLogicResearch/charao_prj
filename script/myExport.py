@@ -150,13 +150,15 @@ def exportHarness(harnessList:list[Mcar]):
 
     ## for output port
     for outport in targetCell.outports:
-      h_list = [h for h in harnessList if h.target_port == outport]
+      h_list = [h for h in harnessList if h.template_kind in ["delay","power"]]
       
       h_list_out = sorted(h_list, key=lambda x: (x.target_relport, x.timing_type, x.timing_when, x.direction_prop));
       
       if len(h_list_out) < 1:
-        print(f"Error: no harness result exist for target={target_outport}.")
-        my_exit()
+        #print(f"Error: no harness result exist for target={outport}.")
+        #my_exit()
+        print(f"[Warn]: no harness result exist for target={outport}.")
+        continue
 
       ## output pin infomation
       #outlines.append("    pin ("+ target_outport+"){\n") ## out pin start
@@ -169,9 +171,8 @@ def exportHarness(harnessList:list[Mcar]):
       outlines.append("      max_capacitance : \""+str(targetCell.max_load4out[outport])+"\";\n") ## use max val. of load table
       outlines.append("      output_voltage : default_"+targetLib.vdd_name+"_"+targetLib.vss_name+"_output;\n")
 
-      h_list_out_t = [h for h in h_list_out if (h.template_timing is not None ) and (h.template_timing.kind== "delay")]
-      h_list_out_e = [h for h in h_list_out if (h.template_energy is not None ) and (h.template_energy.kind== "power")]
-
+      h_list_out_t = [h for h in h_list_out if (h.template_kind== "delay")]
+      h_list_out_e = [h for h in h_list_out if (h.template_kind== "power")]
 
       ## timing(delay)
       sorted_harnessList=sorted(h_list_out_t, key=lambda x: (x.target_relport, x.timing_type, x.timing_when))
@@ -179,22 +180,24 @@ def exportHarness(harnessList:list[Mcar]):
         group_list=list(group);
         size=len(group_list)
         print(f" group: target={outport}, relport={target_relport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
-        
-        if size != 2: ## pair of fall/rise
-          print(f"Error: len(group) is not 2(={size})")
+
+        size_exp=1 if timing_type in ["clear","preset"] else 2
+        if size != size_exp: ## pair of fall/rise
+          print(f"Error: len(group) is not {size_exp}(={size})")
           my_exit()
 
         ## check
         h1 = group_list[0]
-        h2 = group_list[1]
+        if size > 1:
+          h2 = group_list[1]
         
-        if (h1.stable_inport != h2.stable_inport) :
-          print("Error: stable_inport missmatch in %s . harness[N]=%s, harness[N+1]=%s." %(targetCell.logic, h1.stable_inport, h2.stable_inport));
-          my_exit();
+          if (h1.stable_inport_val.keys() != h2.stable_inport_val.keys()) :
+            print("Error: stable_inport missmatch in %s . harness[N]=%s, harness[N+1]=%s." %(targetCell.logic, h1.stable_inport_val.keys(), h2.stable_inport_val.keys()));
+            my_exit();
           
-        if (h1.timing_sense != h2.timing_sense) :
-          print("Error: timing_sense missmatch in %s. harness[N]=%s, harness[N+1]=%s." %(targetCell.logic, h1.timing_sense, h2.timing_sense));
-          my_exit();
+          if (h1.timing_sense != h2.timing_sense) :
+            print("Error: timing_sense missmatch in %s. harness[N]=%s, harness[N+1]=%s." %(targetCell.logic, h1.timing_sense, h2.timing_sense));
+            my_exit();
 
         ## infomation
         outlines.append("      timing () {\n")
@@ -211,7 +214,7 @@ def exportHarness(harnessList:list[Mcar]):
         
         ## propagation & transition
         for h in group_list:
-          t=h.template_timing
+          t=h.template
           outlines.append("        " + h.direction_prop + " (" + t.kind + "_template_" + t.grid + ") {\n")
           
           for lut_line in h.lut["prop"]:
@@ -233,20 +236,22 @@ def exportHarness(harnessList:list[Mcar]):
         size=len(group_list)
         print(f" group: target_outport={outport}, target_relport={target_relport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
         
+        size_exp=1 if timing_type in ["clear","preset"] else 2
         if size != 2:
-          print(f"Error: len(group) is not 2(={size})")
+          print(f"Error: len(group) is not {size_exp}(={size})")
 
         ## check
         h1 = group_list[0]
-        h2 = group_list[1]
+        if size > 1:
+          h2 = group_list[1]
         
-        if (h1.stable_inport != h2.stable_inport) :
-          print("Error: stable_inport missmatch in %s . harness[N]=%s, harness[N+1]=%s." %(targetCell.logic, h1.stable_inport, h2.stable_inport));
-          my_exit();
+          if (h1.stable_inport_val.keys() != h2.stable_inport_val.keys()) :
+            print("Error: stable_inport missmatch in %s . harness[N]=%s, harness[N+1]=%s." %(targetCell.logic, h1.stable_inport_val.keys(), h2.stable_inport_val.keys()));
+            my_exit();
           
-        if (h1.timing_sense != h2.timing_sense) :
-          print("Error: timing_sense missmatch in %s. harness[N]=%s, harness[N+1]=%s." %(targetCell.logic, h1.timing_sense, h2.timing_sense));
-          my_exit();
+          if (h1.timing_sense != h2.timing_sense) :
+            print("Error: timing_sense missmatch in %s. harness[N]=%s, harness[N+1]=%s." %(targetCell.logic, h1.timing_sense, h2.timing_sense));
+            my_exit();
           
         #-- infomation
         outlines.append("      internal_power () {\n")
@@ -258,7 +263,7 @@ def exportHarness(harnessList:list[Mcar]):
 
         ## rise(fall)
         for h in group_list:
-          t = h.template_energy
+          t = h.template
           outlines.append("        "+h.direction_power+" (" + t.kind + "_energy_template_" + t.grid + ") {\n")
           
           for lut_line in h.lut["eintl"]:
@@ -270,16 +275,21 @@ def exportHarness(harnessList:list[Mcar]):
       outlines.append("    }\n") ## out pin end
 
     ## select one input pin from pinlist 
-    for inport in targetCell.inports:
-      index1 = targetCell.inports.index(inport) 
+    for inport in targetCell.inports + [targetCell.clock]:
+      #index1 = targetCell.inports.index(inport) 
       outlines.append("    pin ("+targetCell.replace_by_portmap(inport)+"){\n") ## out pin start
       outlines.append("      direction : input; \n")
       outlines.append("      related_power_pin : "+targetLib.vdd_name+";\n")
       outlines.append("      related_ground_pin : "+targetLib.vss_name+";\n")
       #outlines.append("      max_transition : "+str(targetCell.slope[-1])+";\n")
       #outlines.append("      capacitance : \""+str(targetCell.cins[index1])+"\";\n")
-      outlines.append("      max_transition : "+str(targetCell.max_trans4in[inport])+";\n")
-      outlines.append("      capacitance : \""+str(targetCell.cins[inport])+"\";\n")
+
+      max_transition = targetCell.max_trans4in[inport] if (inport in targetCell.max_trans4in.keys()) else 3.0
+      outlines.append("      max_transition : "+str(max_transition)+";\n")
+      
+      max_capacitance = targetCell.cins[inport] if ( inport in targetCell.cins.keys()) else 3.0
+      outlines.append("      capacitance : \""+str(max_capacitance)+"\";\n")
+      
       outlines.append("      input_voltage : default_"+targetLib.vdd_name+"_"+targetLib.vss_name+"_input;\n")
       outlines.append("    }\n") ## in pin end
 

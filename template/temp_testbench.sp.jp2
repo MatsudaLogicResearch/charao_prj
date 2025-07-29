@@ -1,0 +1,188 @@
+*title: delay meas.
+.option brief nopage nomod post=1 ingold=2 autostop
+
+.inc '{{param.model}}'
+.inc '{{param.netlist}}'
+
+.temp {{param.temp}}
+
+.param _vdd = {{param.voltage_vsnp[0]}}
+.param _vss = {{param.voltage_vsnp[1]}}
+.param _vnw = {{param.voltage_vsnp[2]}}
+.param _vpw = {{param.voltage_vsnp[3]}}
+.param cap  = {{param.cap}}
+
+.param _timestep   = {{param.timestep}}
+.param _tsim_end   = {{param.tsim_end}}
+
+.param _tdelay_init= {{param.tdelay_init}}
+.param _tpulse_init= {{param.tpulse_init}}
+
+.param _tdelay_in  = {{param.tdelay_in}}
+.param _tslew_in   = {{param.tslew_in}}
+
+.param _tdelay_rel = {{param.tdelay_rel}}
+.param _tslew_rel  = {{param.tslew_rel}}
+.param _tpulse_rel = {{param.tpulse_rel}}
+.param _tsweep_rel = {{param.tsweep_rel}}
+
+** timing
+.param _t_init0 = {_timestep + _tdelay_init}
+.param _t_init1 = {_t_init0  + 2*_timestep}
+.param _t_init2 = {_t_init1  + _tpulse_init}
+.param _t_init3 = {_t_init2  + 2*_timestep}
+
+.param _t_in0   = {_t_init3 + _tdelay_in}
+.param _t_in1   = {_t_in0   + _tslew_in}
+
+.param _t_rel0  = {_t_in1  + _tdelay_rel + _tsweep_rel}
+.param _t_rel1  = {_t_rel0 + _tslew_rel}
+.param _t_rel2  = {_t_rel1 + _tpulse_rel}
+.param _t_rel3  = {_t_rel2 + 2*_timestep}
+
+
+.param _t_clk0  = {_t_init0}
+.param _t_clk1  = {_t_init1}
+.param _t_clk2  = {_t_init2}
+.param _t_clk3  = {_t_init3}
+{% if param.clk_role == "related" %}
+.param _t_clk4  = {_t_rel0}
+.param _t_clk5  = {_t_rel1}
+.param _t_clk6  = {_t_rel2}
+.param _t_clk7  = {_t_rel3}
+{%- elif param.clk_role == "input" %}
+.param _t_clk4  = {_t_in0}
+.param _t_clk5  = {_t_in1}
+.param _t_clk6  = {_tsim_end + 2*_timestep}
+.param _t_clk7  = {_tclk6    + 2*_timestep}
+{%- else %}
+.param _t_clk4  = {_tsim_end+ 2*_timestep}
+.param _t_clk5  = {_t_clk4  + 2*_timestep}
+.param _t_clk6  = {_t_clk5  + 2*_timestep}
+.param _t_clk7  = {_t_clk6  + 2*_timestep}
+{%- endif %}
+
+
+** DC
+VDD_DYN VDD_DYN 0 DC {_vdd}
+VSS_DYN VSS_DYN 0 DC {_vss}
+VNW_DYN VNW_DYN 0 DC {_vnw}
+VPW_DYN VPW_DYN 0 DC {_vpw}
+
+VHIGH VHIGH 0 DC {_vdd}
+VLOW  VLOW  0 DC {_vss}
+
+** output load 
+VOCAP VOUT WOUT DC 0
+ 
+** tran
+.tran {_timestep} {_tsim_end}
+
+
+** PWL
+**** VIN
+{% if   param.arc_oirc[1] == "rise" %}
+VIN VIN 0 PWL(0p {_vss} {_t_in0} {_vss} {_t_in1} {_vdd} )
+{%- elif param.arc_oirc[1] == "fall" %}
+VIN VIN 0 PWL(0p {_vdd} {_t_in0} {_vdd} {_t_in1} {_vss} )
+{%- elif param.val0_oirc[1] == "1" %}
+VIN VIN 0 DC {_vdd}
+{%- else %}
+VIN VIN 0 DC {_vss}
+{%- endif %}
+
+*** VREL
+{% if   param.arc_oirc[2] == "rise" %}
+VREL VREL 0 PWL(0p {_vss} {_t_rel0} {_vss} {_t_rel1} {_vdd} )
+{%- elif param.arc_oirc[2] == "fall" %}
+VREL VREL 0 PWL(0p {_vdd} {_t_rel0} {_vdd} {_t_rel1} {_vss} )
+{%- elif param.val0_oirc[2] == "1" %}
+VREL VREL 0 DC {_vdd}
+{%- else %}
+VREL VREL 0 DC {_vss}
+{%- endif %}
+
+*** VCLK
+{% if   param.val0_oirc[3] == "0" %}
+VCLK VCLK 0 PWL(0p {_vss} {_t_clk0} {_vss} {_t_clk1} {_vdd} {_t_clk2} {_vdd} {_t_clk3}
++                  {_vss} {_t_clk4} {_vss} {_t_clk5} {_vdd} {_t_clk6} {_vdd} {_t_clk7} {_vss})
+{%- else %}
+VCLK VCLK 0 PWL(0p {_vdd} {_t_clk0} {_vdd} {_t_clk1} {_vss} {_t_clk2} {_vss} {_t_clk3}
++                  {_vdd} {_t_clk4} {_vdd} {_t_clk5} {_vss} {_t_clk6} {_vss} {_t_clk7} {_vdd})
+{%- endif %}
+
+** MEASURE
+
+*** output change time
+.MEASURE TRAN chg_out
++ WHEN v(VOUT)={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0}
+
+*** Prop delay 
+.MEASURE TRAN prop_in_out
++ TRIG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1  TD={_t_rel0}
++ TARG v(VOUT) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1
+
+*** Trans delay 
+.MEASURE TRAN trans_out
++ TRIG v(VOUT) VAL={{param.tran_v0_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0}
++ TARG v(VOUT) VAL={{param.tran_v1_oirc[0]}} {{param.arc_oirc[0]}}=1 
+
+{%-if (param.arc_oirc[1] in ["rise","fall"]) and (param.arc_oirc[2] in ["rise","fall"])%}
+*** setup/recovery
+.MEASURE TRAN setup_in_rel
++ TRIG v(VIN)  VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc[1]}}=1  TD={_t_clk3}
++ TARG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1
+
+*** hold/removal
+.MEASURE TRAN hold_rel_in
++ TRIG v(VREL)  VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1  TD={_t_clk3}
++ TARG v(VIN)   VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc[1]}}=1
+{%-endif %}
+
+*** energy time
+{%- if   param.meas_energy >  0 %}
+.MEASURE TRAN energy_start
++ WHEN V(VREL)={{param.ener_v0_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_rel0}
+
+.MEASURE TRAN energy_end
++ WHEN V(VOUT)={{param.ener_v1_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0}
+{%- endif %}
+
+*** In/Out Q, Capacitance 
+{%- if   param.meas_energy >  1 %}
+.MEASURE TRAN q_rel_dyn INTEG I(VREL)  FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+.MEASURE TRAN q_in_dyn  INTEG I(VIN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+.MEASURE TRAN q_clk_dyn INTEG I(VIN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+.MEASURE TRAN q_out_dyn INTEG I(VOCAP) FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+
+*** Energy (Total charge, Short-Circuit Charge) 
+.MEASURE TRAN q_vdd_dyn INTEG I(VDD_DYN) FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+.MEASURE TRAN q_vss_dyn INTEG I(VSS_DYN) FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+
+*** Leakage current 
+.MEASURE TRAN i_vdd_leak AVG I(VDD_DYN) FROM={_t_in0 - 100*_timestep} TO={_t_in0}
+.MEASURE TRAN i_vss_leak AVG I(VSS_DYN) FROM={_t_in0 - 100*_timestep} TO={_t_in0}
+
+* Gate leak current 
+.MEASURE TRAN i_rel_leak avg I(VREL) FROM={_t_rel0} TO={_t_rel1}
+.MEASURE TRAN i_in_leak  avg I(VIN)  FROM={_t_in0}  TO={_t_in1}
+.MEASURE TRAN i_clk_leak avg I(VCLK) FROM={_t_rel0} TO={_t_rel1}
+{%- endif %}
+
+**** CONTROL
+***comment out .control for ngspice batch mode 
+**.control 
+** step param _tsweep_rel list {{ tsweep_rel | join(" ") }}
+** op
+** *plot V(VIN) V(VOUT) 
+**.endc 
+
+** INSTANCE
+XCELL VCLK VREL VIN VOUT VHIGH VLOW VDD_DYN VSS_DYN VNW_DYN VPW_DYN DUT 
+C0 WOUT VSS_DYN 'cap'
+ 
+.SUBCKT DUT CLK REL IN OUT HIGH LOW VDD VSS VNW VPW
+{{param.tb_instance}}
+.ends 
+
+.end 

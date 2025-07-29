@@ -91,6 +91,7 @@ class MyLibrarySetting(BaseModel):
   sim_segment_timestep_start : float = 1.0
   sim_segment_timestep_ratio : float = 0.1
   sim_segment_timestep_min   : float = 0.01
+  sim_time_const_threshold   : float = 0.01
   sim_time_end_extent : int   = 10    ;#
   
   compress_result :str = "true" 
@@ -370,4 +371,35 @@ class MyLibrarySetting(BaseModel):
 
       #
       print(f"   add lut_template={kind}/{grid}.")
+
       
+  def exec_spice(self,spicef:str) ->str:
+    #---
+    spicelis = spicef + ".lis"
+    spicerun = spicef + ".run"
+
+    #-- command
+    if(re.search("ngspice", self.simulator)):
+      cmd = "nice -n "+str(self.sim_nice)+" "+str(self.simulator)+" -b "+str(spicef)+" > "+str(spicelis)+" 2>&1 \n"
+    elif(re.search("hspice", self.simulator)):
+      cmd = "nice -n "+str(self.sim_nice)+" "+str(self.simulator)+" "+str(spicef)+" -o "+str(spicelis)+" 2> /dev/null \n"
+    elif(re.search("Xyce", self.simulator)):
+      cmd = "nice -n "+str(self.sim_nice)+" "+str(self.simulator)+" "+str(spicef)+" -hspice-ext all 1> "+str(spicelis)
+
+    #-- create execute file
+    with open(spicerun,'w') as f:
+      outlines = []
+      outlines.append(cmd) 
+      f.writelines(outlines)
+
+    #- do spice simulation
+    cmd = ['sh', spicerun]
+ 
+    if(self.runsim == "true"):
+      try:
+        res = subprocess.check_call(cmd)
+      except:
+        print ("Failed to lunch spice")
+
+    #--
+    return(spicelis)
