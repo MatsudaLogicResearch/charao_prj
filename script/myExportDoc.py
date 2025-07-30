@@ -4,10 +4,9 @@ from myFunc import my_exit
 from myLibrarySetting       import MyLibrarySetting        as Mls 
 from myLogicCell            import MyLogicCell             as Mlc
 from myConditionsAndResults import MyConditionsAndResults  as Mcar
-from myExpectLogic          import MyExpectLogic           as Mel
-from myExpectLogic          import logic_dict              
+from myExpectCell           import MyExpectCell            as Mec
+#from myExpectCell           import logic_dict              
 
-#def exportDoc(targetLib, targetCell, harnessList2):
 def exportDoc(harnessList:[Mcar]):
     targetLib = harnessList[0].mls
     targetCell= harnessList[0].mlc

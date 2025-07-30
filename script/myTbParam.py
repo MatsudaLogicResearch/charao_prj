@@ -26,6 +26,8 @@ class MyTbParam:
   clk_role     :str        ="nouse"
   meas_energy  :int        =0;  # 0:No Meas for Energy/ 1:Meas Only Time/ 2:Meas all
   time_energy  :list[float]=Field(default_factory=list); #[start,end]
+
+  meas_o_max_min:int       =0;
   
   timestep     :float      =1e-9;
   tsim_end     :float      =1e-9;

@@ -8,8 +8,7 @@ from itertools import groupby
 from myFunc import my_exit
 
 from myLibrarySetting       import MyLibrarySetting as Mls 
-from myExpectLogic          import logic_dict
-#import myExpectLogic                                as mel
+from myExpectCell           import logic_dict
 from myItem                 import MyItemTemplate
 
 if TYPE_CHECKING:
@@ -515,7 +514,7 @@ class MyLogicCell(BaseModel):
 
   def add_function(self):
     if not self.logic in logic_dict.keys():
-      print(f"[Error] logic="+self.logic + " is not exist in MyExpectLogic.py.");
+      print(f"[Error] logic="+self.logic + " is not exist in MyExpectCell.py.");
       my_exit();
 
 
@@ -695,6 +694,7 @@ class MyLogicCell(BaseModel):
           #print(f"{inport}:{cin_all}")
           
       if len(cin_all)<1:
+        self.cins[inport]=0.0; #-- default value?
         continue
         #print(f'[Error] dict_list2["cin"] size is 0.')
         #my_exit()
@@ -708,34 +708,34 @@ class MyLogicCell(BaseModel):
   def set_pleak_icrs(self, harnessList:list["Mcar"]):
 
     #-- sort by when-condition
-    #sorted_harnessList=sorted(harnessList, key=lambda x: (tuple(x.mel.rval.get("i",[])),
-    #                                                      tuple(x.mel.rval.get("c",[])),
-    #                                                      tuple(x.mel.rval.get("r",[])),
-    #                                                      tuple(x.mel.rval.get("s",[]))))
-    sorted_harnessList=sorted(harnessList, key=lambda x: (tuple(x.mel.ival.get("i",[])),
-                                                          tuple(x.mel.ival.get("c",[])),
-                                                          tuple(x.mel.ival.get("r",[])),
-                                                          tuple(x.mel.ival.get("s",[]))))
+    #sorted_harnessList=sorted(harnessList, key=lambda x: (tuple(x.mec.rval.get("i",[])),
+    #                                                      tuple(x.mec.rval.get("c",[])),
+    #                                                      tuple(x.mec.rval.get("r",[])),
+    #                                                      tuple(x.mec.rval.get("s",[]))))
+    sorted_harnessList=sorted(harnessList, key=lambda x: (tuple(x.mec.ival.get("i",[])),
+                                                          tuple(x.mec.ival.get("c",[])),
+                                                          tuple(x.mec.ival.get("r",[])),
+                                                          tuple(x.mec.ival.get("s",[]))))
 
     #-- generate pleak by when-condition
     #for (i,c,r,s),group in groupby(
-    #    sorted_harnessList, key=lambda x:(tuple(x.mel.rval.get("i",[])),
-    #                                      tuple(x.mel.rval.get("c",[])),
-    #                                      tuple(x.mel.rval.get("r",[])),
-    #                                      tuple(x.mel.rval.get("s",[])))):
+    #    sorted_harnessList, key=lambda x:(tuple(x.mec.rval.get("i",[])),
+    #                                      tuple(x.mec.rval.get("c",[])),
+    #                                      tuple(x.mec.rval.get("r",[])),
+    #                                      tuple(x.mec.rval.get("s",[])))):
     #  rval={"i":i, "c":c, "r":r, "s":s}
     for (i,c,r,s),group in groupby(
-        sorted_harnessList, key=lambda x:(tuple(x.mel.ival.get("i",[])),
-                                          tuple(x.mel.ival.get("c",[])),
-                                          tuple(x.mel.ival.get("r",[])),
-                                          tuple(x.mel.ival.get("s",[])))):
+        sorted_harnessList, key=lambda x:(tuple(x.mec.ival.get("i",[])),
+                                          tuple(x.mec.ival.get("c",[])),
+                                          tuple(x.mec.ival.get("r",[])),
+                                          tuple(x.mec.ival.get("s",[])))):
       rval={"i":i, "c":c, "r":r, "s":s}
 
       h_group=list(group);
       size=len(h_group)
       #print(rval)
 
-      ##-- generate when condition from harnessList.mel
+      ##-- generate when condition from harnessList.mec
       ##---  str_when = "i0","!i1","c0","r1"
       cond_when=[]
       for port_type in ["i", "c", "r", "s"]:
@@ -753,6 +753,7 @@ class MyLogicCell(BaseModel):
         pleak_all.extend(pleak_list)
 
       if len(pleak_all)<1:
+        self.pleak_icrs[str_when]=0.0
         continue
 
       mag=self.mls.leakage_power_mag

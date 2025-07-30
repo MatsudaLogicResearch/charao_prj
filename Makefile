@@ -78,7 +78,8 @@ pdf:lib
 	done
 
 lib:prep
-	time python3 $(LIBRETTO) -f $(FAB_PROCESS) -v $(CELL_VENDOR) --condition $(CONDITION) --process $(PROCESS) --temp $(TEMP) --vdd $(VDD) --vss $(VSS) --vnw $(VNW) --vpw $(VPW)
+	#time python3 $(LIBRETTO) -f $(FAB_PROCESS) -v $(CELL_VENDOR) --condition $(CONDITION) --process $(PROCESS) --temp $(TEMP) --vdd $(VDD) --vss $(VSS) --vnw $(VNW) --vpw $(VPW)
+	time python3 $(LIBRETTO) -f $(FAB_PROCESS) -v $(CELL_VENDOR) --condition $(CONDITION) --process $(PROCESS) --temp $(TEMP) 
 
 prep:
 	\rm -rf work *.v *.md *.lib;\

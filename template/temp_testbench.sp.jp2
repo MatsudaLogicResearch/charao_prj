@@ -113,19 +113,25 @@ VCLK VCLK 0 PWL(0p {_vdd} {_t_clk0} {_vdd} {_t_clk1} {_vss} {_t_clk2} {_vss} {_t
 
 ** MEASURE
 
+{%- if   param.arc_oirc[0] in ["rise","fall"] %}
 *** output change time
 .MEASURE TRAN chg_out
 + WHEN v(VOUT)={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0}
+{%- endif %}
 
+{%- if   (param.arc_oirc[0] in ["rise","fall"]) and (param.arc_oirc[2] in ["rise","fall"]) %}
 *** Prop delay 
 .MEASURE TRAN prop_in_out
 + TRIG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1  TD={_t_rel0}
 + TARG v(VOUT) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1
+{%- endif %}
 
+{%- if  param.arc_oirc[0] in ["rise","fall"] %}
 *** Trans delay 
 .MEASURE TRAN trans_out
 + TRIG v(VOUT) VAL={{param.tran_v0_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0}
 + TARG v(VOUT) VAL={{param.tran_v1_oirc[0]}} {{param.arc_oirc[0]}}=1 
+{%- endif %}
 
 {%-if (param.arc_oirc[1] in ["rise","fall"]) and (param.arc_oirc[2] in ["rise","fall"])%}
 *** setup/recovery
@@ -139,8 +145,8 @@ VCLK VCLK 0 PWL(0p {_vdd} {_t_clk0} {_vdd} {_t_clk1} {_vss} {_t_clk2} {_vss} {_t
 + TARG v(VIN)   VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc[1]}}=1
 {%-endif %}
 
-*** energy time
 {%- if   param.meas_energy >  0 %}
+*** energy time
 .MEASURE TRAN energy_start
 + WHEN V(VREL)={{param.ener_v0_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_rel0}
 
@@ -148,8 +154,8 @@ VCLK VCLK 0 PWL(0p {_vdd} {_t_clk0} {_vdd} {_t_clk1} {_vss} {_t_clk2} {_vss} {_t
 + WHEN V(VOUT)={{param.ener_v1_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0}
 {%- endif %}
 
-*** In/Out Q, Capacitance 
 {%- if   param.meas_energy >  1 %}
+*** In/Out Q, Capacitance 
 .MEASURE TRAN q_rel_dyn INTEG I(VREL)  FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 .MEASURE TRAN q_in_dyn  INTEG I(VIN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 .MEASURE TRAN q_clk_dyn INTEG I(VIN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
@@ -168,6 +174,14 @@ VCLK VCLK 0 PWL(0p {_vdd} {_t_clk0} {_vdd} {_t_clk1} {_vss} {_t_clk2} {_vss} {_t
 .MEASURE TRAN i_in_leak  avg I(VIN)  FROM={_t_in0}  TO={_t_in1}
 .MEASURE TRAN i_clk_leak avg I(VCLK) FROM={_t_rel0} TO={_t_rel1}
 {%- endif %}
+
+
+{%- if   param.meas_o_max_min ==  1 %}
+*** output min/max
+.MEASURE TRAN o_max_v MAX V(VOUT) FROM={_t_rel0} TO={_t_rel1+10e-9}
+.MEASURE TRAN o_min_v MIN V(VOUT) FROM={_t_rel0} TO={_t_rel1+10e-9}
+{%- endif %}
+
 
 **** CONTROL
 ***comment out .control for ngspice batch mode 

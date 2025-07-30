@@ -1,10 +1,10 @@
 import argparse, re, os, shutil, subprocess, threading
-from myFunc import my_exit
 from pydantic import BaseModel, model_validator, Field
 from typing import Any
 from itertools import groupby
 
 from myItem import MyItemTemplate
+from myFunc import my_exit
 
 class MyLibrarySetting(BaseModel):
   #=====================================
@@ -50,6 +50,7 @@ class MyLibrarySetting(BaseModel):
   time_mag          : float = 1e-9        ; #
   
   #--- update by config_char_cond.jsonc
+  cell_group                  : str = "std"  ;#usually set by argv.
   operating_conditions        : str = "TCCOM";#usually set by argv.
   process                     : float = 1.0  ;#usually set by argv.
   temperature                 : float = 25.0 ;#usually set by argv.
@@ -63,6 +64,9 @@ class MyLibrarySetting(BaseModel):
   logic_low_to_high_threshold : float = 0.5  ;#
   energy_meas_low_threshold   : float = 0.01 ;#
   energy_meas_high_threshold  : float = 0.99 ;#
+  hold_meas_low_threshold     : float = 0.01 ;#
+  hold_meas_high_threshold    : float = 0.99 ;#
+  
   #slope  : list[list[Any]]= Field(default_factory=list); # [[1, 2, 3, "slope1"],[2, 3, 4, "slope2"]]
   #load   : list[list[Any]]= Field(default_factory=list);
   #slope  : dict[str,list[float]]= Field(default_factory=dict); # {"slope1":[1, 2, 3]},{"slope2":[2, 3, 4]}
@@ -92,7 +96,8 @@ class MyLibrarySetting(BaseModel):
   sim_segment_timestep_ratio : float = 0.1
   sim_segment_timestep_min   : float = 0.01
   sim_time_const_threshold   : float = 0.01
-  sim_time_end_extent : int   = 10    ;#
+  sim_time_end_extent        : int   = 10    ;#
+  sim_tsim_end4hold          : float = 50.0
   
   compress_result :str = "true" 
   supress_msg      :str = "false"
@@ -155,11 +160,12 @@ class MyLibrarySetting(BaseModel):
     temp_str="M{:}C".format(int(-1.0 * self.temperature)) if self.temperature < 0 else "{:}C".format(int(self.temperature))
 
     #---
-    self.lib_name         = self.process_name + "_"+self.lib_vendor_id+"_"+vdd_str+"_"+temp_str
-    self.dotlib_name      = self.lib_name + ".lib"
-    self.doc_name         = self.lib_name + ".md"
-    self.verilog_name     = self.lib_name + ".v"
-    self.cell_name_suffix = self.process_name + "_"+self.lib_vendor_id
+    #self.lib_name         = self.process_name + "_"+self.lib_vendor_id+"_"+vdd_str+"_"+temp_str
+    self.lib_name         = f"{self.process_name}_{self.lib_vendor_id}_{self.cell_group}_{vdd_str}_{temp_str}"
+    self.dotlib_name      = f"{self.lib_name}.lib"
+    self.doc_name         = f"{self.lib_name}.md"
+    self.verilog_name     = f"{self.lib_name}.v"
+    self.cell_name_suffix = f"{self.process_name}_{self.lib_vendor_id}"
     
   def update_mag(self):
     match self.voltage_unit.upper() :

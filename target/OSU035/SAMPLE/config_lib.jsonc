@@ -17,6 +17,7 @@
   ,"time_unit"          :"ns"
 
 //--- characterization conditions
+// "cell_group"                  : "std"     //--- set by argv of libretto.py
 // "operating_conditions"        : "TCCOM"   //--- set by argv of libretto.py
 //."process"                     : 1.0       //--- set by argv of libretto.py
 //,"temperature"                 : 25.0      //--- set by argv of libretto.py
@@ -30,6 +31,8 @@
   ,"logic_low_to_high_threshold" : 0.5
   ,"energy_meas_low_threshold"   : 0.01
   ,"energy_meas_high_threshold"  : 0.99
+  ,"hold_meas_high_threshold"    : 0.01
+  ,"hold_meas_low_threshold"     : 0.99	
 	,"templates"                   :[{"kind":"const"  ,"grid":"2x2","name":"d1","index_1":[0.1,1.1], "index_2":[0.11,1.11]},
 																 	 {"kind":"delay"  ,"grid":"2x2","name":"d1","index_1":[0.2,1.2], "index_2":[0.22,1.22]},
 																 	 {"kind":"delay"  ,"grid":"2x2","name":"d2","index_1":[0.2,1.2], "index_2":[0.222,1.222]},
@@ -61,7 +64,9 @@
   ,"sim_segment_timestep_ratio" : 0.1
   ,"sim_segment_timestep_min"   : 0.001
 	,"sim_time_const_threshold"   : 0.01
-  ,"sim_time_end_extent"        : 3
+	,"sim_tsim_end4hold"          : 30.0
+//  ,"sim_time_end_extent"        : 3
+	
   ,"compress_result" :"False"
 //,"supress_message" :"true"
 //,"supress_sim_message:"true"
