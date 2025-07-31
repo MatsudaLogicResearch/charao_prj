@@ -33,8 +33,7 @@
 FAB_PROCESS := OSU035
 CELL_VENDOR := SAMPLE
 
-CONDITION    := TT
-PROCESS      := 1.0
+CORNER       := TT
 TEMP 				 := 25
 VDD  				 := 5.0
 VSS  				 := 0.0
@@ -79,7 +78,7 @@ pdf:lib
 
 lib:prep
 	#time python3 $(LIBRETTO) -f $(FAB_PROCESS) -v $(CELL_VENDOR) --condition $(CONDITION) --process $(PROCESS) --temp $(TEMP) --vdd $(VDD) --vss $(VSS) --vnw $(VNW) --vpw $(VPW)
-	time python3 $(LIBRETTO) -f $(FAB_PROCESS) -v $(CELL_VENDOR) --condition $(CONDITION) --process $(PROCESS) --temp $(TEMP) 
+	time python3 $(LIBRETTO) -f $(FAB_PROCESS) -v $(CELL_VENDOR) -p $(CORNER) -t $(TEMP) --vdd $(VDD) --vss $(VSS) --vnw $(VNW) --vpw $(VPW)
 
 prep:
 	\rm -rf work *.v *.md *.lib;\

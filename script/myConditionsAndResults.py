@@ -60,6 +60,7 @@ class MyConditionsAndResults(BaseModel):
   #template_timing  : MyItemTemplate = None
   #template_energy  : MyItemTemplate = None
   
+  measure_type   : str = ""
   direction_prop : str = ""
   direction_tran : str = ""
   direction_power: str = ""
@@ -105,7 +106,8 @@ class MyConditionsAndResults(BaseModel):
 #    default_factory=lambda: {key: [] for key in AvgKey.__args__}
 #  )
 
-  
+  min_pulse_width : float = 0.0
+
   # lock はモデルフィールドにしない（検証やシリアライズ対象に含めない）
   _lock: threading.Lock = PrivateAttr(default_factory=threading.Lock)
     
@@ -120,6 +122,7 @@ class MyConditionsAndResults(BaseModel):
   #  return self._mlc;  #--- no setter
   
   def set_update(self):
+    self.set_measure_type()
     self.set_timing_type()
     self.set_timing_sense()
     self.set_timing_when()
@@ -170,9 +173,24 @@ class MyConditionsAndResults(BaseModel):
       print(f"[Error] unknown arc_in={arc_in}(input).")
       my_exit()
       
-        
+  def set_measure_type(self):
+    if self.mec.meas_type in ["combinational","rising_edge","fallin_edge",
+                              "setup_rising","setup_falling","hold_rising","hold_falling",
+                              "removal_rising","removal_falling","recovery_rising","recovery_falling",
+                              "clear", "preset",
+                              "min_pulse_width_low", "min_pulse_width_high",
+                              "passive"]:
+      self.measure_type = self.mec.meas_type
+    else:
+      print(f"[Error] unkown meas_type={self.mec.meas_type}")
+      my_exit()
+
+      
   def set_timing_type(self):
-    self.timing_type = self.mec.tmg_type
+    if self.mec.meas_type in ["min_pulse_width_low","min_pulse_width_high","passive"]:
+      self.timing_type = "no_type"
+    else:
+      self.timing_type = self.mec.meas_type
 
   def set_timing_sense(self):
     if(self.mec.tmg_sense== 'pos'):

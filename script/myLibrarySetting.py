@@ -51,8 +51,9 @@ class MyLibrarySetting(BaseModel):
   
   #--- update by config_char_cond.jsonc
   cell_group                  : str = "std"  ;#usually set by argv.
-  operating_conditions        : str = "TCCOM";#usually set by argv.
-  process                     : float = 1.0  ;#usually set by argv.
+  process_corner              : str = "TC"   ;#usually set by argv.
+  #operating_condition        : str = "TCCOM";#usually set by argv.
+  #process                    : float = 1.0  ;#usually set by argv.
   temperature                 : float = 25.0 ;#usually set by argv.
   vdd_voltage                 : float = 5.0  ;#usually set by argv.
   vss_voltage                 : float = 0.0  ;#usually set by argv.
@@ -91,7 +92,8 @@ class MyLibrarySetting(BaseModel):
   sim_prop_io_max     : float =20.0
   sim_prop_io_tri_max : float =20.0
   sim_d2c_max         : float = 5.0
-  sim_c2d_max         : float = 5.0
+  sim_c2d_max_per_unit: float = 5.0
+  #sim_c2d_max         : float = 5.0;
   sim_segment_timestep_start : float = 1.0
   sim_segment_timestep_ratio : float = 0.1
   sim_segment_timestep_min   : float = 0.01
@@ -104,6 +106,8 @@ class MyLibrarySetting(BaseModel):
   supress_sim_msg  :str = "false"
   supress_debug_msg:str = "false"
   #--- calculated after instanciation
+  operating_condition                 : str = "";
+  
   logic_threshold_high_voltage        : float = 4.0
   logic_threshold_low_voltage         : float = 1.0
   logic_high_to_low_threshold_voltage : float = 2.5
@@ -112,11 +116,11 @@ class MyLibrarySetting(BaseModel):
   energy_meas_high_threshold_voltage  : float = 4.95
   
   
-  #--- local variable
+  #--- other variable
   #load_name       :list[str] = Field(default_factory=list);
   #slope_name      :list[str] = Field(default_factory=list);
   #load_slope_name :list[str] = Field(default_factory=list); 
-  compress        : str = "true"
+  compress        :str = "true"
   log_file        :str = "false"
   logf            :str = None 
 
@@ -160,8 +164,11 @@ class MyLibrarySetting(BaseModel):
     temp_str="M{:}C".format(int(-1.0 * self.temperature)) if self.temperature < 0 else "{:}C".format(int(self.temperature))
 
     #---
+    self.operating_condition=f"{self.process_corner}_{vdd_str}_{temp_str}"
+    
+    #---
     #self.lib_name         = self.process_name + "_"+self.lib_vendor_id+"_"+vdd_str+"_"+temp_str
-    self.lib_name         = f"{self.process_name}_{self.lib_vendor_id}_{self.cell_group}_{vdd_str}_{temp_str}"
+    self.lib_name         = f"{self.process_name}_{self.lib_vendor_id}_{self.cell_group}_{self.operating_condition}"
     self.dotlib_name      = f"{self.lib_name}.lib"
     self.doc_name         = f"{self.lib_name}.md"
     self.verilog_name     = f"{self.lib_name}.v"

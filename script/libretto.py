@@ -22,8 +22,7 @@ def main():
   parser.add_argument('-f','--fab_process', type=str            , default="OSU350" , help='FAB process name')
   parser.add_argument('-v','--cell_vendor', type=str            , default="SAMPLE" , help='CELL vendor name')
 
-  parser.add_argument('-c','--condition', type=str              , default="TT"  , help='operationg condition name')
-  parser.add_argument('-p','--process'  , type=float            , default=1.0   , help='process factor.')
+  parser.add_argument('-p','--process_corner', type=str         , default="TT"  , help='process condition')
   parser.add_argument('-t','--temp'     , type=float            , default=25.0  , help='temperature.')
   parser.add_argument('--vdd'           , type=float            , default=5.0   , help='VDD voltage.')
   parser.add_argument('--vss'           , type=float            , default=0.0   , help='VSS voltage.')
@@ -59,8 +58,7 @@ def main():
     targetLib = Mls(**config_lib)
     
   #--- targetLib : update from args
-  config_from_args={"operating_conditions":args.condition,
-                    "process"             :args.process,
+  config_from_args={"process_corner"      :args.process_corner,
                     "temperature"         :args.temp,
                     "vdd_voltage"         :args.vdd,
                     "vss_voltage"         :args.vss,
@@ -128,6 +126,7 @@ def main():
         targetCell.chk_ports()
         targetCell.add_model() 
         targetCell.add_function()
+        targetCell.add_ff()
 
         ## characterize
         harnessList = characterizeFiles(targetLib, targetCell)

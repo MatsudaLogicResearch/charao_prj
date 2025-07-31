@@ -29,19 +29,25 @@ def runExpectation(targetLib:Mls, targetCell:Mlc, expectationdictList:List[Mec])
     expectationdict = expectationdictList[ii]
     
     ## spice simulation
-    timing_type=expectationdict.tmg_type
+    measure_type=expectationdict.meas_type
 
-    if   timing_type in ["combinational","preset","clear","rising_edge","falling_edge"]:
+    if   measure_type in ["combinational","preset","clear","rising_edge","falling_edge"]:
       rslt_Harness = runSpiceDelayPowerMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
       
-    elif timing_type in ["setup_rising","setup_falling","removal_rising", "removal_falling"]:
-      rslt_Harness = runSpiceSetupPassiveMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+    elif measure_type in ["setup_rising","setup_falling","recovery_rising", "recovery_falling"]:
+      rslt_Harness = runSpiceSetupMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
       
-    elif timing_type in ["hold_rising","hold_falling","recovery_rising","recovery_falling"]:
+    elif measure_type in ["hold_rising","hold_falling","removal_rising","removal_falling"]:
       rslt_Harness = runSpiceHoldMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
       
+    elif measure_type in ["passive"]:
+      rslt_Harness = runSpicePassiveMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+      
+    elif measure_type in ["min_pulse_width_low","min_pulse_width_high"]:
+      rslt_Harness = runSpiceMinPulseMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+      
     else:
-      print(f"[Error] not support timing_type={timing_type}.")
+      print(f"[Error] not support measure_type={measure_type}.")
       my_exit()
       
     ## add result
@@ -53,12 +59,12 @@ def runExpectation(targetLib:Mls, targetCell:Mlc, expectationdictList:List[Mec])
   targetCell.set_cin_avg(harnessList=harnessList) 
 
   ## max pleak in each input condition
-  targetCell.set_pleak_icrs(harnessList=harnessList) 
+  #targetCell.set_pleak_icrs(harnessList=harnessList) 
 
   ## average pleak of each harness & cell 
-  targetCell.set_pleak_cell()
-  
-  #return harnessList2
+  targetCell.set_pleak_cell(harnessList=harnessList) 
+
+  ##
   return harnessList
 
 #--------------------------------------------------------------------------------------------------
@@ -66,7 +72,7 @@ def runSpiceDelayPowerMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[M
 
   ## spice file name
   spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 =f"_{num}" + f"_typ_{mec.tmg_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef1 =f"_{num}" + f"_typ_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
   spicef = spicef0 + spicef1
   
   # Limit number of threads
@@ -214,6 +220,7 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float
   arc_oirc=h.mec.arc_oir+[arc_c0]
   tsim_end=1e-6
 
+  sim_c2d_max = h.mls.sim_c2d_max_per_unit * index2_load
   #--
   param = Mtp(
     #model         = model
@@ -235,9 +242,10 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float
     ,meas_o_max_min=0
     ,timestep     = h.mls.simulation_timestep * h.mls.time_mag
     ,tsim_end     = tsim_end
-    ,tdelay_init  = 1e-9 if h.timing_type=="combinational" else h.mls.sim_d2c_max   * h.mls.time_mag
-    ,tpulse_init  = 1e-9 if h.timing_type=="combinational" else h.mls.sim_pulse_max * h.mls.time_mag
-    ,tdelay_in    = 1e-9 if h.timing_type=="combinational" else h.mls.sim_c2d_max   * h.mls.time_mag
+    ,tdelay_init  = 1e-9 if h.measure_type=="combinational" else h.mls.sim_d2c_max   * h.mls.time_mag
+    ,tpulse_init  = 1e-9 if h.measure_type=="combinational" else h.mls.sim_pulse_max * h.mls.time_mag
+    #,tdelay_in    = 1e-9 if h.measure_type=="combinational" else h.mls.sim_c2d_max   * h.mls.time_mag
+    ,tdelay_in    = 1e-9 if h.measure_type=="combinational" else sim_c2d_max   * h.mls.time_mag
     ,tslew_in     = h.mls.simulation_timestep * h.mls.time_mag
     ,tdelay_rel   = h.mls.sim_prop_max        * h.mls.time_mag
     ,tslew_rel    = index1_slope              * h.mls.time_mag
@@ -330,6 +338,8 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
 
   tsim_end=eend + 1e-9 if meas_energy == 2 else 1e-6
   
+  sim_c2d_max = h.mls.sim_c2d_max_per_unit * index2_load
+
   param = Mtp(
     #model         = model
     #,netlist      = netlist
@@ -350,10 +360,10 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
     ,meas_o_max_min=0
     ,timestep     = h.mls.simulation_timestep * h.mls.time_mag
     ,tsim_end     = tsim_end
-    ,tdelay_init  = 1e-9 if h.timing_type=="combinational" else h.mls.sim_d2c_max   * h.mls.time_mag
-    ,tpulse_init  = 1e-9 if h.timing_type=="combinational" else h.mls.sim_pulse_max * h.mls.time_mag
-    ,tdelay_in    = 1e-9 if h.timing_type=="combinational" else h.mls.sim_c2d_max   * h.mls.time_mag
-    #,tslew_in     = h.mls.simulation_timestep * h.mls.time_mag
+    ,tdelay_init  = 1e-9 if h.measure_type=="combinational" else h.mls.sim_d2c_max   * h.mls.time_mag
+    ,tpulse_init  = 1e-9 if h.measure_type=="combinational" else h.mls.sim_pulse_max * h.mls.time_mag
+    #,tdelay_in    = 1e-9 if h.measure_type=="combinational" else h.mls.sim_c2d_max   * h.mls.time_mag
+    ,tdelay_in    = 1e-9 if h.measure_type=="combinational" else sim_c2d_max   * h.mls.time_mag
     ,tslew_in     = 10*h.mls.simulation_timestep * h.mls.time_mag
     ,tdelay_rel   = h.mls.sim_prop_max        * h.mls.time_mag
     ,tslew_rel    = index1_slope              * h.mls.time_mag
@@ -457,11 +467,11 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
 
 
 #--------------------------------------------------------------------------------------------------
-def runSpiceSetupPassiveMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
+def runSpiceSetupMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
   ## spice file name
   spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 =f"_{num}" + f"_typ_{mec.tmg_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef1 =f"_{num}" + f"_typ_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
   spicef = spicef0 + spicef1
   
   # Limit number of threads
@@ -519,64 +529,23 @@ def runSpiceSetupPassiveMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list
   #--- generate lut table
   h_const.set_lut(value_name="setup_hold")
 
-  
-  ###################################################################
-  #-- for passive
-  thread_id = 0
-  threadlist = list() 
-
-  h_passive = Mcar(mls=mls, mlc=mlc, mec=mec)
-  h_passive.set_update()
- 
-  #------ get slopes/loads
-  kind="passive"
-  temp=mlc.template[kind]
-
-  index1_slopes_in=temp.index_1
-  index2_unuse =temp.index_2
-
-  h_passive.template_kind  = kind
-  h_passive.template       = temp
-  
-  if len(index1_slopes_in)<1:
-    print(f"[Error] slope size(index_1) is 0 for template.")
-    my_exit()
-    
-  if len(index2_unuse)>0:
-    print(f"[Error] not support index_2 in  template.")
-    my_exit()
-    
-  #------ energy
-  for index1_slope in index1_slopes_in:
-    thread = threading.Thread(target=runSpicePassiveSingle,
-                              args=([poolg_sema, h_passive, spicef, index1_slope]),
-                              name="%d" % thread_id)
-      
-    threadlist.append(thread)
-    thread_id += 1
-
-  for thread in threadlist:
-    thread.start() 
-
-  for thread in threadlist:
-    thread.join() 
-
-  h_passive.set_lut(value_name="eintl")
-  h_passive.set_lut(value_name="ein")
-
   #------ update max_trans_in
-  mlc.update_max_trans4in(port_name=h_passive.target_inport, new_value=max(index1_slopes_in))
+  mlc.update_max_trans4in(port_name=h_const.target_relport, new_value=max(index1_slopes_rel))
 
-  
+    
   ###################################################################
-  return [h_const, h_passive]
+  return [h_const]
 
 #--------------------------------------------------------------------------------------------------
 def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_rel:float, index2_slope_const:float):
                       
+  sim_c2d_max = targetHarness.mls.sim_c2d_max_per_unit * 0.1
+    
   with poolg_sema:
+
     seg_start  = 0.0
-    seg_end    = (targetHarness.mls.sim_c2d_max + targetHarness.mls.sim_d2c_max + index1_slope_rel + index2_slope_const) * targetHarness.mls.time_mag
+    #seg_end    = (targetHarness.mls.sim_c2d_max + targetHarness.mls.sim_d2c_max + index1_slope_rel + index2_slope_const) * targetHarness.mls.time_mag
+    seg_end    = (sim_c2d_max + targetHarness.mls.sim_d2c_max + index1_slope_rel + index2_slope_const) * targetHarness.mls.time_mag
     tstep_min  = targetHarness.mls.sim_segment_timestep_min   * targetHarness.mls.time_mag
     ratio      = targetHarness.mls.sim_segment_timestep_ratio
     threshold  = targetHarness.mls.sim_time_const_threshold * targetHarness.mls.time_mag
@@ -635,14 +604,11 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
       
     #-- result in targetHarness
     with targetHarness._lock:
-      if targetHarness.timing_type in ["setup_rising","setup_falling"]:
+      if targetHarness.measure_type in ["setup_rising","setup_falling","recovery_rising","recovery_falling"]:
         targetHarness.dict_list2["setup_hold" ][index2_slope_const][index1_slope_rel] = setup_pass
-      
-      elif targetHarness.timing_type in ["removal_rising","removal_falling"]:
-        targetHarness.dict_list2["setup_hold" ][index2_slope_const][index1_slope_rel] = hold_pass
 
       else:
-        print(f"[Error] not support timing_type={targetHarness.timing_type}")
+        print(f"[Error] not support measure_type={targetHarness.measure_type}")
         my_exit()
       
 
@@ -656,6 +622,8 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float,
   # create parameter
   arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
   arc_oirc=h.mec.arc_oir + [arc_c0]
+
+  sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
   
   # create parameter
   param = Mtp(
@@ -678,9 +646,10 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float,
     ,meas_o_max_min=0
     ,timestep     =h.mls.simulation_timestep * h.mls.time_mag
     ,tsim_end     =tsim_end
-    ,tdelay_init  =1e-9 if h.timing_type=="combinational" else h.mls.sim_d2c_max   * h.mls.time_mag
-    ,tpulse_init  =1e-9 if h.timing_type=="combinational" else h.mls.sim_pulse_max * h.mls.time_mag
-    ,tdelay_in    =1e-9 if h.timing_type=="combinational" else h.mls.sim_c2d_max   * h.mls.time_mag
+    ,tdelay_init  =1e-9 if h.measure_type=="combinational" else h.mls.sim_d2c_max   * h.mls.time_mag
+    ,tpulse_init  =1e-9 if h.measure_type=="combinational" else h.mls.sim_pulse_max * h.mls.time_mag
+    #,tdelay_in    =1e-9 if h.measure_type=="combinational" else h.mls.sim_c2d_max   * h.mls.time_mag
+    ,tdelay_in    =1e-9 if h.measure_type=="combinational" else sim_c2d_max   * h.mls.time_mag
     ,tslew_in     =index2_slope_const * h.mls.time_mag
     ,tdelay_rel   =h.mls.sim_d2c_max  * h.mls.time_mag
     ,tslew_rel    =index1_slope_rel   * h.mls.time_mag
@@ -735,131 +704,13 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float,
   return (rslt)
 
 
-#--------------------------------------------------------------------------------------------------
-def runSpicePassiveSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_in:float):
-                      
-  with poolg_sema:
-    
-    spicefoe = f"{spicef}_i{index1_slope_in}_energy.sp"
-        
-    ## extract energy_start and energy_end
-    rslt=genFileLogic_PassiveTrial1x(targetHarness=targetHarness, spicef=spicefoe, index1_slope_in=index1_slope_in)
-
-    #
-    with targetHarness._lock:
-      targetHarness.dict_list2["eintl"][0][index1_slope_in]=rslt["eintl"]
-      targetHarness.dict_list2["ein"  ][0][index1_slope_in]=rslt["ein"]
-      targetHarness.dict_list2["cin"  ][0][index1_slope_in]=rslt["cin"]
-      targetHarness.dict_list2["pleak"][0][index1_slope_in]=rslt["pleak"]
-
-
-    
-#--------------------------------------------------------------------------------------------------
-def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:float):
-
-  # rename
-  h=targetHarness
-
-  # create parameter
-  arc_oirc=h.mec.arc_oir + ["n"]
-
-  #esatrt=_t0/ eend=t1
-  estart  = (5 * h.mls.simulation_timestep + h.mls.sim_d2c_max +h.mls.sim_pulse_max+ h.mls.sim_c2d_max)* h.mls.time_mag
-  eend    = estart + (index1_slope_in * h.mls.time_mag)
-  tsim_end= eend + 1e-9 
-
-  
-  param = Mtp(
-    #model         = model
-    #,netlist      = netlist
-    #,tb_instance  = tb_instance
-    #--,temp         = 
-    #--,voltage_vsnp =[]
-    #--,prop_vth_oirc=[]
-    #--,tran_v0_oirc =[]
-    #--,tran_v1_oirc =[]
-    #--,ener_v0_oirc =[]
-    #--,ener_v1_oirc =[]
-    #--,arc_oirc     =[]
-    #--,val0_oirc    =[]
-     cap          =0.0
-    ,clk_role     =h.clk_role
-    ,meas_energy  =2
-    ,time_energy  =[estart,eend]  
-    ,meas_o_max_min=0
-    ,timestep     =h.mls.simulation_timestep * h.mls.time_mag
-    ,tsim_end     =tsim_end
-    ,tdelay_init  =1e-9 if h.timing_type=="combinational" else h.mls.sim_d2c_max   * h.mls.time_mag
-    ,tpulse_init  =1e-9 if h.timing_type=="combinational" else h.mls.sim_pulse_max * h.mls.time_mag
-    ,tdelay_in    =1e-9 if h.timing_type=="combinational" else h.mls.sim_c2d_max   * h.mls.time_mag
-    ,tslew_in     =index1_slope_in       * h.mls.time_mag
-    ,tdelay_rel   =h.mls.sim_prop_max    * h.mls.time_mag
-    ,tslew_rel    =index1_slope_in       * h.mls.time_mag
-    ,tpulse_rel   =tsim_end
-    ,tsweep_rel   =0.0
-  );
-
-  param.set_common_value(harness=h, arc_oirc=arc_oirc)
-  
-  #-- generate testbench
-  rendered = tb_template.render(param=param)
-  with open(spicef, 'w') as f:
-    f.write(rendered)
-  print(f"  [INFO] generate tb={spicef}")
-  
-  #-- execute spice
-  spicelis=h.mls.exec_spice(spicef=spicef)
-                              
-  #-- read result
-  # read .mt0 for Xyce
-  if(re.search("Xyce", h.mls.simulator)):
-    spicelis = spicelis[:-3]+"mt0" 
-
-  #-- parse results
-  res=dict()
-  res_list=["q_rel_dyn","q_in_dyn","q_vdd_dyn","i_vdd_leak"]
-  with open(spicelis,'r') as f:
-    
-    for inline in f:
-      if(re.search("hspice", h.mls.simulator)):
-        inline = re.sub('\=',' ',inline)
-      
-      # search measure
-      for key in res_list:
-        if((re.search(key, inline, re.IGNORECASE))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
-          sparray = re.split(" +", inline) # separate words with spaces (use re.split)
-          res[key]= "{:e}".format(float(sparray[2].strip()))
-
-  # chack if result is exist
-  non_value_list=set(res_list)-set(res.keys())
-  if non_value_list:
-    for k in  non_value_list:
-      h.mls.print_msg(f"Value res_{k} is not defined!!")
-      h.mls.print_msg(f"Check simulation result in work directory. rslt={spicelis}")
-    sys.exit()
-    
-  # result
-  rslt={
-    ## pleak
-    "pleak": abs(float(res["i_vdd_leak"])) * h.mls.vdd_voltage,
-    ## input energy
-    "ein"  : abs(float(res["q_in_dyn"])) * h.mls.vdd_voltage,
-    ## Cin = Qin / V
-    "cin"  : abs(float(res["q_in_dyn"]))/h.mls.vdd_voltage,
-    ## intl. energy calculation
-    "eintl": abs(float(res["q_vdd_dyn"])) * h.mls.vdd_voltage
-  }
-  
-  return (rslt)
-
-
 
 #--------------------------------------------------------------------------------------------------
 def runSpiceHoldMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
   ## spice file name
   spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 =f"_{num}" + f"_typ_{mec.tmg_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef1 =f"_{num}" + f"_typ_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
   spicef = spicef0 + spicef1
   
   # Limit number of threads
@@ -923,8 +774,11 @@ def runSpiceHoldMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 #--------------------------------------------------------------------------------------------------
 def runSpiceHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_rel:float, index2_slope_const:float):
                       
+  sim_c2d_max = targetHarness.mls.sim_c2d_max_per_unit * 0.1
+  
   with poolg_sema:
-    seg_start  = -1.0*(targetHarness.mls.sim_c2d_max + targetHarness.mls.sim_d2c_max + index1_slope_rel + index2_slope_const) * targetHarness.mls.time_mag
+    #seg_start  = -1.0*(targetHarness.mls.sim_c2d_max + targetHarness.mls.sim_d2c_max + index1_slope_rel + index2_slope_const) * targetHarness.mls.time_mag
+    seg_start  = -1.0*(sim_c2d_max + targetHarness.mls.sim_d2c_max + index1_slope_rel + index2_slope_const) * targetHarness.mls.time_mag
     seg_end    = 0.0
     tstep_min  = targetHarness.mls.sim_segment_timestep_min   * targetHarness.mls.time_mag
     ratio      = targetHarness.mls.sim_segment_timestep_ratio
@@ -981,12 +835,10 @@ def runSpiceHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_
       
     #-- result in targetHarness
     with targetHarness._lock:
-      if   targetHarness.timing_type in ["recovery_rising","recovery_falling"]:
-        targetHarness.dict_list2["setup_hold" ][index2_slope_const][index1_slope_rel] = hold_pass
-      elif targetHarness.timing_type in ["hold_rising","hold_falling"]:
+      if   targetHarness.measure_type in ["hold_rising","hold_falling","removal_rising","removal_falling"]:
         targetHarness.dict_list2["setup_hold" ][index2_slope_const][index1_slope_rel] = hold_pass
       else:
-        print(f"[Error] not support timing_type={targetHarness.timing_type}")
+        print(f"[Error] not support measure_type={targetHarness.measure_type}")
         my_exit()
       
 
@@ -1000,6 +852,8 @@ def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float, 
   # create parameter
   arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
   arc_oirc=h.mec.arc_oir + [arc_c0]
+  
+  sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
   
   # create parameter
   param = Mtp(
@@ -1024,7 +878,8 @@ def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float, 
     ,tsim_end     =tsim_end
     ,tdelay_init  =h.mls.sim_d2c_max   * h.mls.time_mag
     ,tpulse_init  =h.mls.sim_pulse_max * h.mls.time_mag
-    ,tdelay_in    =2*h.mls.sim_c2d_max   * h.mls.time_mag
+    #,tdelay_in    =2*h.mls.sim_c2d_max   * h.mls.time_mag
+    ,tdelay_in    =2*sim_c2d_max   * h.mls.time_mag
     ,tslew_in     =index2_slope_const * h.mls.time_mag
     ,tdelay_rel   =h.mls.sim_d2c_max  * h.mls.time_mag
     ,tslew_rel    =index1_slope_rel   * h.mls.time_mag
@@ -1074,6 +929,395 @@ def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float, 
     "o_min_v"    :float(res["o_min_v"]),
     "o_max_v"    :float(res["o_max_v"]),
     "hold_rel_in":float(res["hold_rel_in"])}
+
+  return (rslt)
+
+#--------------------------------------------------------------------------------------------------
+def runSpicePassiveMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
+
+  ## spice file name
+  spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
+  spicef1 =f"_{num}" + f"_typ_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef = spicef0 + spicef1
+  
+  # Limit number of threads
+  # define semaphore 
+  poolg_sema = threading.BoundedSemaphore(mls.num_thread)
+  print("Num threads for simulation:"+str(mls.num_thread))
+
+  ###################################################################
+  #-- for passive
+  thread_id = 0
+  threadlist = list() 
+
+  h_passive = Mcar(mls=mls, mlc=mlc, mec=mec)
+  h_passive.set_update()
+ 
+  #------ get slopes/loads
+  kind="passive"
+  temp=mlc.template[kind]
+
+  index1_slopes_in=temp.index_1
+  index2_unuse =temp.index_2
+
+  h_passive.template_kind  = kind
+  h_passive.template       = temp
+  
+  if len(index1_slopes_in)<1:
+    print(f"[Error] slope size(index_1) is 0 for template.")
+    my_exit()
+    
+  if len(index2_unuse)>0:
+    print(f"[Error] not support index_2 in  template.")
+    my_exit()
+    
+  #------ energy
+  for index1_slope in index1_slopes_in:
+    thread = threading.Thread(target=runSpicePassiveSingle,
+                              args=([poolg_sema, h_passive, spicef, index1_slope]),
+                              name="%d" % thread_id)
+      
+    threadlist.append(thread)
+    thread_id += 1
+
+  for thread in threadlist:
+    thread.start() 
+
+  for thread in threadlist:
+    thread.join() 
+
+  h_passive.set_lut(value_name="eintl")
+  h_passive.set_lut(value_name="ein")
+
+  #------ update max_trans_in
+  mlc.update_max_trans4in(port_name=h_passive.target_inport, new_value=max(index1_slopes_in))
+
+  #--- generate lut table
+  h_passive.set_lut(value_name="eintl")
+  h_passive.set_lut(value_name="ein")
+  
+  ###################################################################
+  return [h_passive]
+
+
+#--------------------------------------------------------------------------------------------------
+def runSpicePassiveSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_in:float):
+                      
+  with poolg_sema:
+    
+    spicefoe = f"{spicef}_i{index1_slope_in}_energy.sp"
+        
+    ## extract energy_start and energy_end
+    rslt=genFileLogic_PassiveTrial1x(targetHarness=targetHarness, spicef=spicefoe, index1_slope_in=index1_slope_in)
+
+    #
+    with targetHarness._lock:
+      targetHarness.dict_list2["eintl"][0][index1_slope_in]=rslt["eintl"]
+      targetHarness.dict_list2["ein"  ][0][index1_slope_in]=rslt["ein"]
+      targetHarness.dict_list2["cin"  ][0][index1_slope_in]=rslt["cin"]
+      targetHarness.dict_list2["pleak"][0][index1_slope_in]=rslt["pleak"]
+
+
+    
+#--------------------------------------------------------------------------------------------------
+def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:float):
+
+  # rename
+  h=targetHarness
+
+  # create parameter
+  arc_oirc=h.mec.arc_oir + ["n"]
+  sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
+
+  #esatrt=_t0/ eend=t1
+  #estart  = (5 * h.mls.simulation_timestep + h.mls.sim_d2c_max +h.mls.sim_pulse_max+ h.mls.sim_c2d_max)* h.mls.time_mag  
+  estart  = (5 * h.mls.simulation_timestep + h.mls.sim_d2c_max +h.mls.sim_pulse_max+ sim_c2d_max)* h.mls.time_mag
+  eend    = estart + (index1_slope_in * h.mls.time_mag)
+  tsim_end= eend + 1e-9 
+
+  
+  param = Mtp(
+    #model         = model
+    #,netlist      = netlist
+    #,tb_instance  = tb_instance
+    #--,temp         = 
+    #--,voltage_vsnp =[]
+    #--,prop_vth_oirc=[]
+    #--,tran_v0_oirc =[]
+    #--,tran_v1_oirc =[]
+    #--,ener_v0_oirc =[]
+    #--,ener_v1_oirc =[]
+    #--,arc_oirc     =[]
+    #--,val0_oirc    =[]
+     cap          =0.0
+    ,clk_role     =h.clk_role
+    ,meas_energy  =2
+    ,time_energy  =[estart,eend]  
+    ,meas_o_max_min=0
+    ,timestep     =h.mls.simulation_timestep * h.mls.time_mag
+    ,tsim_end     =tsim_end
+    ,tdelay_init  =1e-9 if h.measure_type=="combinational" else h.mls.sim_d2c_max   * h.mls.time_mag
+    ,tpulse_init  =1e-9 if h.measure_type=="combinational" else h.mls.sim_pulse_max * h.mls.time_mag
+    #,tdelay_in    =1e-9 if h.measure_type=="combinational" else h.mls.sim_c2d_max   * h.mls.time_mag
+    ,tdelay_in    =1e-9 if h.measure_type=="combinational" else sim_c2d_max   * h.mls.time_mag
+    ,tslew_in     =index1_slope_in       * h.mls.time_mag
+    ,tdelay_rel   =h.mls.sim_prop_max    * h.mls.time_mag
+    ,tslew_rel    =index1_slope_in       * h.mls.time_mag
+    ,tpulse_rel   =tsim_end
+    ,tsweep_rel   =0.0
+  );
+
+  param.set_common_value(harness=h, arc_oirc=arc_oirc)
+  
+  #-- generate testbench
+  rendered = tb_template.render(param=param)
+  with open(spicef, 'w') as f:
+    f.write(rendered)
+  print(f"  [INFO] generate tb={spicef}")
+  
+  #-- execute spice
+  spicelis=h.mls.exec_spice(spicef=spicef)
+                              
+  #-- read result
+  # read .mt0 for Xyce
+  if(re.search("Xyce", h.mls.simulator)):
+    spicelis = spicelis[:-3]+"mt0" 
+
+  #-- parse results
+  res=dict()
+  res_list=["q_rel_dyn","q_in_dyn","q_vdd_dyn","i_vdd_leak"]
+  with open(spicelis,'r') as f:
+    
+    for inline in f:
+      if(re.search("hspice", h.mls.simulator)):
+        inline = re.sub('\=',' ',inline)
+      
+      # search measure
+      for key in res_list:
+        if((re.search(key, inline, re.IGNORECASE))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
+          sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+          res[key]= "{:e}".format(float(sparray[2].strip()))
+
+  # chack if result is exist
+  non_value_list=set(res_list)-set(res.keys())
+  if non_value_list:
+    for k in  non_value_list:
+      h.mls.print_msg(f"Value res_{k} is not defined!!")
+      h.mls.print_msg(f"Check simulation result in work directory. rslt={spicelis}")
+    sys.exit()
+    
+  # result
+  rslt={
+    ## pleak
+    "pleak": abs(float(res["i_vdd_leak"])) * h.mls.vdd_voltage,
+    ## input energy
+    "ein"  : abs(float(res["q_in_dyn"])) * h.mls.vdd_voltage,
+    ## Cin = Qin / V
+    "cin"  : abs(float(res["q_in_dyn"]))/h.mls.vdd_voltage,
+    ## intl. energy calculation
+    "eintl": abs(float(res["q_vdd_dyn"])) * h.mls.vdd_voltage
+  }
+  
+  return (rslt)
+
+
+#--------------------------------------------------------------------------------------------------
+def runSpiceMinPulseMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
+
+  ## spice file name
+  spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
+  spicef1 =f"_{num}" + f"_typ_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef = spicef0 + spicef1
+  
+  # Limit number of threads
+  # define semaphore 
+  poolg_sema = threading.BoundedSemaphore(mls.num_thread)
+  print("Num threads for simulation:"+str(mls.num_thread))
+
+  ###################################################################
+  #-- min_pulse
+  thread_id = 0
+  threadlist = list()
+
+  h_min_pulse = Mcar(mls=mls, mlc=mlc, mec=mec)
+  h_min_pulse.set_update()
+  
+  #------ no slope
+  kind="none"
+  #temp=mlc.template[kind]
+  
+  #------ search delay(trans)
+  thread = threading.Thread(target=runSpiceMinPulseSingle,
+                            kwargs={"poolg_sema":poolg_sema,
+                                    "targetHarness":h_min_pulse,
+                                    "spicef":spicef},
+                            name="%d" % thread_id)
+      
+  threadlist.append(thread)
+  thread_id += 1
+
+  for thread in threadlist:
+    thread.start() 
+
+  for thread in threadlist:
+    thread.join() 
+
+  #------ set min_pulse
+  mlc.set_min_pulse_width(port_name=h_min_pulse.target_relport, value=h_min_pulse.min_pulse_width, measure_type=h_min_pulse.measure_type)
+    
+  ###################################################################
+  return [h_min_pulse]
+
+#--------------------------------------------------------------------------------------------------
+def runSpiceMinPulseSingle(poolg_sema, targetHarness:Mcar, spicef:str):
+  
+  with poolg_sema:
+    seg_start  = targetHarness.mls.sim_pulse_max              * targetHarness.mls.time_mag
+    seg_end    = 0.0
+    tstep_min  = targetHarness.mls.sim_segment_timestep_min   * targetHarness.mls.time_mag
+    ratio      = targetHarness.mls.sim_segment_timestep_ratio
+    threshold  = targetHarness.mls.sim_time_const_threshold   * targetHarness.mls.time_mag
+
+    tsweep_pass=seg_start
+    pulse_pass =seg_start
+    prop_min   =1.0
+    
+    tsim_end   =1.0E-6
+    pulse_width=seg_start
+   
+    tstep = targetHarness.mls.sim_segment_timestep_start   * targetHarness.mls.time_mag
+    cnt=0
+    while tstep> tstep_min:
+      cnt=cnt+1
+      
+      #-- generate tsweep list
+      tsweep_list=np.arange(seg_start, seg_end, -1.0*tstep)
+      tsweep_list=np.append(tsweep_list, 0.0)
+      #print(f"pass={tsweep_pass}, start={seg_start}, end={seg_end}, list={tsweep_list}")
+      
+      #-- search setup and check trans while prop is valid
+      for id,tsweep in enumerate(tsweep_list):
+
+        spicefo  = f"{spicef}_s{cnt*100+id}.sp"
+        
+        rslt=genFileLogic_MinPulse1x(targetHarness=targetHarness, spicef=spicefo, tpulse_rel=tsweep, tsim_end=tsim_end)
+
+        #- check prop_in_out
+        prop_last=abs(rslt["prop_in_out"])
+        prop_min=min(prop_min, prop_last)
+        
+        #- check metastable
+        if prop_last > prop_min + threshold:
+          break;
+
+        #- keep successfull result
+        tsweep_pass=tsweep
+        tsim_end   =rslt["chg_out"] + 10e-9
+        pulse_pass =rslt["pulse"]
+
+      #-- update step/list range
+      tstep_old=tstep
+      tstep    =tstep*ratio
+
+      seg_start = tsweep_pass + 2*tstep
+      #seg_end   = tsweep_pass + 1.0*tstep_old
+
+    #
+    #print(f"tstep={tstep}, tsweep={tsweep_pass}, setup/hold={setup_pass}/{hold_pass}")
+      
+    #-- result in targetHarness
+    with targetHarness._lock:
+      targetHarness.min_pulse_width = pulse_pass
+
+        
+#--------------------------------------------------------------------------------------------------
+def genFileLogic_MinPulse1x(targetHarness:Mcar, spicef:str, tpulse_rel:float, tsim_end:float) -> dict:
+
+  # rename
+  h=targetHarness
+
+  # create parameter
+  arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
+  arc_oirc=h.mec.arc_oir + [arc_c0]
+
+  sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
+  
+  # create parameter
+  tslew = 5*h.mls.simulation_timestep * h.mls.time_mag
+  
+  param = Mtp(
+    #--model         = model
+    #--,netlist      = netlist
+    #--,tb_instance  = tb_instance
+    #--,temp         = 0.0
+    #--,voltage_vsnp =[]
+    #--,prop_vth_oirc=[]
+    #--,tran_v0_oirc =[]
+    #--,tran_v1_oirc =[]
+    #--,ener_v0_oirc =[]
+    #--,ener_v1_oirc =[]
+    #--,arc_oirc     =[]
+    #--,val0_oirc    =[]
+    cap           = 0.0
+    ,clk_role     =h.clk_role
+    ,meas_energy  =0      # 0:No Meas for Energy/ 1:Meas Only Time/ 2:Meas all
+    ,time_energy  =[0,0]  #[start,end]
+    ,meas_o_max_min=0
+    ,timestep     =h.mls.simulation_timestep * h.mls.time_mag
+    ,tsim_end     =tsim_end
+    ,tdelay_init  =1e-9 if h.measure_type=="combinational" else h.mls.sim_d2c_max   * h.mls.time_mag
+    ,tpulse_init  =1e-9 if h.measure_type=="combinational" else h.mls.sim_pulse_max * h.mls.time_mag
+    #,tdelay_in    =1e-9 if h.measure_type=="combinational" else h.mls.sim_c2d_max   * h.mls.time_mag
+    ,tdelay_in    =1e-9 if h.measure_type=="combinational" else sim_c2d_max   * h.mls.time_mag
+    ,tslew_in     =tslew
+    ,tdelay_rel   =  h.mls.sim_d2c_max         * h.mls.time_mag
+    ,tslew_rel    =tslew
+    ,tpulse_rel   =tpulse_rel
+    ,tsweep_rel   =0.0
+  );
+
+  param.set_common_value(harness=h, arc_oirc=arc_oirc)
+  
+  #-- generate testbench
+  rendered = tb_template.render(param=param)
+  with open(spicef, 'w') as f:
+    f.write(rendered)
+  print(f"  [INFO] generate tb={spicef}")
+  
+  #-- execute spice
+  spicelis=h.mls.exec_spice(spicef=spicef)
+
+  #-- read result
+  # read .mt0 for Xyce
+  if(re.search("Xyce", h.mls.simulator)):
+    spicelis = spicelis[:-3]+"mt0" 
+
+  # read results(set default value)
+  res={"chg_out"     :1,
+       "setup_in_rel":1,
+       "hold_rel_in" :1,
+       "prop_in_out" :1}
+  
+  with open(spicelis,'r') as f:
+    
+    for inline in f:
+      if(re.search("hspice", h.mls.simulator)):
+        inline = re.sub('\=',' ',inline)
+      
+      # search measure
+      for key in ["chg_out","setup_in_rel","hold_rel_in","prop_in_out"]:
+        if((re.search(key, inline, re.IGNORECASE))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
+          sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+          res[key]= "{:e}".format(float(sparray[2].strip()))
+          
+  # check spice finish successfully
+
+  
+  # hold result
+  rslt={
+    "chg_out"      :float(res["chg_out"]),
+    "prop_in_out"  :float(res["prop_in_out"]),
+    "pulse"        :tslew + tpulse_rel}
 
   return (rslt)
 

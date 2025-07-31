@@ -19,9 +19,9 @@ def exportDoc(harnessList:[Mcar]):
         exportHarness2doc(harnessList)
         
     ## export seq. logic
-    elif((targetLib.isexport2doc == 1) and (targetCell.isexport2doc == 0) and (targetCell.isflop == 1)):
-        #exportHarnessFlop2doc(targetLib, targetCell, harnessList2)
-        exportHarnessFlop2doc(harnessList)
+    #elif((targetLib.isexport2doc == 1) and (targetCell.isexport2doc == 0) and (targetCell.isflop == 1)):
+    #    #exportHarnessFlop2doc(targetLib, targetCell, harnessList2)
+    #    exportHarnessFlop2doc(harnessList)
 
 ## export library definition to .lib
 def exportLib2doc(targetLib:Mls, targetCell:Mlc):
@@ -45,9 +45,10 @@ def exportLib2doc(targetLib:Mls, targetCell:Mlc):
         outlines.append("| "+targetLib.vdd_name+" | "+targetLib.vss_name+"  | gnd | "+targetLib.pwell_name+" | "+targetLib.nwell_name+" |\n")
         outlines.append("\n")
         outlines.append("## Operating conditions \n")
-        outlines.append("| operationg cond. | temperature | voltage  |\n")
-        outlines.append("|----|----|----|\n")
-        outlines.append("| "+targetLib.operating_conditions+" | "+str(targetLib.temperature)+" | "+str(targetLib.vdd_voltage)+" |\n")
+        #outlines.append("| operating cond. | temperature | voltage  |\n")
+        outlines.append("| operating cond. | process_corner | temperature | voltage  |\n")
+        outlines.append("|----|----|----|----|\n")
+        outlines.append("| "+targetLib.operating_condition+" | "+targetLib.process_corner+" | "+str(targetLib.temperature)+" | "+str(targetLib.vdd_voltage)+" |\n")
         outlines.append("\n")
         outlines.append("## Logic threshold \n")
         outlines.append("| input rise(%)| input fall(%)| output rise(%)| output fall(%)|\n")

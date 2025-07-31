@@ -166,8 +166,8 @@ VCLK VCLK 0 PWL(0p {_vdd} {_t_clk0} {_vdd} {_t_clk1} {_vss} {_t_clk2} {_vss} {_t
 .MEASURE TRAN q_vss_dyn INTEG I(VSS_DYN) FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 
 *** Leakage current 
-.MEASURE TRAN i_vdd_leak AVG I(VDD_DYN) FROM={_t_in0 - 100*_timestep} TO={_t_in0}
-.MEASURE TRAN i_vss_leak AVG I(VSS_DYN) FROM={_t_in0 - 100*_timestep} TO={_t_in0}
+.MEASURE TRAN i_vdd_leak AVG I(VDD_DYN) FROM={_t_in0 - 101*_timestep} TO={_t_in0 - 1*_timestep}
+.MEASURE TRAN i_vss_leak AVG I(VSS_DYN) FROM={_t_in0 - 101*_timestep} TO={_t_in0 - 1*_timestep}
 
 * Gate leak current 
 .MEASURE TRAN i_rel_leak avg I(VREL) FROM={_t_rel0} TO={_t_rel1}

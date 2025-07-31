@@ -18,8 +18,7 @@
 
 //--- characterization conditions
 // "cell_group"                  : "std"     //--- set by argv of libretto.py
-// "operating_conditions"        : "TCCOM"   //--- set by argv of libretto.py
-//."process"                     : 1.0       //--- set by argv of libretto.py
+// "process_corner"              : "TC"      //--- set by argv of libretto.py
 //,"temperature"                 : 25.0      //--- set by argv of libretto.py
 //,"vdd_voltage"                 : 5.0       //--- set by argv of libretto.py
 //,"vss_voltage"                 : 0.0       //--- set by argv of libretto.py
@@ -53,13 +52,13 @@
   ,"num_thread" : 8
   ,"sim_nice"   : 19
   ,"simulation_timestep"        : 0.001
-	,"sim_pulse_max"              : 1.0
+	,"sim_pulse_max"              : 3.0
 	,"sim_prop_max"               :20.0
 	,"sim_prop_tri_max"           :20.0
 	,"sim_prop_io_max"            :25.0
 	,"sim_prop_io_tri_max"        :25.0
 	,"sim_d2c_max"                : 5.0
-	,"sim_c2d_max"                : 5.0
+	,"sim_c2d_max_per_unit"       :40.0
 	,"sim_segment_timestep_start" : 1.0
   ,"sim_segment_timestep_ratio" : 0.1
   ,"sim_segment_timestep_min"   : 0.001
