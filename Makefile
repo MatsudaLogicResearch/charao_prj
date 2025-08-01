@@ -40,6 +40,9 @@ VSS  				 := 0.0
 VNW  				 := 5.0
 VPW  				 := 0.0
 
+SKIP_COMB    :=0
+SKIP_SEQ     :=0
+
 #===========================================================
 #for rpc_make
 SOURCEDIR     := "target script"
@@ -78,7 +81,7 @@ pdf:lib
 
 lib:prep
 	#time python3 $(LIBRETTO) -f $(FAB_PROCESS) -v $(CELL_VENDOR) --condition $(CONDITION) --process $(PROCESS) --temp $(TEMP) --vdd $(VDD) --vss $(VSS) --vnw $(VNW) --vpw $(VPW)
-	time python3 $(LIBRETTO) -f $(FAB_PROCESS) -v $(CELL_VENDOR) -p $(CORNER) -t $(TEMP) --vdd $(VDD) --vss $(VSS) --vnw $(VNW) --vpw $(VPW)
+	time python3 $(LIBRETTO) -f $(FAB_PROCESS) -v $(CELL_VENDOR) -p $(CORNER) -t $(TEMP) --vdd $(VDD) --vss $(VSS) --vnw $(VNW) --vpw $(VPW) --skip_comb $(SKIP_COMB) --skip_seq $(SKIP_SEQ)
 
 prep:
 	\rm -rf work *.v *.md *.lib;\

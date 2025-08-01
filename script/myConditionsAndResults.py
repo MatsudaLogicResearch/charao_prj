@@ -342,11 +342,16 @@ class MyConditionsAndResults(BaseModel):
     values=self.mec.ival.get(typ,[])
     out_pin=self.target_outport
     for i in range (len(values)):
+
       pin=typ+"{:}".format(i)
+      
       if out_pin != pin:
         self.nontarget_outport.append(pin)
         #self.nontarget_outport.append(self.mec.ival[typ][i])
 
+    #print(f"not={self.nontarget_outport}")
+
+        
   #def set_lut(self, template_kind:str, value_name:str):
   def set_lut(self, value_name:str):
     
@@ -477,13 +482,12 @@ class MyConditionsAndResults(BaseModel):
         continue
         
       # search non-terget outport
-      for w2 in self.nontarget_outport:
-        if(w1 == w2):
-          # this is non-terget outport
-          # search outdex for this port
-          tmp_line += ' WFLOAT'
-          is_matched += 1
-          continue
+      if w1 in self.nontarget_outport:
+        # this is non-terget outport
+        # search outdex for this port
+        tmp_line += ' WFLOAT'
+        is_matched += 1
+        continue
 
       # VDD/VSS
       if(w1.upper() == self.mls.vdd_name.upper()):

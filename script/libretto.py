@@ -18,16 +18,21 @@ from myFunc      import my_exit, startup
 
 def main():
   parser = argparse.ArgumentParser(description='argument')
-  parser.add_argument('-g','--cell_group' , choices=["std","io"], default="std", help='select cell_type')
-  parser.add_argument('-f','--fab_process', type=str            , default="OSU350" , help='FAB process name')
-  parser.add_argument('-v','--cell_vendor', type=str            , default="SAMPLE" , help='CELL vendor name')
+  parser.add_argument('-g','--cell_group'  , choices=["std","io"], default="std", help='select cell_type')
+  parser.add_argument('-f','--fab_process' , type=str            , default="OSU350" , help='FAB process name')
+  parser.add_argument('-v','--cell_vendor' , type=str            , default="SAMPLE" , help='CELL vendor name')
+  parser.add_argument('-u','--usage_voltage',type=float          , default=5.0      , help='usage voltage')
 
   parser.add_argument('-p','--process_corner', type=str         , default="TT"  , help='process condition')
   parser.add_argument('-t','--temp'     , type=float            , default=25.0  , help='temperature.')
   parser.add_argument('--vdd'           , type=float            , default=5.0   , help='VDD voltage.')
   parser.add_argument('--vss'           , type=float            , default=0.0   , help='VSS voltage.')
   parser.add_argument('--vnw'           , type=float            , default=5.0   , help='NWELL voltage')
-  parser.add_argument('--vpw'           , type=float            , default=0.0   , help='PWELL voltage')  
+  parser.add_argument('--vpw'           , type=float            , default=0.0   , help='PWELL voltage')
+
+  parser.add_argument('--skip_comb'     , type=int              , default=0     , help='skip cell_comb')
+  parser.add_argument('--skip_seq'      , type=int              , default=0     , help='skip cell_seq')
+  
   args = parser.parse_args()
   #print(args.batch)
 
@@ -58,7 +63,8 @@ def main():
     targetLib = Mls(**config_lib)
     
   #--- targetLib : update from args
-  config_from_args={"process_corner"      :args.process_corner,
+  config_from_args={"usage_voltage"       :args.usage_voltage,
+                    "process_corner"      :args.process_corner,
                     "temperature"         :args.temp,
                     "vdd_voltage"         :args.vdd,
                     "vss_voltage"         :args.vss,
@@ -84,59 +90,62 @@ def main():
   #--- cell_comb.jsonc
   if args.cell_group == "std":
     
-    cell_comb_info_list=[]
-    parser=JsonComment()
-    with open (json_cell_comb, "r") as f:
-      cell_comb_info_list = parser.load(f)
-      for info in cell_comb_info_list:
-        print(info)
+    if args.skip_comb != 1:
       
-        targetCell = Mlc(mls=targetLib, **info)
-        targetCell.set_supress_message() 
-        targetCell.add_template()
-        targetCell.chk_netlist() 
-        targetCell.chk_ports()
-        targetCell.add_model() 
-        targetCell.add_function()
+      cell_comb_info_list=[]
+      parser=JsonComment()
+      with open (json_cell_comb, "r") as f:
+        cell_comb_info_list = parser.load(f)
+        for info in cell_comb_info_list:
+          print(info)
+          
+          targetCell = Mlc(mls=targetLib, **info)
+          targetCell.set_supress_message() 
+          targetCell.add_template()
+          targetCell.chk_netlist() 
+          targetCell.chk_ports()
+          targetCell.add_model() 
+          targetCell.add_function()
   
-        ## characterize
-        harnessList = characterizeFiles(targetLib, targetCell)
-        os.chdir("../")
+          ## characterize
+          harnessList = characterizeFiles(targetLib, targetCell)
+          os.chdir("../")
 
-        ## export
-        exportFiles(harnessList=harnessList) 
-        exportDoc(harnessList=harnessList) 
-        num_gen_file += 1
+          ## export
+          exportFiles(harnessList=harnessList) 
+          exportDoc(harnessList=harnessList) 
+          num_gen_file += 1
       
   #--- cell_seq.jsonc
   if args.cell_group == "std":
+
+    if args.skip_seq != 1:
+      
+      cell_seq_info_list=[]
+      parser=JsonComment()
+      with open (json_cell_seq, "r") as f:
     
-    cell_seq_info_list=[]
-    parser=JsonComment()
-    with open (json_cell_seq, "r") as f:
-    
-      cell_seq_info_list = parser.load(f)
-      for info in cell_seq_info_list:
-        print(info)
+        cell_seq_info_list = parser.load(f)
+        for info in cell_seq_info_list:
+          print(info)
 
-        targetCell = Mlc(mls=targetLib, **info)
-        targetCell.set_supress_message() 
-        targetCell.add_template()
-        targetCell.chk_netlist() 
-        targetCell.chk_ports()
-        targetCell.add_model() 
-        targetCell.add_function()
-        targetCell.add_ff()
+          targetCell = Mlc(mls=targetLib, **info)
+          targetCell.set_supress_message() 
+          targetCell.add_template()
+          targetCell.chk_netlist() 
+          targetCell.chk_ports()
+          targetCell.add_model() 
+          targetCell.add_function()
+          targetCell.add_ff()
 
-        ## characterize
-        harnessList = characterizeFiles(targetLib, targetCell)
-        os.chdir("../")
+          ## characterize
+          harnessList = characterizeFiles(targetLib, targetCell)
+          os.chdir("../")
 
-        ## export
-        exportFiles(harnessList) 
-        exportDoc(harnessList) 
-        num_gen_file += 1
-
+          ## export
+          exportFiles(harnessList) 
+          exportDoc(harnessList) 
+          num_gen_file += 1
 
   #--- cell_io.jsonc
   if args.cell_group == "io":

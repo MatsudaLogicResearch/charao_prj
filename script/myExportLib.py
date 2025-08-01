@@ -151,7 +151,7 @@ def exportHarness(harnessList:list[Mcar]):
     outlines.append(f'  cell ({targetCell.cell}) {{\n') ## cell start
     outlines.append(f'    cell_leakage_power : {targetCell.pleak_cell};\n')
     outlines.append(f'    area : {targetCell.area};\n')
-    outlines.append(f'    call_tootprint : "{targetCell.logic}"\n')
+    outlines.append(f'    cell_footprint : "{targetCell.logic}";\n')
 
     if targetCell.isflop:
       outlines.append(f'    ff ({targetCell.replace_by_portmap(targetCell.ff["out"])}){{\n')

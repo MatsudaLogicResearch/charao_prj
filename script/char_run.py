@@ -220,7 +220,8 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float
   arc_oirc=h.mec.arc_oir+[arc_c0]
   tsim_end=1e-6
 
-  sim_c2d_max = h.mls.sim_c2d_max_per_unit * index2_load
+  #sim_c2d_max = h.mls.sim_c2d_max_per_unit * index2_load
+  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * index2_load, h.mls.sim_c2d_min)
   #--
   param = Mtp(
     #model         = model
@@ -254,7 +255,7 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float
   );
 
   param.set_common_value(harness=h, arc_oirc=arc_oirc)
-  
+    
   #-- generate testbench
   rendered = tb_template.render(param=param)
   with open(spicef, 'w') as f:
@@ -318,6 +319,9 @@ def runSpicePowerSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
     eend   = rslt1["eend"]
     rslt2= genFileLogic_PowerTrial1x(targetHarness=targetHarness, spicef=spicefoe2, meas_energy=2, index1_slope=index1_slope, index2_load=index2_load, estart=estart, eend=eend)
 
+    #
+    print(f'  [DEBUG] pleak={rslt2["pleak"]}, load={index2_load}, slope={index1_slope}')
+    
     ## -- result in targetHarness
     with targetHarness._lock:
       targetHarness.dict_list2["eintl"][index2_load][index1_slope] = rslt2["eintl"]
@@ -325,7 +329,8 @@ def runSpicePowerSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
       targetHarness.dict_list2["cin"  ][index2_load][index1_slope] = rslt2["cin"  ]
       targetHarness.dict_list2["pleak"][index2_load][index1_slope] = rslt2["pleak"]
     
-
+    
+  
 #--------------------------------------------------------------------------------------------------
 def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, index1_slope:float, index2_load:float, estart:float, eend:float):
 
@@ -338,7 +343,8 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
 
   tsim_end=eend + 1e-9 if meas_energy == 2 else 1e-6
   
-  sim_c2d_max = h.mls.sim_c2d_max_per_unit * index2_load
+  #sim_c2d_max = h.mls.sim_c2d_max_per_unit * index2_load
+  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * index2_load, h.mls.sim_c2d_min)
 
   param = Mtp(
     #model         = model
@@ -539,7 +545,11 @@ def runSpiceSetupMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 #--------------------------------------------------------------------------------------------------
 def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_rel:float, index2_slope_const:float):
                       
-  sim_c2d_max = targetHarness.mls.sim_c2d_max_per_unit * 0.1
+  # rename
+  h=targetHarness
+  
+  #sim_c2d_max = targetHarness.mls.sim_c2d_max_per_unit * 0.1
+  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min)
     
   with poolg_sema:
 
@@ -623,7 +633,8 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float,
   arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
   arc_oirc=h.mec.arc_oir + [arc_c0]
 
-  sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
+  #sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
+  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min)
   
   # create parameter
   param = Mtp(
@@ -774,7 +785,11 @@ def runSpiceHoldMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 #--------------------------------------------------------------------------------------------------
 def runSpiceHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_rel:float, index2_slope_const:float):
                       
-  sim_c2d_max = targetHarness.mls.sim_c2d_max_per_unit * 0.1
+  # rename
+  h=targetHarness
+  
+  #sim_c2d_max = targetHarness.mls.sim_c2d_max_per_unit * 0.1
+  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min)
   
   with poolg_sema:
     #seg_start  = -1.0*(targetHarness.mls.sim_c2d_max + targetHarness.mls.sim_d2c_max + index1_slope_rel + index2_slope_const) * targetHarness.mls.time_mag
@@ -853,7 +868,8 @@ def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float, 
   arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
   arc_oirc=h.mec.arc_oir + [arc_c0]
   
-  sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
+  #sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
+  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min)
   
   # create parameter
   param = Mtp(
@@ -1027,7 +1043,9 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
 
   # create parameter
   arc_oirc=h.mec.arc_oir + ["n"]
-  sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
+  
+  #sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
+  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min)
 
   #esatrt=_t0/ eend=t1
   #estart  = (5 * h.mls.simulation_timestep + h.mls.sim_d2c_max +h.mls.sim_pulse_max+ h.mls.sim_c2d_max)* h.mls.time_mag  
@@ -1240,7 +1258,8 @@ def genFileLogic_MinPulse1x(targetHarness:Mcar, spicef:str, tpulse_rel:float, ts
   arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
   arc_oirc=h.mec.arc_oir + [arc_c0]
 
-  sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
+  #sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
+  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min)
   
   # create parameter
   tslew = 5*h.mls.simulation_timestep * h.mls.time_mag

@@ -51,6 +51,7 @@ class MyLibrarySetting(BaseModel):
   
   #--- update by config_char_cond.jsonc
   cell_group                  : str = "std"  ;#usually set by argv.
+  usage_voltage               : float=5.0    ;#usually set by argv.
   process_corner              : str = "TC"   ;#usually set by argv.
   #operating_condition        : str = "TCCOM";#usually set by argv.
   #process                    : float = 1.0  ;#usually set by argv.
@@ -92,6 +93,7 @@ class MyLibrarySetting(BaseModel):
   sim_prop_io_max     : float =20.0
   sim_prop_io_tri_max : float =20.0
   sim_d2c_max         : float = 5.0
+  sim_c2d_min         : float =10.0
   sim_c2d_max_per_unit: float = 5.0
   #sim_c2d_max         : float = 5.0;
   sim_segment_timestep_start : float = 1.0
@@ -153,6 +155,10 @@ class MyLibrarySetting(BaseModel):
     
   def update_name(self):
     #--- convert float to string.(5.0 ----> 5P0)
+    uv_str="{:.2f}".format(self.usage_voltage);
+    uv_str=uv_str.replace('.','P');
+    
+    #--- convert float to string.(5.0 ----> 5P0)
     vdd_str="{:.2f}".format(self.vdd_voltage);
     vdd_str=vdd_str.replace('.','P');
 
@@ -164,15 +170,20 @@ class MyLibrarySetting(BaseModel):
     temp_str="M{:}C".format(int(-1.0 * self.temperature)) if self.temperature < 0 else "{:}C".format(int(self.temperature))
 
     #---
-    self.operating_condition=f"{self.process_corner}_{vdd_str}_{temp_str}"
+    #self.operating_condition=f"{self.process_corner}_{vdd_str}_{temp_str}"
+    self.operating_condition=f"{self.process_corner}{vdd_str}{temp_str}"
     
     #---
     #self.lib_name         = self.process_name + "_"+self.lib_vendor_id+"_"+vdd_str+"_"+temp_str
-    self.lib_name         = f"{self.process_name}_{self.lib_vendor_id}_{self.cell_group}_{self.operating_condition}"
+    basename=f"{self.process_name}_{self.lib_vendor_id}_{self.cell_group}_{uv_str}"
+    
+    self.lib_name         = f"{basename}_{self.operating_condition}"
     self.dotlib_name      = f"{self.lib_name}.lib"
     self.doc_name         = f"{self.lib_name}.md"
-    self.verilog_name     = f"{self.lib_name}.v"
-    self.cell_name_suffix = f"{self.process_name}_{self.lib_vendor_id}"
+    #self.verilog_name     = f"{self.lib_name}.v"
+    self.verilog_name     = f"{basename}.v"
+    
+    self.cell_name_suffix = f"{basename}".upper()
     
   def update_mag(self):
     match self.voltage_unit.upper() :
@@ -255,69 +266,6 @@ class MyLibrarySetting(BaseModel):
     if((self.supress_debug_msg.lower() == "false")or(self.supress_debug_msglower() == "f")):
       print(message)
 
-#  def gen_lut_templates(self,  targetCell):
-#    tmp_load_name = targetCell.load_name
-#    tmp_slope_name = targetCell.slope_name
-#    tmp_load_slope_name = str(targetCell.load_name)+"_"+str(targetCell.slope_name)
-#    
-#    ## if targetCell.load_name is not exists, register it to targetLib.load_name
-#    if(targetCell.load_name not in self.load_name):
-#      self.load_name.append(targetCell.load_name)
-#      #targetLib.load_name.append([targetCell.load_name,targetCell.load])
-#      
-#    ## if targetCell.slope_name is not exists, register it to targetLib.slope_name
-#    if(targetCell.slope_name not in self.slope_name):
-#      self.slope_name.append(targetCell.slope_name)
-#      
-#      #targetLib.slope_name.append([targetCell.slope_name,targetCell.slope])
-#      self.constraint_template_lines.append("  lu_table_template (constraint_template_"+targetCell.slope_name+") {\n")
-#      self.constraint_template_lines.append("    variable_1 : constrained_pin_transition;\n")
-#      self.constraint_template_lines.append("    variable_2 : related_pin_transition;\n")
-#      self.constraint_template_lines.append("    index_1 "+targetCell.return_slope()+"\n")
-#      self.constraint_template_lines.append("    index_2 "+targetCell.return_slope()+"\n")
-#      self.constraint_template_lines.append("  }\n")
-#      self.recovery_template_lines.append("  lu_table_template (recovery_template_"+targetCell.slope_name+") {\n")
-#      self.recovery_template_lines.append("    variable_1 : related_pin_transition;    \n")
-#      self.recovery_template_lines.append("    variable_2 : constrained_pin_transition;\n")
-#      self.recovery_template_lines.append("    index_1 "+targetCell.return_slope()+"\n")
-#      self.recovery_template_lines.append("    index_2 "+targetCell.return_slope()+"\n")
-#      self.recovery_template_lines.append("  }\n")
-#      self.removal_template_lines.append("  lu_table_template (removal_template_"+targetCell.slope_name+") {\n")
-#      self.removal_template_lines.append("    variable_1 : related_pin_transition;    \n")
-#      self.removal_template_lines.append("    variable_2 : constrained_pin_transition;\n")
-#      self.removal_template_lines.append("    index_1 "+targetCell.return_slope()+"\n")
-#      self.removal_template_lines.append("    index_2 "+targetCell.return_slope()+"\n")
-#      self.removal_template_lines.append("  }\n")
-#      self.mpw_constraint_template_lines.append("  lu_table_template (mpw_constraint_template_"+targetCell.slope_name+") {\n")
-#      self.mpw_constraint_template_lines.append("    variable_1 : constrained_pin_transition;\n")
-#      self.mpw_constraint_template_lines.append("    index_1 "+targetCell.return_slope()+"\n")
-#      self.mpw_constraint_template_lines.append("  }\n")
-#      self.passive_power_template_lines.append("  power_lut_template (passive_power_template_"+targetCell.slope_name+") {\n")
-#      self.passive_power_template_lines.append("    variable_1 : input_transition_time;\n")
-#      self.passive_power_template_lines.append("    index_1 "+targetCell.return_slope()+"\n")
-#      self.passive_power_template_lines.append("  }\n")
-#
-#    ## if load_slope_name is not exists, register it to targetLib.load_slope_name
-#    tmp_load_slope_name = str(targetCell.load_name)+"_"+str(targetCell.slope_name)
-#    
-#    if(tmp_load_slope_name not in self.load_slope_name):
-#      self.load_slope_name.append(tmp_load_slope_name)
-#
-#      #targetLib.load_slop_name.append([targetCell.load_name,targetCell.load,targetCell.slope])
-#      self.delay_template_lines.append("  lu_table_template (delay_template_"+tmp_load_slope_name+") {\n")
-#      self.delay_template_lines.append("    variable_1 : input_net_transition;\n")
-#      self.delay_template_lines.append("    variable_2 : total_output_net_capacitance;\n")
-#      self.delay_template_lines.append("    index_1 "+targetCell.return_slope()+"\n")
-#      self.delay_template_lines.append("    index_2 "+targetCell.return_load()+"\n")
-#      self.delay_template_lines.append("  }\n")
-#      self.power_template_lines.append("  power_lut_template (power_template_"+tmp_load_slope_name+") {\n")
-#      self.power_template_lines.append("    variable_1 : input_transition_time;\n")
-#      self.power_template_lines.append("    variable_2 : total_output_net_capacitance;\n")
-#      self.power_template_lines.append("    index_1 "+targetCell.return_slope()+"\n")
-#      self.power_template_lines.append("    index_2 "+targetCell.return_load()+"\n")
-#      self.power_template_lines.append("  }\n")
-
-
   def gen_lut_templates(self):
 
     #-- lu_table_template for kind/grid
@@ -348,32 +296,54 @@ class MyLibrarySetting(BaseModel):
       if flag:
         index1_num=int(flag.group(1))
         index2_num=int(flag.group(2))
+        
       else:
         print(f"[Error]: grid name={grid} is illegal on {kind}/{grid}. expect=[0-9]+[xX][0-9]+")
         my_exit()
 
+      #-- check index length
+      len1=[len(d.index_1) for d in group_list]
+      len2=[len(d.index_2) for d in group_list]
+
+      #print(f"[DEBUG]len1={len1}, len2={len2} @kind={kind}, grid={grid}")
+      len1_min,len1_max = min(len1),max(len1)
+      len2_min,len2_max = min(len2),max(len2)
+
+      if (len1_min != len1_max) or (len2_min != len2_max):
+        print(f"[ERROR] index_1/index_2 length is missmatch in template. kind={kind}, grid={grid}.")
+        my_exit()
+
+      if (len1_min != index1_num) or (len2_min != index2_num):
+          print(f'[Warnning] (index_1 x index_2)={len1}x{len2} size is missmatch with grid in template(kind={kind}/grid={grid}).')
+          index1_num = len1_min
+          index2_num = len2_min
+          
       #-- create table header
       if kind in ["const","delay","mpw"]:
         self.template_lines[kind].append(f'  lu_table_template ({kind}_template_{grid}) {{\n')
       else:
-        self.template_lines[kind].append(f'  power_lut_table_template ({kind}_energy_template_{grid}) {{\n')
+        self.template_lines[kind].append(f'  power_lut_template ({kind}_energy_template_{grid}) {{\n')
           
       #-- create variable_1
-      if index1_num>0:
-        self.template_lines[kind].append(f'    variable_1: {var_1_dict[kind]};\n')
+      #if index1_num>0:
+      if index1_num>1:
+        self.template_lines[kind].append(f'    variable_1 : {var_1_dict[kind]};\n')
         
       #-- create variable_2
-      if index2_num>0:
-        self.template_lines[kind].append(f'    variable_2: {var_2_dict[kind]};\n')
+      #if index2_num>0:
+      if index2_num>1:
+        self.template_lines[kind].append(f'    variable_2 : {var_2_dict[kind]};\n')
           
       #-- create variable_1
-      if index1_num>0:
+      #if index1_num>0:
+      if index1_num>1:
         num=index1_num
         dmy_values_list=[0.001 * (i+1) for i in range(num)]
         dmy_values_str=",".join([str(x) for x in dmy_values_list])
         self.template_lines[kind].append(f'    index_1 ("{dmy_values_str}");\n')
 
-      if index2_num>0:
+      #if index2_num>0:
+      if index2_num>1:
         num=index2_num
         dmy_values_list=[0.001 * (i+1) for i in range(num)]
         dmy_values_str=",".join([str(x) for x in dmy_values_list])

@@ -562,7 +562,7 @@ class MyLogicCell(BaseModel):
       my_exit()
       
     self.pleak_cell=st.mean(self.pleak_icrs.values())
-    #print(f"[DEBUG] pleak_cell={self.pleak_cell}.")
+    #print(f"  [DEBUG] pleak_cell={self.pleak_cell}.")
       
   #--- convert from local port name(i0) to spice port name(A).
   def rvs_portmap(self, local_ports:list):
