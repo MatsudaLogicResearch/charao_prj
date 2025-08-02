@@ -14,12 +14,12 @@ from myExpectCell import logic_dict
 from myExportLib import exportFiles,exitFiles
 from myExportDoc import exportDoc
 from char_run    import runExpectation
-from myFunc      import my_exit, startup
+from myFunc      import my_exit, startup, history
 
 def main():
   parser = argparse.ArgumentParser(description='argument')
   parser.add_argument('-g','--cell_group'  , choices=["std","io"], default="std", help='select cell_type')
-  parser.add_argument('-f','--fab_process' , type=str            , default="OSU350" , help='FAB process name')
+  parser.add_argument('-f','--fab_process' , type=str            , default="OSU035" , help='FAB process name')
   parser.add_argument('-v','--cell_vendor' , type=str            , default="SAMPLE" , help='CELL vendor name')
   parser.add_argument('-u','--usage_voltage',type=float          , default=5.0      , help='usage voltage')
 
@@ -30,11 +30,16 @@ def main():
   parser.add_argument('--vnw'           , type=float            , default=5.0   , help='NWELL voltage')
   parser.add_argument('--vpw'           , type=float            , default=0.0   , help='PWELL voltage')
 
-  parser.add_argument('--skip_comb'     , type=int              , default=0     , help='skip cell_comb')
-  parser.add_argument('--skip_seq'      , type=int              , default=0     , help='skip cell_seq')
+  parser.add_argument('--cells_only'    , type=str, nargs="*"   , default=[]    , help='list of target cell names. blank meas all cells.')
+  parser.add_argument('--measures_only' , type=str, nargs="*"   , default=[]    , help='list of measure_type names. blank meas all measure_type.')
+  parser.add_argument('-s','--significant_digits'   , type=int  , default=3     , help='significant digits.')
   
   args = parser.parse_args()
   #print(args.batch)
+
+  #--- barner
+  startup()
+  history()
 
   #--- set json file
   json_config_lib = "./target/"+args.fab_process + "/" + args.cell_vendor + "/config_lib.jsonc"
@@ -70,6 +75,9 @@ def main():
                     "vss_voltage"         :args.vss,
                     "nwell_voltage"       :args.vnw,
                     "pwell_voltage"       :args.vpw,
+                    "cells_only"          :args.cells_only,
+                    "measures_only"       :args.measures_only,
+                    "significant_digits"  :args.significant_digits
                     }
   targetLib = targetLib.model_copy(update=config_from_args)
   
@@ -90,63 +98,75 @@ def main():
   #--- cell_comb.jsonc
   if args.cell_group == "std":
     
-    if args.skip_comb != 1:
-      
-      cell_comb_info_list=[]
-      parser=JsonComment()
-      with open (json_cell_comb, "r") as f:
-        cell_comb_info_list = parser.load(f)
-        for info in cell_comb_info_list:
-          print(info)
-          
-          targetCell = Mlc(mls=targetLib, **info)
-          targetCell.set_supress_message() 
-          targetCell.add_template()
-          targetCell.chk_netlist() 
-          targetCell.chk_ports()
-          targetCell.add_model() 
-          targetCell.add_function()
-  
-          ## characterize
-          harnessList = characterizeFiles(targetLib, targetCell)
-          os.chdir("../")
+    cell_comb_info_list=[]
+    parser=JsonComment()
+    with open (json_cell_comb, "r") as f:
+      cell_comb_info_list = parser.load(f)
 
-          ## export
-          exportFiles(harnessList=harnessList) 
-          exportDoc(harnessList=harnessList) 
-          num_gen_file += 1
+    #  
+    for info in cell_comb_info_list:
+
+      #-- for DEBUG
+      if (targetLib.cells_only) and (info['cell'] not in targetLib.cells_only):
+        continue
+      else:
+        print(f"[INFO] cell={info['cell']}")
+
+      #
+      targetCell = Mlc(mls=targetLib, **info)
+      targetCell.set_supress_message() 
+      targetCell.add_template()
+      targetCell.chk_netlist() 
+      targetCell.chk_ports()
+      targetCell.add_model() 
+      targetCell.add_function()
+  
+      ## characterize
+      harnessList = characterizeFiles(targetLib, targetCell)
+      os.chdir("../")
+
+      ## export
+      exportFiles(harnessList=harnessList) 
+      exportDoc(harnessList=harnessList) 
+      num_gen_file += 1
       
   #--- cell_seq.jsonc
   if args.cell_group == "std":
-
-    if args.skip_seq != 1:
       
-      cell_seq_info_list=[]
-      parser=JsonComment()
-      with open (json_cell_seq, "r") as f:
-    
-        cell_seq_info_list = parser.load(f)
-        for info in cell_seq_info_list:
-          print(info)
+    cell_seq_info_list=[]
+    parser=JsonComment()
+    with open (json_cell_seq, "r") as f:  
+      cell_seq_info_list = parser.load(f)
 
-          targetCell = Mlc(mls=targetLib, **info)
-          targetCell.set_supress_message() 
-          targetCell.add_template()
-          targetCell.chk_netlist() 
-          targetCell.chk_ports()
-          targetCell.add_model() 
-          targetCell.add_function()
-          targetCell.add_ff()
+    #
+    for info in cell_seq_info_list:
 
-          ## characterize
-          harnessList = characterizeFiles(targetLib, targetCell)
-          os.chdir("../")
+      #-- for DEBUG
+      if (targetLib.cells_only) and (info['cell'] not in targetLib.cells_only):
+        continue
+      else:
+        print(f"[INFO] cell={info['cell']}")
 
-          ## export
-          exportFiles(harnessList) 
-          exportDoc(harnessList) 
-          num_gen_file += 1
+      #
+      targetCell = Mlc(mls=targetLib, **info)
+      targetCell.set_supress_message() 
+      targetCell.add_template()
+      targetCell.chk_netlist() 
+      targetCell.chk_ports()
+      targetCell.add_model() 
+      targetCell.add_function()
+      targetCell.add_ff()
 
+      ## characterize
+      harnessList = characterizeFiles(targetLib, targetCell)
+      os.chdir("../")
+      
+      ## export
+      exportFiles(harnessList) 
+      exportDoc(harnessList) 
+      num_gen_file += 1
+
+      
   #--- cell_io.jsonc
   if args.cell_group == "io":
 
@@ -155,11 +175,19 @@ def main():
     
     cell_io_info_list=[]
     parser=JsonComment()
-    with open (json_cell_io, "r") as f:
-    
+    with open (json_cell_io, "r") as f:    
       cell_io_info_list = parser.load(f)
-      for info in cell_io_info_list:
-        print(info)
+
+    #
+    for info in cell_io_info_list:
+      
+      #-- for DEBUG
+      if (targetLib.cells_only) and (info['cell'] not in targetLib.cells_only):
+        continue
+      else:
+        print(f"[INFO] cell={info['cell']}")
+
+      #--
         
   ## exit
   exitFiles(targetLib, num_gen_file) 

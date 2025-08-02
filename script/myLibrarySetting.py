@@ -107,6 +107,7 @@ class MyLibrarySetting(BaseModel):
   supress_msg      :str = "false"
   supress_sim_msg  :str = "false"
   supress_debug_msg:str = "false"
+  
   #--- calculated after instanciation
   operating_condition                 : str = "";
   
@@ -117,6 +118,10 @@ class MyLibrarySetting(BaseModel):
   energy_meas_low_threshold_voltage   : float = 0.05
   energy_meas_high_threshold_voltage  : float = 4.95
   
+  #--- argv option
+  significant_digits : int  = 3
+  #cells_only    : list[str] =Field(default_factory=list); # targegt cell name to libretto (if blank, all cell are target)
+  #measures_only : list[str] =Field(default_factory=list); # target  meas_type             (if blank, all measure are target
   
   #--- other variable
   #load_name       :list[str] = Field(default_factory=list);

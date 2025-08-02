@@ -14,16 +14,12 @@ from myLibrarySetting import MyLibrarySetting as Mls
 from myLogicCell      import MyLogicCell      as Mlc
 from myItem           import MyItemTemplate
 
-from myFunc import my_exit
+from myFunc import my_exit, f2s_ceil
 
 DictKey=Literal["prop","trans","setup_hold",
-                #"energy_start","energy_end",
-                #"q_in_dyn", "q_out_dyn", "q_vdd_dyn","q_vss_dyn","i_in_leak","i_vdd_leak","i_vss_leak",
                 "eintl","ein","cin", "pleak"]
   
 LutKey = Literal["prop","trans","setup_hold","eintl","ein"]
-
-#AvgKey = Literal["cin","pleak"]
 
 NestedDefaultDict = Annotated[
     DefaultDict[float, float],  # slope -> value
@@ -81,11 +77,6 @@ class MyConditionsAndResults(BaseModel):
   target_clkport_val    : str = ""
 
   clk_role              : str = "nouse"
-  
-  #stable_inport         : list[str] = Field(default_factory=list)
-  #stable_inport_val     : list[str] = Field(default_factory=list)
-  #nontarget_outport     : list[str] = Field(default_factory=list)
-  #nontarget_outport_val : list[str] = Field(default_factory=list)
   stable_inport_val      : dict[str,str] = Field(default_factory=dict); ## {"i0":"1"}
   nontarget_outport      : list[str] = Field(default_factory=list)
 
@@ -358,6 +349,9 @@ class MyConditionsAndResults(BaseModel):
     ## select mag
     mag = self.mls.energy_mag if value_name in ["eintl","ein"] else self.mls.time_mag
 
+    ## significant digits
+    sigdigs=self.mls.significant_digits
+    
     ## get index
     if value_name in ["eintl", "ein"]:
       if not self.template_kind in ["power","passive"]:
@@ -400,8 +394,10 @@ class MyConditionsAndResults(BaseModel):
     outline=""
     for index2 in index_2_list:
       #tmp      =",".join(str("{:5f}".format(x/mag)) for x in self.dict_list2[value_name][index2].values())
-      tmp      =", ".join(str("{:.4g}".format(x/mag)) for x in self.dict_list2[value_name][index2].values())
       #tmp      =",".join(str("{:7.4f}".format(x/mag)) for x in self.dict_list2[value_name][index2].values())
+      #tmp      =", ".join(str("{:.4g}".format(x/mag)) for x in self.dict_list2[value_name][index2].values())
+      tmp      =", ".join(f2s_ceil(f=x/mag, sigdigs=sigdigs) for x in self.dict_list2[value_name][index2].values())
+      
       outline +=str_colon+'"' + tmp + '"'
 
       str_colon = ",\\\n          "

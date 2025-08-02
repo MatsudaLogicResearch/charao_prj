@@ -42,12 +42,6 @@ class MyLogicCell(BaseModel):
 
   cins      : dict[str,float] = Field(default_factory=dict); ## inport caps. cins={"inport",cap}
   
-  #cclks     : list[float] = Field(default_factory=list);      ## clock pin cap. for flop
-  #csets     : list[float] = Field(default_factory=list);      ## set pin cap. for flop
-  #crsts     : list[float] = Field(default_factory=list);      ## reset pin cap. for flop 
-  #flops     : list[str]   = Field(default_factory=list);      ## registers 
-  #functions : list[str]   = Field(default_factory=list);  ## logic/flop functions 
-  #slope     : list[float] = Field(default_factory=list);      ## inport slope
   template_kgn: list[list[str]]= Field(default_factory=list);     ## kind/grid/name of template
   template: dict[str,MyItemTemplate] = Field(default_factory=lambda:{
     "const"  :None,
@@ -56,41 +50,18 @@ class MyLogicCell(BaseModel):
     "passive":None,
     "power"  :None})
   
-  #cslope    : float          = 0;      ## inport clock slope
-  #load      : list[float] = Field(default_factory=list);       ## outport load
-  #load_name      : str         = "load";  ## load name
   max_load4out: dict[str,float] = Field(default_factory=dict);   ## outport load {"outport",max capacitance}
   max_trans4in: dict[str,float] = Field(default_factory=dict);   ## max transition {"inport",max transition}
 
-
-  #timestep_res  : float       = 0.1;   ## simulation timestep resolution in slope[0]
-  #timestep_res  : float       = 0.001;   ## simulation timestep
-  #slope_name : list[str]  = Field(default_factory=list); ## slope name
-  #load_name  : list[str]  = Field(default_factory=list);  ## load name
-  #simulation_timestep : float = 0;      ## simulation timestep 
   isexport            : int = 0;   ## exported or not
   isexport2doc        : int = 0; ## exported to doc or not
   isflop              : int = 0;     ## DFF or not
-  ## setup 
-  #sim_setup_lowest    : float = 0.0;    ## fastest simulation edge (pos. val.) 
-  #sim_setup_highest   : float = 0.0;   ## lowest simulation edge (pos. val.) 
-  #sim_setup_timestep  : float = 0.0;  ## timestep for setup search (pos. val.) 
-  ## hold                        
-  #sim_hold_lowest     : float = 0.0;     ## fastest simulation edge (pos. val.) 
-  #sim_hold_highest    : float = 0.0;    ## lowest simulation edge (pos. val.) 
-  #sim_hold_timestep   : float = 0.0;   ## timestep for hold search (pos. val.) 
-  ## power
   pleak_icrs   : dict[str,float] = Field(default_factory=dict);## leakage power with input condition. pleak_icrs={"condition",val}
   pleak_cell   : float=0.0;          ## cell leakage power
 
   min_pulse_width_low : dict[str,float] = Field(default_factory=dict); #mini_pulse_width
   min_pulse_width_high: dict[str,float] = Field(default_factory=dict); #mini_pulse_width
   
-  #pleak        : list[list[float]] = Field(default_factory=list);   ## cell leak power
-  
-  #inport_pleak : list[list[float]] = Field(default_factory=list);   ## inport leak power
-  #inport_cap   : list[float]       = Field(default_factory=list);   ## inport cap
-  ## message
   supress_msg  : str = None;        ## supress message
 
   #-- local variable
@@ -99,104 +70,26 @@ class MyLogicCell(BaseModel):
   instance     : str  = None;    ## DUT instance name in TB.
   model        : str  = "./model/TT.sp";
   
-  #constraint_template_name     : str = None
-  #recovery_template_name       : str = None
-  #removal_template_name        : str = None
-  #mpw_constraint_template_name : str = None
-  #passive_power_template_name  : str = None
-  #delay_template_name          : str = None
-  #power_template_name          : str = None 
-
   #
   #model_config ={"frozen":True};  #-- not writable
   
-  #--def __init__ (self):  #-- not use
-
   lut_names  : list[str]= Field(default_factory=list);     ## template name(const,delay,energy,passive)
   lut_template: Dict[str, MyItemTemplate] = Field(default_factory=lambda: {"const"  : MyItemTemplate(name="", index_1=[], index_2=[]),
                                                                            "delay"  : MyItemTemplate(name="", index_1=[], index_2=[]),
                                                                            "energy" : MyItemTemplate(name="", index_1=[], index_2=[]),
                                                                            "passive": MyItemTemplate(name="", index_1=[], index_2=[])})
-  
+  #--def __init__ (self):  #-- not use
+
   def print_variable(self):
     for k,v in self.__dict__.items():
       print(f"   {k}={v}")
   
-  #--def __init__ (self):
-
-#--  ##                                                #
-#--  ##-- add functions for both comb. and seq. cell --#   
-#--  ##                                                #
-#--  def add_cell(self, line="tmp"):
-#--    tmp_array = line.split('-')
-#--    ## expected format : add_cell -n(name) AND_X1 
-#--    ##                            -l(logic) AND2 
-#--    ##                             -i(inports) A B 
-#--    ##                             -o(outports) YB
-#--    ##                             -f(function) YB=A*B
-#--    for options in tmp_array:
-#--
-#--      ## add_cell command 
-#--      if(re.match("^add_cell", options)):
-#--        continue
-#--      ## -n option
-#--      elif(re.match("^n ", options)):
-#--        tmp_array2 = options.split() 
-#--        self.cell = tmp_array2[1] 
-#--        #print (self.cell)
-#--      ## -l option
-#--      elif(re.match("^l ", options)):
-#--        tmp_array2 = options.split() 
-#--        self.logic = tmp_array2[1] 
-#--        #print (self.logic)
-#--      ## -i option
-#--      elif(re.match("^i ", options)):
-#--        tmp_array2 = options.split() 
-#--        for w in tmp_array2:
-#--          self.inports.append(w)
-#--        self.inports.pop(0) # delete first object("-i")
-#--        #print (self.inports)
-#--      ## -o option
-#--      ## -f option override -o option
-#--      ## currently, -o is not used
-#--      elif(re.match("^o ", options)):
-#--        tmp_array2 = options.split() 
-#--        #for w in tmp_array2:
-#--        # self.outports.append(w)
-#--        #self.outports.pop(0) # delete first object("-o")
-#--        #print (self.outports)
-#--      ## -f option
-#--      elif(re.match("^f ", options)):
-#--        tmp_array2 = options.split() 
-#--        #print (tmp_array2)
-#--        tmp_array2.pop(0) # delete first object("-f")
-#--        for w in tmp_array2:
-#--          tmp_array3 = w.split('=') 
-#--          self.outports.append(tmp_array3[0])
-#--          self.functions.append(tmp_array3[1])
-#--#       print ("func:"+str(self.functions))
-#--#       print ("outp:"+str(self.outports))
-#--#       print (self.functions)
-#--#       print (self.outports)
-#--      ## undefined option 
-#--      else:
-#--        print("ERROR: undefined option:"+options) 
-#--        my_exit()
-#--    # do not use print_msg 
-#--    print ("finish add_cell")
-
   def set_supress_message(self):
     self.supress_msg = self.mls.supress_msg 
 
   def print_msg(self, message=""):
     if((self.supress_msg.lower() == "false")or(self.supress_msg.lower() == "f")):
       print(message)
-
-  #def add_slope(self, targetLib, line="tmp"):
-  #  tmp_array = line.split()
-  #  for w in tmp_array:
-  #    self.slope.append(float(w))
-  #  #print (self.slope)
 
   def add_template(self):
 
@@ -224,75 +117,6 @@ class MyLogicCell(BaseModel):
         print(f"   [Error] unknown template kind{k}.")
         my_exit()
         
-        
-  
-#  def add_slope_load(self, targetLib:Mls):
-#                                                     
-#    for typ in ["out","in_tmg","in_pwr"]:
-#      if (typ in self.slope_load_name.keys())  and (self.slope_load_name[typ] != ""):
-#        name=self.slope_load_name[typ];
-#        if not name in targetLib.slope_loads.keys():
-#          print(f"[Error] slope_load name ={name} is not exist in targetLib.load_sopes.")
-#          my_exit()
-#        else:
-#          self.slope_load_val[typ]=targetLib.slope_loads[name]; #--- reference copy
-#          self.print_msg(f" add slope/load name={name} for {typ} analyze.") 
-
-#nouse  def return_index_str(self, typ:str, kind:str):
-#nouse    typ_list=self.slope_load_val.keys() 
-#nouse    if not typ in typ_list:
-#nouse      print(f"[Error] typ ={typ} is not exist in targetCell.slope_load_val.")
-#nouse      my_exit()
-#nouse      
-#nouse    kind_list=["slope","load"]
-#nouse    if not kind in kind_list:
-#nouse      print(f"[Error] kind ={kind} is not exist in targetCell.slope_load_val.")
-#nouse      my_exit()
-#nouse
-#nouse    index_list=self.slope_load_val[typ][kind]
-#nouse    outline = '("' + ','.join(str(x) for x in index_list) + '");'
-#nouse
-#nouse    return outline
-      
-#  def add_load(self, targetLib):
-#    flag_match = 0
-#    jlist = []
-#    # search load name from 2D load array
-#    for jlist in targetLib.load:
-#        if (jlist[-1] != self.load_name):
-#          continue
-#        else:
-#          flag_match = 1
-#          break
-#    if (flag_match == 0): # exit loop w/o match
-#      print("cannot find load: "+self.load_name)
-#      my_exit()
-#    self.load = copy.deepcopy(jlist)
-#    self.load.pop(-1) # delete load name
-#    self.print_msg("add load "+self.load_name) 
-
-#  def return_slope(self):
-#    jlist = self.slope
-#    outline = "(\""
-#    #mmm self.lut_prop = []
-#    for j in range(len(jlist)-1):
-#      outline += str(jlist[j])+", " 
-#    outline += str(jlist[len(jlist)-1])+"\");" 
-#    return outline
-#
-#  def return_load(self):
-#    jlist = self.load
-#    outline = "(\""
-#    #mmm self.lut_prop = []
-#    for j in range(len(jlist)-1):
-#      outline += str(jlist[j])+", " 
-#    outline += str(jlist[len(jlist)-1])+"\");" 
-#    return outline
-
-  #def add_area(self, line="tmp"):
-  #  tmp_array = line.split()
-  #  self.area = float(tmp_array[1]) 
-
   def update_max_trans4in(self, port_name:str, new_value:float):
 
     ## check port
@@ -431,21 +255,7 @@ class MyLogicCell(BaseModel):
       print(f"[Error] logic="+self.logic + " is not exist in MyExpectCell.py.");
       my_exit();
 
-
     self.functions = logic_dict[self.logic]["functions"]
-    #for k,v in logic_dict["functions"].items():
-    #  print(k , v)
-    #  for o in self.outports:
-    #    if(o.upper() == k.upper()):
-    #      self.functions.append(v)
-    
-    #tmp_array1 = logic_dict["function"].split(',')
-    #for f in tmp_array1:
-    #  tmp_array3 = f.split("=")
-    #  for o in self.outports:
-    #    if(o.upper() == tmp_array3[0].upper()):
-    #      #self.functions.append(tmp_array3[1])
-    #      self.functions.append(f)
           
     print("add function: " + str(self.functions))
 
@@ -591,9 +401,9 @@ class MyLogicCell(BaseModel):
       
     ## set value
     if measure_type=="min_pulse_width_high":
-      self.min_pulse_width_high["port_name"] = value
+      self.min_pulse_width_high[port_name] = value
     else:
-      self.min_pulse_width_low["port_name"] = value
+      self.min_pulse_width_low[port_name] = value
       
     ##
     #print(f"[Info] min_pulse_width={value} for {port_name}")

@@ -268,13 +268,13 @@ logic_dict={
     "DFF_PC_NR_NS":{
            "logic_type":"seq",
            "functions":{"o0":"Io0"},
-           "ff":{"out":"Io0",
+           "ff":{"out":"Io0,IQB",
                  "next_state":"i0",
                  "clocked_on":"c0",
                  "clear":"(!r0)",
                  "preset":"(!s0)",
-                 "clear_preset_var1":"X",
-                 "clear_preset_var2":"X"},
+                 "clear_preset_var1":"L",
+                 "clear_preset_var2":"H"},
            "expect":
            [
              #--- q delay (clk)
@@ -400,7 +400,7 @@ logic_dict={
                         ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","s"], tmg_when="", specify=""),
              MyExpectCell(pin_oir=["o0","r0","c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"r":["1"]}, mondrv_oir=["0","0","0"]
                         ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","s"], tmg_when="", specify=""),
-
+             
              #--- passive power(clk)
              MyExpectCell(pin_oir=["o0","c0","c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"r":["0"]}, mondrv_oir=["0","1","1"]
                         ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","s"], tmg_when="", specify=""),
