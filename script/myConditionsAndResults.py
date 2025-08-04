@@ -392,11 +392,11 @@ class MyConditionsAndResults(BaseModel):
 
     str_colon=""
     outline=""
-    for index2 in index_2_list:
+    for index1 in index_1_list:
       #tmp      =",".join(str("{:5f}".format(x/mag)) for x in self.dict_list2[value_name][index2].values())
       #tmp      =",".join(str("{:7.4f}".format(x/mag)) for x in self.dict_list2[value_name][index2].values())
       #tmp      =", ".join(str("{:.4g}".format(x/mag)) for x in self.dict_list2[value_name][index2].values())
-      tmp      =", ".join(f2s_ceil(f=x/mag, sigdigs=sigdigs) for x in self.dict_list2[value_name][index2].values())
+      tmp      =", ".join(f2s_ceil(f=x/mag, sigdigs=sigdigs) for x in self.dict_list2[value_name][index1].values())
       
       outline +=str_colon+'"' + tmp + '"'
 
@@ -406,8 +406,11 @@ class MyConditionsAndResults(BaseModel):
 
     # store min/center/max for doc
     index_2_center=index_2_list[int(len(index_2_list)/2)]
-    values=list(self.dict_list2[value_name][index_2_center].values())
+    
+    #values=list(self.dict_list2[value_name][index_2_center].values())
+    values=[self.dict_list2[value_name][index1][index_2_center] for index1 in self.dict_list2[value_name].keys()]
 
+    
     val_min=np.amin  (values)
     val_mid=np.median(values)
     val_max=np.amax  (values)

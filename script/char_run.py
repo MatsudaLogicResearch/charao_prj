@@ -31,6 +31,11 @@ def runExpectation(targetLib:Mls, targetCell:Mlc, expectationdictList:List[Mec])
     ## spice simulation
     measure_type=expectationdict.meas_type
 
+    #--- skip for debug
+    if (targetLib.measures_only) and (measure_type not in targetLib.measures_only):
+      continue;
+    
+    #--- do simulation
     if   measure_type in ["combinational","preset","clear","rising_edge","falling_edge"]:
       rslt_Harness = runSpiceDelayPowerMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
       
@@ -72,7 +77,7 @@ def runSpiceDelayPowerMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[M
 
   ## spice file name
   spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 =f"_{num}" + f"_typ_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
   spicef = spicef0 + spicef1
   
   # Limit number of threads
@@ -205,8 +210,8 @@ def runSpiceDelaySingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
 
     ## -- result in targetHarness
     with targetHarness._lock:
-      targetHarness.dict_list2["prop" ][index2_load][index1_slope] = rslt["prop"]
-      targetHarness.dict_list2["trans"][index2_load][index1_slope] = rslt["trans"]
+      targetHarness.dict_list2["prop" ][index1_slope][index2_load] = rslt["prop"]
+      targetHarness.dict_list2["trans"][index1_slope][index2_load] = rslt["trans"]
 
     
 #--------------------------------------------------------------------------------------------------
@@ -324,10 +329,10 @@ def runSpicePowerSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
     
     ## -- result in targetHarness
     with targetHarness._lock:
-      targetHarness.dict_list2["eintl"][index2_load][index1_slope] = rslt2["eintl"]
-      targetHarness.dict_list2["ein"  ][index2_load][index1_slope] = rslt2["ein"  ]
-      targetHarness.dict_list2["cin"  ][index2_load][index1_slope] = rslt2["cin"  ]
-      targetHarness.dict_list2["pleak"][index2_load][index1_slope] = rslt2["pleak"]
+      targetHarness.dict_list2["eintl"][index1_slope][index2_load] = rslt2["eintl"]
+      targetHarness.dict_list2["ein"  ][index1_slope][index2_load] = rslt2["ein"  ]
+      targetHarness.dict_list2["cin"  ][index1_slope][index2_load] = rslt2["cin"  ]
+      targetHarness.dict_list2["pleak"][index1_slope][index2_load] = rslt2["pleak"]
     
     
   
@@ -477,7 +482,7 @@ def runSpiceSetupMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
   ## spice file name
   spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 =f"_{num}" + f"_typ_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
   spicef = spicef0 + spicef1
   
   # Limit number of threads
@@ -555,19 +560,19 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
 
     seg_start  = 0.0
     #seg_end    = (targetHarness.mls.sim_c2d_max + targetHarness.mls.sim_d2c_max + index1_slope_rel + index2_slope_const) * targetHarness.mls.time_mag
-    seg_end    = (sim_c2d_max + targetHarness.mls.sim_d2c_max + index1_slope_rel + index2_slope_const) * targetHarness.mls.time_mag
-    tstep_min  = targetHarness.mls.sim_segment_timestep_min   * targetHarness.mls.time_mag
-    ratio      = targetHarness.mls.sim_segment_timestep_ratio
-    threshold  = targetHarness.mls.sim_time_const_threshold * targetHarness.mls.time_mag
+    #seg_end    = (sim_c2d_max + h.mls.sim_d2c_max + index1_slope_rel + index2_slope_const) * h.mls.time_mag
+    seg_end    = (sim_c2d_max + h.mls.sim_d2c_max + index1_slope_rel + index2_slope_const) * h.mls.time_mag
+    tstep_min  = h.mls.sim_segment_timestep_min   * h.mls.time_mag
+    ratio      = h.mls.sim_segment_timestep_ratio
+    threshold  = h.mls.sim_time_const_threshold * h.mls.time_mag
     
     tsweep_pass=seg_start
     setup_pass =0
-    hold_pass  =0
     
     tsim_end=1.0E-6
     prop_min=1.0
    
-    tstep = targetHarness.mls.sim_segment_timestep_start   * targetHarness.mls.time_mag
+    tstep = h.mls.sim_segment_timestep_start   * h.mls.time_mag
     cnt=0
     while tstep> tstep_min:
       cnt=cnt+1
@@ -581,12 +586,11 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
 
         spicefo  = f"{spicef}_c{index2_slope_const}_r{index1_slope_rel}_s{cnt*100+id}.sp"
         
-        rslt=genFileLogic_Setup1x(targetHarness=targetHarness, spicef=spicefo, index1_slope_rel=index1_slope_rel, index2_slope_const=index2_slope_const, tsweep=tsweep*-1.0, tsim_end=tsim_end)
+        rslt=genFileLogic_Setup1x(targetHarness=h, spicef=spicefo, index1_slope_rel=index1_slope_rel, index2_slope_const=index2_slope_const, tsweep=tsweep*-1.0, tsim_end=tsim_end)
 
         #- check prop_in_out
         prop_last=abs(rslt["prop_in_out"])
         setup_last=rslt["setup_in_rel"]
-        hold_last =rslt["hold_rel_in"]
 
         prop_min=min(prop_min, prop_last)
         
@@ -599,7 +603,6 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
         tsim_end=rslt["chg_out"] + 10e-9
         tsweep_pass=tsweep
         setup_pass =setup_last
-        hold_pass  =hold_last
 
       #-- update step/list range
       tstep_old=tstep
@@ -613,12 +616,12 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
     #print(f"tstep={tstep}, tsweep={tsweep_pass}, setup/hold={setup_pass}/{hold_pass}")
       
     #-- result in targetHarness
-    with targetHarness._lock:
-      if targetHarness.measure_type in ["setup_rising","setup_falling","recovery_rising","recovery_falling"]:
-        targetHarness.dict_list2["setup_hold" ][index2_slope_const][index1_slope_rel] = setup_pass
+    with h._lock:
+      if h.measure_type in ["setup_rising","setup_falling","recovery_rising","recovery_falling"]:
+        h.dict_list2["setup_hold" ][index1_slope_rel][index2_slope_const] = setup_pass
 
       else:
-        print(f"[Error] not support measure_type={targetHarness.measure_type}")
+        print(f"[Error] not support measure_type={h.measure_type}")
         my_exit()
       
 
@@ -685,9 +688,9 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float,
     spicelis = spicelis[:-3]+"mt0" 
 
   # read results(set default value)
+  res_list=["chg_out","setup_in_rel","prop_in_out"]
   res={"chg_out"     :1,
        "setup_in_rel":1,
-       "hold_rel_in" :1,
        "prop_in_out" :1}
   
   with open(spicelis,'r') as f:
@@ -697,7 +700,8 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float,
         inline = re.sub('\=',' ',inline)
       
       # search measure
-      for key in ["chg_out","setup_in_rel","hold_rel_in","prop_in_out"]:
+      #for key in ["chg_out","setup_in_rel","hold_rel_in","prop_in_out"]:
+      for key in res_list:
         if((re.search(key, inline, re.IGNORECASE))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
           sparray = re.split(" +", inline) # separate words with spaces (use re.split)
           res[key]= "{:e}".format(float(sparray[2].strip()))
@@ -705,11 +709,10 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float,
   # check spice finish successfully
 
   
-  # hold result
+  # result
   rslt={
     "chg_out"      :float(res["chg_out"]),
     "setup_in_rel" :float(res["setup_in_rel"]),
-    "hold_rel_in"  :float(res["hold_rel_in"]),
     "prop_in_out"  :float(res["prop_in_out"])}
 
   return (rslt)
@@ -721,7 +724,7 @@ def runSpiceHoldMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
   ## spice file name
   spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 =f"_{num}" + f"_typ_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
   spicef = spicef0 + spicef1
   
   # Limit number of threads
@@ -793,21 +796,26 @@ def runSpiceHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_
   
   with poolg_sema:
     #seg_start  = -1.0*(targetHarness.mls.sim_c2d_max + targetHarness.mls.sim_d2c_max + index1_slope_rel + index2_slope_const) * targetHarness.mls.time_mag
-    seg_start  = -1.0*(sim_c2d_max + targetHarness.mls.sim_d2c_max + index1_slope_rel + index2_slope_const) * targetHarness.mls.time_mag
-    seg_end    = 0.0
-    tstep_min  = targetHarness.mls.sim_segment_timestep_min   * targetHarness.mls.time_mag
-    ratio      = targetHarness.mls.sim_segment_timestep_ratio
-    #threshold  = targetHarness.mls.sim_time_const_threshold * targetHarness.mls.time_mag
-    threshold_high  = targetHarness.mls.hold_meas_high_threshold * targetHarness.mls.vdd_voltage
-    threshold_low   = targetHarness.mls.hold_meas_low_threshold  * targetHarness.mls.vdd_voltage
-    ival_o          = targetHarness.target_outport_val
+    #seg_start  = -1.0*(sim_c2d_max + h.mls.sim_d2c_max + index1_slope_rel + index2_slope_const) * targetHarness.mls.time_mag
+    seg_start  = -1.0*(sim_c2d_max + h.mls.sim_d2c_max) * h.mls.time_mag
+    seg_end    = 0
+    tstep_min  = h.mls.sim_segment_timestep_min   * h.mls.time_mag
+    ratio      = h.mls.sim_segment_timestep_ratio
+    threshold_high  = h.mls.hold_meas_high_threshold * h.mls.vdd_voltage
+    threshold_low   = h.mls.hold_meas_low_threshold  * h.mls.vdd_voltage
+    ival_o          = h.target_outport_val
     
     tsweep_pass=seg_start
     hold_pass  =0
     
-    tsim_end=targetHarness.mls.sim_tsim_end4hold  * targetHarness.mls.time_mag
+    #tsim_end=1.0E-6
+    #tsim_end=h.mls.sim_tsim_end4hold  * h.mls.time_mag
+    #----- same as t_in1 + alpha
+    tsim_end  = (5*h.mls.simulation_timestep + h.mls.sim_d2c_max + h.mls.sim_pulse_max) * h.mls.time_mag
+    tsim_end += (  h.mls.simulation_timestep + 2*sim_c2d_max ) * h.mls.time_mag
+    tsim_end += (2 * h.mls.sim_d2c_max + index1_slope_rel) * h.mls.time_mag
    
-    tstep = targetHarness.mls.sim_segment_timestep_start   * targetHarness.mls.time_mag
+    tstep = h.mls.sim_segment_timestep_start   * h.mls.time_mag
     cnt=0
     while tstep> tstep_min:
       cnt=cnt+1
@@ -821,7 +829,7 @@ def runSpiceHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_
 
         spicefo  = f"{spicef}_c{index2_slope_const}_r{index1_slope_rel}_s{cnt*100+id}.sp"
         
-        rslt=genFileLogic_Hold1x(targetHarness=targetHarness, spicef=spicefo, index1_slope_rel=index1_slope_rel, index2_slope_const=index2_slope_const, tsweep=tsweep*1.0, tsim_end=tsim_end)
+        rslt=genFileLogic_Hold1x(targetHarness=h, spicef=spicefo, index1_slope_rel=index1_slope_rel, index2_slope_const=index2_slope_const, tsweep=tsweep*1.0, tsim_end=tsim_end)
 
         #-- get result
         hold_last =rslt["hold_rel_in"]
@@ -849,14 +857,15 @@ def runSpiceHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_
     #print(f"tstep={tstep}, tsweep={tsweep_pass}, setup/hold={setup_pass}/{hold_pass}")
       
     #-- result in targetHarness
-    with targetHarness._lock:
-      if   targetHarness.measure_type in ["hold_rising","hold_falling","removal_rising","removal_falling"]:
-        targetHarness.dict_list2["setup_hold" ][index2_slope_const][index1_slope_rel] = hold_pass
+    with h._lock:
+      if  h.measure_type in ["hold_rising","hold_falling","removal_rising","removal_falling"]:
+        h.dict_list2["setup_hold" ][index1_slope_rel][index2_slope_const] = hold_pass
       else:
-        print(f"[Error] not support measure_type={targetHarness.measure_type}")
+        print(f"[Error] not support measure_type={h.measure_type}")
         my_exit()
       
-
+    #--
+    print(f"  [DEBUG]hold={hold_pass}")
         
 #--------------------------------------------------------------------------------------------------
 def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float, index2_slope_const:float, tsweep:float, tsim_end:float) -> dict:
@@ -921,7 +930,7 @@ def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float, 
 
   # read results(set default value)
   res_list=["o_max_v","o_min_v","hold_rel_in"]
-  res={"o_max_v"     :1,
+  res={"o_max_v"     :1,       
        "o_min_v"     :1,
        "hold_rel_in" :1}
   
@@ -953,7 +962,7 @@ def runSpicePassiveMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar
 
   ## spice file name
   spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 =f"_{num}" + f"_typ_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef1 =  f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
   spicef = spicef0 + spicef1
   
   # Limit number of threads
@@ -1028,10 +1037,10 @@ def runSpicePassiveSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slo
 
     #
     with targetHarness._lock:
-      targetHarness.dict_list2["eintl"][0][index1_slope_in]=rslt["eintl"]
-      targetHarness.dict_list2["ein"  ][0][index1_slope_in]=rslt["ein"]
-      targetHarness.dict_list2["cin"  ][0][index1_slope_in]=rslt["cin"]
-      targetHarness.dict_list2["pleak"][0][index1_slope_in]=rslt["pleak"]
+      targetHarness.dict_list2["eintl"][index1_slope_in][0]=rslt["eintl"]
+      targetHarness.dict_list2["ein"  ][index1_slope_in][0]=rslt["ein"]
+      targetHarness.dict_list2["cin"  ][index1_slope_in][0]=rslt["cin"]
+      targetHarness.dict_list2["pleak"][index1_slope_in][0]=rslt["pleak"]
 
 
     
@@ -1144,7 +1153,7 @@ def runSpiceMinPulseMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mca
 
   ## spice file name
   spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 =f"_{num}" + f"_typ_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef1 =  f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
   spicef = spicef0 + spicef1
   
   # Limit number of threads
