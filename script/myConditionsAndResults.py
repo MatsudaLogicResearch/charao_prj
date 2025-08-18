@@ -165,12 +165,17 @@ class MyConditionsAndResults(BaseModel):
       my_exit()
       
   def set_measure_type(self):
-    if self.mec.meas_type in ["combinational","rising_edge","fallin_edge",
+    if self.mec.meas_type in ["rising_edge","fallin_edge",
                               "setup_rising","setup_falling","hold_rising","hold_falling",
                               "removal_rising","removal_falling","recovery_rising","recovery_falling",
                               "clear", "preset",
                               "min_pulse_width_low", "min_pulse_width_high",
                               "passive"]:
+      self.measure_type = self.mec.meas_type
+    elif self.mec.meas_type in ["delay","delay_c2c", "delay_i2c", "delay_c2i", "delay_i2i",
+                                "power","power_c2c", "power_i2c", "power_c2i", "power_i2i"]:
+      self.measure_type = self.mec.meas_type
+    elif self.mec.meas_type in ["three_state_enable_c2i","three_state_disable_c2i"]:
       self.measure_type = self.mec.meas_type
     else:
       print(f"[Error] unkown meas_type={self.mec.meas_type}")
@@ -180,6 +185,14 @@ class MyConditionsAndResults(BaseModel):
   def set_timing_type(self):
     if self.mec.meas_type in ["min_pulse_width_low","min_pulse_width_high","passive"]:
       self.timing_type = "no_type"
+    elif self.mec.meas_type.startswith("delay"):
+      self.timing_type = "combinational"
+    elif self.mec.meas_type.startswith("power"):
+      self.timing_type = "power"
+    elif self.mec.meas_type.startswith("three_state_enable"):
+      self.timing_type = "three_state_enable"
+    elif self.mec.meas_type.startswith("three_state_disable"):
+      self.timing_type = "three_state_disable"
     else:
       self.timing_type = self.mec.meas_type
 
@@ -354,11 +367,11 @@ class MyConditionsAndResults(BaseModel):
     
     ## get index
     if value_name in ["eintl", "ein"]:
-      if not self.template_kind in ["power","passive"]:
+      if not self.template_kind in ["power","passive", "power_c2c", "power_i2c", "power_c2i", "power_i2i"]:
         print(f"[Error] value_name={value_name}/template_kind={self.template_kind} are missmatch.")
         my_exit()
     else:
-      if not self.template_kind in ["delay","const"]:
+      if not self.template_kind in ["delay","const", "delay_c2c", "delay_i2c", "delay_c2i", "delay_i2i"]:
         print(f"[Error] value_name={value_name}/template_kind={self.template_kind} are missmatch.")
         my_exit()
 
@@ -374,6 +387,8 @@ class MyConditionsAndResults(BaseModel):
 
     index_1_list=self.template.index_1
     index_2_list=self.template.index_2
+    
+    index_2_list_is_none=1 if len(index_2_list)<1  else 0
     
     ## index_1
     outline = 'index_1("' + ','.join(map(str, index_1_list)) + '");'
@@ -392,15 +407,20 @@ class MyConditionsAndResults(BaseModel):
 
     str_colon=""
     outline=""
-    for index1 in index_1_list:
-      #tmp      =",".join(str("{:5f}".format(x/mag)) for x in self.dict_list2[value_name][index2].values())
-      #tmp      =",".join(str("{:7.4f}".format(x/mag)) for x in self.dict_list2[value_name][index2].values())
-      #tmp      =", ".join(str("{:.4g}".format(x/mag)) for x in self.dict_list2[value_name][index2].values())
-      tmp      =", ".join(f2s_ceil(f=x/mag, sigdigs=sigdigs) for x in self.dict_list2[value_name][index1].values())
-      
-      outline +=str_colon+'"' + tmp + '"'
-
-      str_colon = ",\\\n          "
+    
+    ##---- sort dict_list2
+    if index_2_list_is_none:
+      #tmp      =", ".join(f2s_ceil(f=self.dict_list2[value_name][x][0]/mag, sigdigs=sigdigs) for x in self.dict_list2[value_name].keys())
+      s = [self.dict_list2[value_name][k][0] for k in sorted(index_1_list, key=lambda x: float(x))]
+      tmp      =", ".join(f2s_ceil(f=x/mag, sigdigs=sigdigs) for x in s)
+      outline  ='"' + tmp + '"'
+    else:
+      for index1 in index_1_list:
+        #tmp      =", ".join(f2s_ceil(f=x/mag, sigdigs=sigdigs) for x in self.dict_list2[value_name][index1].values())
+        s = [self.dict_list2[value_name][index1][k] for k in sorted(index_2_list, key=lambda x: float(x))]
+        tmp      =", ".join(f2s_ceil(f=x/mag, sigdigs=sigdigs) for x in s)
+        outline +=str_colon+'"' + tmp + '"'
+        str_colon = ",\\\n          "
 
     self.lut[value_name].append(outline+");")
 
@@ -515,6 +535,12 @@ class MyConditionsAndResults(BaseModel):
 
       #
       print(f"[Error] not used port name={w1} in XDUT")
+      print(f"[Error]  instance={self.mlc.instance}")
+      print(f"Error]   target.outport   ={self.target_outport}")
+      print(f"Error]   target.inport    ={self.target_inport}")
+      print(f"Error]   target.relport   ={self.target_relport}")
+      print(f"Error]   nontarget_outport={self.nontarget_outport}")
+      print(f"Error]   stable_inport_val={self.stable_inport_val}")
       my_exit()
         
     ## show error if this port has not matched

@@ -30,8 +30,15 @@ class MyLogicCell(BaseModel):
   spice     : str  = None;    ## spice file name
   functions : Dict[str,str] = Field(default_factory=dict); ## cell function
   ff        : Dict[str,str] = Field(default_factory=dict); ## ff infomation
-  
+  #io        : Dict[str,str] = Field(default_factory=dict); ## io infomation
+  #pin       : Dict[str,str] = Field(default_factory=dict); ## pin infomation for IO cell
   ports_dict: Dict[str,str] = Field(default_factory=dict); ## spice-port/name mapper
+
+  cell_infos: Dict[str,Any]= Field(default_factory=dict); ## additional cell infomation
+  rail_connections:Dict[str,str]= Field(default_factory=dict); ## additional cell infomation
+  pad_infos : Dict[str,Dict[str,Any]]= Field(default_factory=dict); ## PAD infomation
+  oe_infos  : Dict[str,Dict[str,Any]]= Field(default_factory=dict); ## OE infomation
+  
   inports   : list[str] = Field(default_factory=list); ## inport pins
   outports  : list[str] = Field(default_factory=list); ## outport pins
   biports   : list[str] = Field(default_factory=list); ## inout port pins
@@ -46,9 +53,17 @@ class MyLogicCell(BaseModel):
   template: dict[str,MyItemTemplate] = Field(default_factory=lambda:{
     "const"  :None,
     "delay"  :None,
+    "delay_c2c"  :None,
+    "delay_i2c"  :None,
+    "delay_c2i"  :None,
+    "delay_i2i"  :None,
     "mpw"    :None,
     "passive":None,
-    "power"  :None})
+    "power"  :None,
+    "power_c2c"  :None,
+    "power_i2c"  :None,
+    "power_c2i"  :None,
+    "power_i2i"  :None})
   
   max_load4out: dict[str,float] = Field(default_factory=dict);   ## outport load {"outport",max capacitance}
   max_trans4in: dict[str,float] = Field(default_factory=dict);   ## max transition {"inport",max transition}
@@ -56,6 +71,7 @@ class MyLogicCell(BaseModel):
   isexport            : int = 0;   ## exported or not
   isexport2doc        : int = 0; ## exported to doc or not
   isflop              : int = 0;     ## DFF or not
+  isio                : int = 0;     ## IO or not
   pleak_icrs   : dict[str,float] = Field(default_factory=dict);## leakage power with input condition. pleak_icrs={"condition",val}
   pleak_cell   : float=0.0;          ## cell leakage power
 
@@ -76,7 +92,16 @@ class MyLogicCell(BaseModel):
   lut_names  : list[str]= Field(default_factory=list);     ## template name(const,delay,energy,passive)
   lut_template: Dict[str, MyItemTemplate] = Field(default_factory=lambda: {"const"  : MyItemTemplate(name="", index_1=[], index_2=[]),
                                                                            "delay"  : MyItemTemplate(name="", index_1=[], index_2=[]),
-                                                                           "energy" : MyItemTemplate(name="", index_1=[], index_2=[]),
+                                                                           "delay_c2c"  : MyItemTemplate(name="", index_1=[], index_2=[]),
+                                                                           "delay_i2c"  : MyItemTemplate(name="", index_1=[], index_2=[]),
+                                                                           "delay_c2i"  : MyItemTemplate(name="", index_1=[], index_2=[]),
+                                                                           "delay_i2i"  : MyItemTemplate(name="", index_1=[], index_2=[]),
+                                                                           #"energy" : MyItemTemplate(name="", index_1=[], index_2=[]),
+                                                                           "delay"  : MyItemTemplate(name="", index_1=[], index_2=[]),
+                                                                           "power_c2c"  : MyItemTemplate(name="", index_1=[], index_2=[]),
+                                                                           "power_i2c"  : MyItemTemplate(name="", index_1=[], index_2=[]),
+                                                                           "power_c2i"  : MyItemTemplate(name="", index_1=[], index_2=[]),
+                                                                           "power_i2i"  : MyItemTemplate(name="", index_1=[], index_2=[]),
                                                                            "passive": MyItemTemplate(name="", index_1=[], index_2=[])})
   #--def __init__ (self):  #-- not use
 
@@ -109,19 +134,21 @@ class MyLogicCell(BaseModel):
         my_exit()
         
       # check kind in targetCell
+      #print(self.template.keys())
+      
       if k in self.template.keys():
         self.template[k] = self.mls.templates[idx_src]
         print(f"   [Info] add template={k}{g}{n}.")
 
       else:
-        print(f"   [Error] unknown template kind{k}.")
+        print(f"   [Error] unknown template kind={k}.")
         my_exit()
         
   def update_max_trans4in(self, port_name:str, new_value:float):
 
     ## check port
     #if not port_name in self.inports + [self.clock]:
-    if not port_name in [p for p in (self.inports + [self.clock]) if p is not None]:
+    if not port_name in [p for p in (self.inports + [self.clock] + self.biports) if p is not None]:
       print(f"[Error] inport={port_name} is not exist in logic={self.logic}.")
       my_exit()
       
@@ -139,7 +166,7 @@ class MyLogicCell(BaseModel):
   def update_max_load4out(self, port_name:str, new_value:float):
 
     ## check port
-    if not port_name in self.outports:
+    if not port_name in (self.outports + self.biports):
       print(f"[Error] outport={port_name} is not exist in logic={self.logic}.")
       my_exit()
       
@@ -157,7 +184,11 @@ class MyLogicCell(BaseModel):
     
   def chk_netlist(self):
     targetLib=self.mls
-    self.netlist = targetLib.cell_spice_path +"/"+self.spice
+    if self.isio:
+      self.netlist = targetLib.io_spice_path +"/"+self.spice
+    else:
+      self.netlist = targetLib.cell_spice_path +"/"+self.spice
+      
     self.definition = None
 
     ## search cell name in the netlist
@@ -171,7 +202,7 @@ class MyLogicCell(BaseModel):
         #print("self.cell.lower:"+str(self.cell.lower()))
         #print("line.lower:"+str(line.lower()))
         if((self.cell.lower() in line.lower()) and (".subckt" in line.lower())):
-          print("Cell definition found for: "+str(self.cell))
+          print(f"   [INFO]: Cell definition found for {str(self.cell)} in netlist/")
           #print(line)
           self.definition = line
         
@@ -268,10 +299,17 @@ class MyLogicCell(BaseModel):
     self.ff = logic_dict[self.logic]["ff"]
     self.isflop=1
 
+  def add_io(self):
+    if not self.logic in logic_dict.keys():
+      print(f"[Error] logic="+self.logic + " is not exist in MyExpectCell.py.");
+      my_exit();
+
+    self.isio=1
+  
   ## average of cin in all harness.dict_list2["cin"]["index_2"]["index_1"]
   def set_cin_avg(self, harnessList:list["Mcar"]):
 
-    for inport in self.inports + [self.clock]:
+    for inport in (self.inports + [self.clock] + self.biports):
       
       cin_all=[]
       for h in harnessList:

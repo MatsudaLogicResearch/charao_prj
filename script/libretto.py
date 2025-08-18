@@ -69,6 +69,7 @@ def main():
     
   #--- targetLib : update from args
   config_from_args={"usage_voltage"       :args.usage_voltage,
+                    "cell_group"          :args.cell_group,
                     "process_corner"      :args.process_corner,
                     "temperature"         :args.temp,
                     "vdd_voltage"         :args.vdd,
@@ -80,6 +81,9 @@ def main():
                     "significant_digits"  :args.significant_digits
                     }
   targetLib = targetLib.model_copy(update=config_from_args)
+
+  #debug
+  #print(targetLib.templates)
   
   #--- targetLib : update & display 
   targetLib.update_name()
@@ -96,7 +100,7 @@ def main():
   num_gen_file = 0
   
   #--- cell_comb.jsonc
-  if args.cell_group == "std":
+  if targetLib.cell_group == "std":
     
     cell_comb_info_list=[]
     parser=JsonComment()
@@ -131,7 +135,7 @@ def main():
       num_gen_file += 1
       
   #--- cell_seq.jsonc
-  if args.cell_group == "std":
+  if targetLib.cell_group == "std":
       
     cell_seq_info_list=[]
     parser=JsonComment()
@@ -150,12 +154,12 @@ def main():
       #
       targetCell = Mlc(mls=targetLib, **info)
       targetCell.set_supress_message() 
+      targetCell.add_ff()
       targetCell.add_template()
       targetCell.chk_netlist() 
       targetCell.chk_ports()
       targetCell.add_model() 
       targetCell.add_function()
-      targetCell.add_ff()
 
       ## characterize
       harnessList = characterizeFiles(targetLib, targetCell)
@@ -168,27 +172,41 @@ def main():
 
       
   #--- cell_io.jsonc
-  if args.cell_group == "io":
+  if targetLib.cell_group == "io":
 
-    print(f"[Error] io is not supported.")
-    my_exit()
-    
     cell_io_info_list=[]
     parser=JsonComment()
     with open (json_cell_io, "r") as f:    
       cell_io_info_list = parser.load(f)
 
-    #
+    #  
     for info in cell_io_info_list:
-      
+
       #-- for DEBUG
       if (targetLib.cells_only) and (info['cell'] not in targetLib.cells_only):
         continue
       else:
         print(f"[INFO] cell={info['cell']}")
 
-      #--
-        
+      #
+      targetCell = Mlc(mls=targetLib, **info)
+      targetCell.set_supress_message() 
+      targetCell.add_io()
+      targetCell.add_template()
+      targetCell.chk_netlist() 
+      targetCell.chk_ports()
+      targetCell.add_model() 
+      targetCell.add_function()
+  
+      ## characterize
+      harnessList = characterizeFiles(targetLib, targetCell)
+      os.chdir("../")
+
+      ## export
+      exportFiles(harnessList=harnessList) 
+      exportDoc(harnessList=harnessList) 
+      num_gen_file += 1
+
   ## exit
   exitFiles(targetLib, num_gen_file) 
 
@@ -221,9 +239,10 @@ def characterizeFiles(targetLib, targetCell):
 
   logic_type=logic_dict[targetCell.logic]["logic_type"]
   if   logic_type  == "comb":
-    #rslt=runCombInNOut1(targetLib, targetCell, logic_dict[targetCell.logic]["expect"])
     rslt=runExpectation(targetLib, targetCell, logic_dict[targetCell.logic]["expect"])
   elif logic_type  == "seq":
+    rslt=runExpectation(targetLib, targetCell, logic_dict[targetCell.logic]["expect"])
+  elif logic_type  == "io":
     rslt=runExpectation(targetLib, targetCell, logic_dict[targetCell.logic]["expect"])
   else:
     print(f"[Error] unknown logic_type={logic_type}.")

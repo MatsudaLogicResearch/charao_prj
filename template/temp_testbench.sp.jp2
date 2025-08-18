@@ -1,5 +1,6 @@
 *title: delay meas.
 .option brief nopage nomod post=1 ingold=2 autostop
+.options NOREFVALUE
 
 .inc '{{param.model}}'
 .inc '{{param.netlist}}'
@@ -10,7 +11,37 @@
 .param _vss = {{param.voltage_vsnp[1]}}
 .param _vnw = {{param.voltage_vsnp[2]}}
 .param _vpw = {{param.voltage_vsnp[3]}}
+
+{%if param.voltage_vsnp | length >=6 %}
+.param _vddio = {{param.voltage_vsnp[4]}}
+.param _vssio = {{param.voltage_vsnp[5]}}
+{%else %}
+.param _vddio = {_vdd}
+.param _vssio = {_vss}
+{%endif %}
+
+{%if param.vdd_vss_for_oirc  is defined %}
+.param _vdd_vout = {{param.vdd_vss_for_vin_vrel[0]}}
+.param _vss_vout = {{param.vdd_vss_for_vin_vrel[1]}}
+.param _vdd_vin  = {{param.vdd_vss_for_vin_vrel[2]}}
+.param _vss_vin  = {{param.vdd_vss_for_vin_vrel[3]}}
+.param _vdd_vrel = {{param.vdd_vss_for_vin_vrel[4]}}
+.param _vss_vrel = {{param.vdd_vss_for_vin_vrel[5]}}
+.param _vdd_vclk = {{param.vdd_vss_for_vin_vrel[6]}}
+.param _vss_vclk = {{param.vdd_vss_for_vin_vrel[7]}}
+{%else %}
+.param _vdd_vout = {_vdd}
+.param _vss_vout = {_vss}
+.param _vdd_vin  = {_vdd}
+.param _vss_vin  = {_vss}
+.param _vdd_vrel = {_vdd}
+.param _vss_vrel = {_vss}
+.param _vdd_vclk = {_vdd}
+.param _vss_vclk = {_vss}
+{%endif %}
+
 .param cap  = {{param.cap}}
+.param pullres  = {{param.pullres}}
 
 .param _timestep   = {{param.timestep}}
 .param _tsim_end   = {{param.tsim_end}}
@@ -68,48 +99,57 @@ VDD_DYN VDD_DYN 0 DC {_vdd}
 VSS_DYN VSS_DYN 0 DC {_vss}
 VNW_DYN VNW_DYN 0 DC {_vnw}
 VPW_DYN VPW_DYN 0 DC {_vpw}
+VDDIO_DYN VDDIO_DYN 0 DC {_vddio}
+VSSIO_DYN VSSIO_DYN 0 DC {_vssio}
 
 VHIGH VHIGH 0 DC {_vdd}
 VLOW  VLOW  0 DC {_vss}
+
+VHIGH_IO VHIGH_IO 0 DC {_vddio}
+VLOW_IO  VLOW_IO  0 DC {_vssio}
+
 
 ** output load 
 VOCAP VOUT WOUT DC 0
  
 ** tran
+*.tran {_timestep} {_tsim_end} UIC maxstep=1e-10
+*.tran {_timestep} {_tsim_end} 0 1e-11
 .tran {_timestep} {_tsim_end}
 
 
 ** PWL
 **** VIN
 {% if   param.arc_oirc[1] == "rise" %}
-VIN VIN 0 PWL(0p {_vss} {_t_in0} {_vss} {_t_in1} {_vdd} )
+VIN VIN 0 PWL(0p {_vss_vin} {_t_in0} {_vss_vin} {_t_in1} {_vdd_vin} )
 {%- elif param.arc_oirc[1] == "fall" %}
-VIN VIN 0 PWL(0p {_vdd} {_t_in0} {_vdd} {_t_in1} {_vss} )
+VIN VIN 0 PWL(0p {_vdd_vin} {_t_in0} {_vdd_vin} {_t_in1} {_vss_vin} )
 {%- elif param.val0_oirc[1] == "1" %}
-VIN VIN 0 DC {_vdd}
+VIN VIN 0 DC {_vdd_vin}
 {%- else %}
-VIN VIN 0 DC {_vss}
+VIN VIN 0 DC {_vss_vin}
 {%- endif %}
 
 *** VREL
 {% if   param.arc_oirc[2] == "rise" %}
-VREL VREL 0 PWL(0p {_vss} {_t_rel0} {_vss} {_t_rel1} {_vdd} )
+VREL VREL 0 PWL(0p {_vss_vrel} {_t_rel0} {_vss_vrel} {_t_rel1} {_vdd_vrel} )
 {%- elif param.arc_oirc[2] == "fall" %}
-VREL VREL 0 PWL(0p {_vdd} {_t_rel0} {_vdd} {_t_rel1} {_vss} )
+VREL VREL 0 PWL(0p {_vdd_vrel} {_t_rel0} {_vdd_vrel} {_t_rel1} {_vss_vrel} )
 {%- elif param.val0_oirc[2] == "1" %}
-VREL VREL 0 DC {_vdd}
+VREL VREL 0 DC {_vdd_vrel}
 {%- else %}
-VREL VREL 0 DC {_vss}
+VREL VREL 0 DC {_vss_vrel}
 {%- endif %}
 
 *** VCLK
 {% if   param.val0_oirc[3] == "0" %}
-VCLK VCLK 0 PWL(0p {_vss} {_t_clk0} {_vss} {_t_clk1} {_vdd} {_t_clk2} {_vdd} {_t_clk3}
-+                  {_vss} {_t_clk4} {_vss} {_t_clk5} {_vdd} {_t_clk6} {_vdd} {_t_clk7} {_vss})
+VCLK VCLK 0 PWL(0p {_vss_vclk} {_t_clk0} {_vss_vclk} {_t_clk1} {_vdd_vclk} {_t_clk2} {_vdd_vclk} {_t_clk3}
++                  {_vss_vclk} {_t_clk4} {_vss_vclk} {_t_clk5} {_vdd_vclk} {_t_clk6} {_vdd_vclk} {_t_clk7} {_vss_vclk})
 {%- else %}
-VCLK VCLK 0 PWL(0p {_vdd} {_t_clk0} {_vdd} {_t_clk1} {_vss} {_t_clk2} {_vss} {_t_clk3}
-+                  {_vdd} {_t_clk4} {_vdd} {_t_clk5} {_vss} {_t_clk6} {_vss} {_t_clk7} {_vdd})
+VCLK VCLK 0 PWL(0p {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vclk} {_t_clk2} {_vss_vclk} {_t_clk3}
++                  {_vdd_vclk} {_t_clk4} {_vdd_vclk} {_t_clk5} {_vss_vclk} {_t_clk6} {_vss_vclk} {_t_clk7} {_vdd_vclk})
 {%- endif %}
+
 
 ** MEASURE
 
@@ -162,12 +202,16 @@ VCLK VCLK 0 PWL(0p {_vdd} {_t_clk0} {_vdd} {_t_clk1} {_vss} {_t_clk2} {_vss} {_t
 .MEASURE TRAN q_out_dyn INTEG I(VOCAP) FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 
 *** Energy (Total charge, Short-Circuit Charge) 
-.MEASURE TRAN q_vdd_dyn INTEG I(VDD_DYN) FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
-.MEASURE TRAN q_vss_dyn INTEG I(VSS_DYN) FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+.MEASURE TRAN q_vdd_dyn INTEG I(VDD_DYN)      FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+.MEASURE TRAN q_vss_dyn INTEG I(VSS_DYN)      FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+.MEASURE TRAN q_vddio_dyn INTEG I(VDDIO_DYN) FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+.MEASURE TRAN q_vssio_dyn INTEG I(VSSIO_DYN) FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 
 *** Leakage current 
-.MEASURE TRAN i_vdd_leak AVG I(VDD_DYN) FROM={_t_in0 - 101*_timestep} TO={_t_in0 - 1*_timestep}
-.MEASURE TRAN i_vss_leak AVG I(VSS_DYN) FROM={_t_in0 - 101*_timestep} TO={_t_in0 - 1*_timestep}
+.MEASURE TRAN i_vdd_leak   AVG I(VDD_DYN)    FROM={_t_in0 - 101*_timestep} TO={_t_in0 - 1*_timestep}
+.MEASURE TRAN i_vss_leak   AVG I(VSS_DYN)    FROM={_t_in0 - 101*_timestep} TO={_t_in0 - 1*_timestep}
+.MEASURE TRAN i_vddio_leak AVG I(VDDIO_DYN) FROM={_t_in0 - 101*_timestep} TO={_t_in0 - 1*_timestep}
+.MEASURE TRAN i_vssio_leak AVG I(VSSIO_DYN) FROM={_t_in0 - 101*_timestep} TO={_t_in0 - 1*_timestep}
 
 * Gate leak current 
 .MEASURE TRAN i_rel_leak avg I(VREL) FROM={_t_rel0} TO={_t_rel1}
@@ -192,10 +236,37 @@ VCLK VCLK 0 PWL(0p {_vdd} {_t_clk0} {_vdd} {_t_clk1} {_vss} {_t_clk2} {_vss} {_t
 **.endc 
 
 ** INSTANCE
-XCELL VCLK VREL VIN VOUT VHIGH VLOW VDD_DYN VSS_DYN VNW_DYN VPW_DYN DUT 
+XCELL VCLK VREL VIN VOUT VHIGH VLOW VHIGH_IO VLOW_IO VDD_DYN VSS_DYN VNW_DYN VPW_DYN VDDIO_DYN VSSIO_DYN DUT 
 C0 WOUT VSS_DYN 'cap'
- 
-.SUBCKT DUT CLK REL IN OUT HIGH LOW VDD VSS VNW VPW
+
+**** for three state
+{% if param.pullres_role != "nouse" %}
+ VDD_PULL_DYN VDD_PULL_DYN 0 DC {_vdd_vout}
+ VSS_PULL_DYN VSS_PULL_DYN 0 DC {_vss_vout}
+ .model SW_NMOS SW(Ron=1G         Roff={pullres} Vt={{param.prop_vth_oirc[0]}} Vh=0.3)
+ .model SW_PMOS SW(Ron=1{pullres} Roff=1G        Vt={{param.prop_vth_oirc[0]}} Vh=0.3)
+{% endif %}
+
+**** for three state enable
+{% if param.pullres_role == "up" %}
+ R0 WOUT VDD_PULL_DYN 'pullres'
+{% elif param.pullres_role == "down" %}
+ R0 WOUT VSS_PULL_DYN 'pullres'
+{% endif %}
+
+**** for three state disable
+{% if   param.pullres_role == "up_ngate" %}
+ S1 WOUT VDD_PULL_DYN {{param.pullres_gate}} 0 SW_NMOS
+{% elif param.pullres_role == "up_pgate" %}
+ S1 WOUT VDD_PULL_DYN {{param.pullres_gate}} 0 SW_PMOS
+{% elif param.pullres_role == "down_ngate" %}
+ S1 WOUT VSS_PULL_DYN {{param.pullres_gate}} 0 SW_NMOS
+{% elif param.pullres_role == "down_pgate" %}
+ S1 WOUT VSS_PULL_DYN {{param.pullres_gate}} 0 SW_PMOS
+{% endif %}
+
+
+.SUBCKT DUT CLK REL IN OUT HIGH LOW HIGH_IO LOW_IO VDD VSS VNW VPW VDDIO VSSIO
 {{param.tb_instance}}
 .ends 
 

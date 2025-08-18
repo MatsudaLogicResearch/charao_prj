@@ -20,10 +20,13 @@ class MyTbParam:
   
   tb_instance  :str        =""
   cap          :float      =0.0;
+  pullres      :float      =1000;
+  pullres_gate :str        ="driver.ngate";
   arc_oirc     :list[str]=Field(default_factory=list);
   val0_oirc    :list[str]=Field(default_factory=list);
 
-  clk_role     :str        ="nouse"
+  clk_role     :str        ="nouse"; # nouse/related/input
+  pullres_role :str        ="nouse"; # nosue/up/down/up_ngate/up_pgate/down_ngate/down_pgate
   meas_energy  :int        =0;  # 0:No Meas for Energy/ 1:Meas Only Time/ 2:Meas all
   time_energy  :list[float]=Field(default_factory=list); #[start,end]
 
@@ -87,4 +90,9 @@ class MyTbParam:
     self.val0_oirc    =[h.target_outport_val,h.target_inport_val,h.target_relport_val,h.target_clkport_val]
 
 
+    #--
+    if   h.timing_type == "three_state_enable":
+      self.pullres = float("{:.5g}".format(h.mls.sim_pullres_enable  * h.mls.resistance_mag))
+    elif h.timing_type == "three_state_disable":
+      self.pullres = float("{:.5g}".format(h.mls.sim_pullres_disable * h.mls.resistance_mag))
     

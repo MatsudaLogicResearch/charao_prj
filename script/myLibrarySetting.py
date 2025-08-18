@@ -6,6 +6,8 @@ from itertools import groupby
 from myItem import MyItemTemplate
 from myFunc import my_exit
 
+import time
+
 class MyLibrarySetting(BaseModel):
   #=====================================
   # class variable
@@ -22,11 +24,14 @@ class MyLibrarySetting(BaseModel):
   lib_vendor_id    : str = "VENDOR"      
   model_path       : str = "./target"    
   cell_spice_path  : str = "./spice"     
+  io_spice_path    : str = "./spice"     
   cell_name_prefix : str = "_V1"         ; #
   vdd_name         : str = "VDD"
   vss_name         : str = "VSS"
   pwell_name       : str = "VPW"
   nwell_name       : str = "VNW"    
+  vddio_name       : str = "VDD"
+  vssio_name       : str = "VSS"
   voltage_unit     : str = "V"
   capacitance_unit : str = "pf"
   resistance_unit  : str = "Ohm"
@@ -60,6 +65,8 @@ class MyLibrarySetting(BaseModel):
   vss_voltage                 : float = 0.0  ;#usually set by argv.
   nwell_voltage               : float = 5.0  ;#usually set by argv.
   pwell_voltage               : float = 0.0  ;#usually set by argv.
+  vddio_voltage               : float = 5.0  ;#usually set by argv.
+  vssio_voltage               : float = 0.0  ;#usually set by argv.
   logic_threshold_high        : float = 0.8  ;#
   logic_threshold_low         : float = 0.2  ;#
   logic_high_to_low_threshold : float = 0.5  ;#
@@ -75,7 +82,9 @@ class MyLibrarySetting(BaseModel):
   #load   : dict[str,list[float]]= Field(default_factory=dict); # {"load1":[1, 2, 3]},{"load2":[2, 3, 4]}
   #slope_loads : dict[str,MyItemSlopeLoad] =Field(default_factory=dict);
   templates : list[MyItemTemplate] =Field(default_factory=list);
-
+  input_voltages : dict[str,Any] =Field(default_factory=dict);
+  output_voltages : dict[str,Any] =Field(default_factory=dict);
+  
   
   ## characterizer setting 
   work_dir :str = "work"
@@ -98,10 +107,12 @@ class MyLibrarySetting(BaseModel):
   #sim_c2d_max         : float = 5.0;
   sim_segment_timestep_start : float = 1.0
   sim_segment_timestep_ratio : float = 0.1
-  sim_segment_timestep_min   : float = 0.01
-  sim_time_const_threshold   : float = 0.01
+  sim_segment_timestep_min   : float = 0.001
+  sim_time_const_threshold   : float = 0.001
   sim_time_end_extent        : int   = 10    ;#
   sim_tsim_end4hold          : float = 50.0
+  sim_pullres_enable         : float = 100
+  sim_pullres_disable        : float = 0.1
   
   compress_result :str = "true" 
   supress_msg      :str = "false"
@@ -135,9 +146,17 @@ class MyLibrarySetting(BaseModel):
   template_lines  : dict[str,list[str]] = Field(default_factory=lambda:{
     "const"  :[],
     "delay"  :[],
+    "delay_c2c"  :[],
+    "delay_c2i"  :[],
+    "delay_i2c"  :[],
+    "delay_i2i"  :[],
     "mpw"    :[],
     "passive":[],
-    "power"  :[]
+    "power"  :[],
+    "power_c2c"  :[],
+    "power_c2i"  :[],
+    "power_i2c"  :[],
+    "power_i2i"  :[],
   })
   #constraint_template_lines : list[float]=[]
   #recovery_template_lines   : list[float]= []
@@ -168,8 +187,8 @@ class MyLibrarySetting(BaseModel):
     vdd_str=vdd_str.replace('.','P');
 
     #--- convert float to string.(5.0 ----> 5P0)
-    vdd_str="{:.2f}V".format(self.vdd_voltage);
-    vdd_str=vdd_str.replace('.','P');
+    vddio_str="{:.2f}V".format(self.vddio_voltage);
+    vddio_str=vdd_str.replace('.','P');
     
     #--- convert float to string.( -25.0 ----> M25)
     temp_str="M{:}C".format(int(-1.0 * self.temperature)) if self.temperature < 0 else "{:}C".format(int(self.temperature))
@@ -276,15 +295,33 @@ class MyLibrarySetting(BaseModel):
     #-- lu_table_template for kind/grid
     var_1_dict={"const"  :"related_pin_transition",
                 "delay"  :"input_net_transition",
+                "delay_c2c"  :"input_net_transition",
+                "delay_i2c"  :"input_net_transition",
+                "delay_c2i"  :"input_net_transition",
+                "delay_i2i"  :"input_net_transition",
                 "mpw"    :"related_pin_transition",
                 "passive":"input_transition_time",
-                "power"  :"input_transition_time"}
+                "power"  :"input_transition_time",
+                "power_c2c"  :"input_transition_time",
+                "power_c2i"  :"input_transition_time",
+                "power_i2c"  :"input_transition_time",
+                "power_i2i"  :"input_transition_time",
+                }
 
     var_2_dict={"const"  :"constrained_pin_transition",
                 "delay"  :"total_output_net_capacitance",
+                "delay_c2c"  :"total_output_net_capacitance",
+                "delay_c2i"  :"total_output_net_capacitance",
+                "delay_i2c"  :"total_output_net_capacitance",
+                "delay_i2i"  :"total_output_net_capacitance",
                 "mpw"    :"not_supported",
                 "passive":"not_supported",
-                "power"  :"total_output_net_capacitance"}
+                "power"  :"total_output_net_capacitance",
+                "power_c2c"  :"total_output_net_capacitance",
+                "power_c2i"  :"total_output_net_capacitance",
+                "power_i2c"  :"total_output_net_capacitance",
+                "power_i2i"  :"total_output_net_capacitance",
+                }
       
     
     #-- remove grid="" and sort for groupby
@@ -324,20 +361,21 @@ class MyLibrarySetting(BaseModel):
           index2_num = len2_min
           
       #-- create table header
-      if kind in ["const","delay","mpw"]:
-        self.template_lines[kind].append(f'  lu_table_template ({kind}_template_{grid}) {{\n')
+      #if kind in ["const","delay","mpw"]:
+      if kind in ["const","delay","mpw","delay_c2c","delay_i2c","delay_c2i","delay_i2i"]:
+        self.template_lines[kind].append(f'  lu_table_template ({kind}_template_{grid}) {{')
       else:
-        self.template_lines[kind].append(f'  power_lut_template ({kind}_energy_template_{grid}) {{\n')
+        self.template_lines[kind].append(f'  power_lut_template ({kind}_energy_template_{grid}) {{')
           
       #-- create variable_1
       #if index1_num>0:
       if index1_num>1:
-        self.template_lines[kind].append(f'    variable_1 : {var_1_dict[kind]};\n')
+        self.template_lines[kind].append(f'    variable_1 : {var_1_dict[kind]};')
         
       #-- create variable_2
       #if index2_num>0:
       if index2_num>1:
-        self.template_lines[kind].append(f'    variable_2 : {var_2_dict[kind]};\n')
+        self.template_lines[kind].append(f'    variable_2 : {var_2_dict[kind]};')
           
       #-- create variable_1
       #if index1_num>0:
@@ -345,17 +383,17 @@ class MyLibrarySetting(BaseModel):
         num=index1_num
         dmy_values_list=[0.001 * (i+1) for i in range(num)]
         dmy_values_str=",".join([str(x) for x in dmy_values_list])
-        self.template_lines[kind].append(f'    index_1 ("{dmy_values_str}");\n')
+        self.template_lines[kind].append(f'    index_1 ("{dmy_values_str}");')
 
       #if index2_num>0:
       if index2_num>1:
         num=index2_num
         dmy_values_list=[0.001 * (i+1) for i in range(num)]
         dmy_values_str=",".join([str(x) for x in dmy_values_list])
-        self.template_lines[kind].append(f'    index_2 ("{dmy_values_str}");\n')
+        self.template_lines[kind].append(f'    index_2 ("{dmy_values_str}");')
 
       #
-      self.template_lines[kind].append(f'  }}\n')
+      self.template_lines[kind].append(f'  }}')
 
       #
       print(f"   add lut_template={kind}/{grid}.")
@@ -382,12 +420,12 @@ class MyLibrarySetting(BaseModel):
 
     #- do spice simulation
     cmd = ['sh', spicerun]
- 
+    
     if(self.runsim == "true"):
       try:
         res = subprocess.check_call(cmd)
       except:
-        print ("Failed to lunch spice")
+        print (f"Failed to lunch spice. lis={spicelis}")
 
     #--
     return(spicelis)
