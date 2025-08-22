@@ -7,16 +7,18 @@ from myConditionsAndResults import MyConditionsAndResults  as Mcar
 from myExpectCell           import MyExpectCell            as Mec
 #from myExpectCell           import logic_dict              
 
-def exportDoc(harnessList:[Mcar]):
-    targetLib = harnessList[0].mls
-    targetCell= harnessList[0].mlc
+def exportDoc(targetCell:Mls, harnessList:[Mcar]):
+    #targetLib = harnessList[0].mls
+    #targetCell= harnessList[0].mlc
+    targetLib = targetCell.mls
+
     
     if(targetLib.isexport2doc == 0):
-        exportLib2doc(targetLib, targetCell)
+        exportLib2doc(targetLib=targetLib, targetCell=targetCell)
 
     ## export comb. logic
     if((targetLib.isexport2doc == 1) and (targetCell.isexport2doc == 0) and (targetCell.isflop == 0)):
-        exportHarness2doc(harnessList)
+        exportHarness2doc(targetCell=targetCell, harnessList=harnessList)
         
     ## export seq. logic
     #elif((targetLib.isexport2doc == 1) and (targetCell.isexport2doc == 0) and (targetCell.isflop == 1)):
@@ -64,9 +66,10 @@ def exportLib2doc(targetLib:Mls, targetCell:Mlc):
 
 ## export harness data to .doc
 #def exportHarness2doc(targetLib, targetCell, harnessList2):
-def exportHarness2doc(harnessList: list[Mcar]):
-    targetLib = harnessList[0].mls
-    targetCell= harnessList[0].mlc
+def exportHarness2doc(targetCell, harnessList: list[Mcar]):
+    #targetLib = harnessList[0].mls
+    #targetCell= harnessList[0].mlc
+    targetLib = targetCell.mls
     
     with open(targetLib.doc_name, 'a') as f:
         outlines = []

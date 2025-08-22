@@ -16,8 +16,10 @@ from myItem           import MyItemTemplate
 
 from myFunc import my_exit, f2s_ceil
 
+#DictKey=Literal["prop","trans","setup_hold",
+#                "eintl","ein","cin", "pleak"]
 DictKey=Literal["prop","trans","setup_hold",
-                "eintl","ein","cin", "pleak"]
+                "eintl","ein","cin"]
   
 LutKey = Literal["prop","trans","setup_hold","eintl","ein"]
 
@@ -82,7 +84,8 @@ class MyConditionsAndResults(BaseModel):
 
   #-- hold result from spice simulation ([load][slope])
   dict_list2: Level3Dict  ; # initial value is set in Level3Dict
-    
+  pleak: float = 0.0
+  
   #
   lut: dict[LutKey, list[float]] = Field(
     default_factory=lambda: {key: [] for key in LutKey.__args__}
@@ -176,6 +179,8 @@ class MyConditionsAndResults(BaseModel):
                                 "power","power_c2c", "power_i2c", "power_c2i", "power_i2i"]:
       self.measure_type = self.mec.meas_type
     elif self.mec.meas_type in ["three_state_enable_c2i","three_state_disable_c2i"]:
+      self.measure_type = self.mec.meas_type
+    elif self.mec.meas_type in ["leakage"]:
       self.measure_type = self.mec.meas_type
     else:
       print(f"[Error] unkown meas_type={self.mec.meas_type}")

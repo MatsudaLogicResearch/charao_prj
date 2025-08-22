@@ -85,7 +85,7 @@
 .param _t_clk4  = {_t_in0}
 .param _t_clk5  = {_t_in1}
 .param _t_clk6  = {_tsim_end + 2*_timestep}
-.param _t_clk7  = {_tclk6    + 2*_timestep}
+.param _t_clk7  = {_t_clk6   + 2*_timestep}
 {%- else %}
 .param _t_clk4  = {_tsim_end+ 2*_timestep}
 .param _t_clk5  = {_t_clk4  + 2*_timestep}
@@ -102,53 +102,92 @@ VPW_DYN VPW_DYN 0 DC {_vpw}
 VDDIO_DYN VDDIO_DYN 0 DC {_vddio}
 VSSIO_DYN VSSIO_DYN 0 DC {_vssio}
 
-VHIGH VHIGH 0 DC {_vdd}
-VLOW  VLOW  0 DC {_vss}
+*VHIGH VHIGH 0 DC {_vdd}
+*VLOW  VLOW  0 DC {_vss}
+*VHIGH_IO VHIGH_IO 0 DC {_vddio}
+*VLOW_IO  VLOW_IO  0 DC {_vssio}
 
-VHIGH_IO VHIGH_IO 0 DC {_vddio}
-VLOW_IO  VLOW_IO  0 DC {_vssio}
+VHIGH VHIGH 0 PWL ({_timestep} {_vdd})
+VLOW  VLOW  0 PWL (0           {_vss})
+VHIGH_IO VHIGH_IO 0 PWL ({_timestep} {_vddio})
+VLOW_IO  VLOW_IO  0 PWL (0           {_vssio})
 
 
 ** output load 
 VOCAP VOUT WOUT DC 0
- 
+
 ** tran
 *.tran {_timestep} {_tsim_end} UIC maxstep=1e-10
 *.tran {_timestep} {_tsim_end} 0 1e-11
 .tran {_timestep} {_tsim_end}
 
 
-** PWL
+** DRIVE
+
+**** VOUT
+{% if param.val0_oirc[0] == "u" %}
+ .IC V(WOUT)={_vdd_vout}
+{% elif param.val0_oirc[0] == "d" %}
+ .IC V(WOUT)={_vss_vout}
+{% endif %}
+
+
 **** VIN
 {% if   param.arc_oirc[1] == "rise" %}
-VIN VIN 0 PWL(0p {_vss_vin} {_t_in0} {_vss_vin} {_t_in1} {_vdd_vin} )
-{%- elif param.arc_oirc[1] == "fall" %}
-VIN VIN 0 PWL(0p {_vdd_vin} {_t_in0} {_vdd_vin} {_t_in1} {_vss_vin} )
-{%- elif param.val0_oirc[1] == "1" %}
-VIN VIN 0 DC {_vdd_vin}
-{%- else %}
-VIN VIN 0 DC {_vss_vin}
-{%- endif %}
+VIN VIN 0 PWL({_timestep} {_vss_vin} {_t_in0} {_vss_vin} {_t_in1} {_vdd_vin} )
+{% elif param.arc_oirc[1] == "fall" %}
+VIN VIN 0 PWL({_timestep}  {_vdd_vin} {_t_in0} {_vdd_vin} {_t_in1} {_vss_vin} )
+{% elif param.val0_oirc[1] == "1" %}
+*VIN VIN 0 DC {_vdd_vin}
+VIN VIN 0 PWL({_timestep}  {_vdd_vin})
+{% elif param.val0_oirc[1] == "0" %}
+*VIN VIN 0 DC {_vss_vin}
+VIN VIN 0 PWL({_timestep}  {_vss_vin})
+{% elif param.val0_oirc[1] == "u" %}
+.IC V(VIN)={_vdd_vin}
+{% elif param.val0_oirc[1] == "d" %}
+.IC V(VIN)={_vss_vin}
+{% endif %}
 
 *** VREL
 {% if   param.arc_oirc[2] == "rise" %}
-VREL VREL 0 PWL(0p {_vss_vrel} {_t_rel0} {_vss_vrel} {_t_rel1} {_vdd_vrel} )
-{%- elif param.arc_oirc[2] == "fall" %}
-VREL VREL 0 PWL(0p {_vdd_vrel} {_t_rel0} {_vdd_vrel} {_t_rel1} {_vss_vrel} )
-{%- elif param.val0_oirc[2] == "1" %}
-VREL VREL 0 DC {_vdd_vrel}
-{%- else %}
-VREL VREL 0 DC {_vss_vrel}
-{%- endif %}
+VREL VREL 0 PWL({_timestep}  {_vss_vrel} {_t_rel0} {_vss_vrel} {_t_rel1} {_vdd_vrel} )
+{% elif param.arc_oirc[2] == "fall" %}
+VREL VREL 0 PWL({_timestep}  {_vdd_vrel} {_t_rel0} {_vdd_vrel} {_t_rel1} {_vss_vrel} )
+{% elif param.val0_oirc[2] == "1" %}
+*VREL VREL 0 DC {_vdd_vrel}
+VREL VREL 0 PWL({_timestep}  {_vdd_vrel} )
+{% elif param.val0_oirc[2] == "0" %}
+*VREL VREL 0 DC {_vss_vrel}
+VREL VREL 0 PWL({_timestep}  {_vss_vrel} )
+{% elif param.val0_oirc[2] == "u" %}
+.IC V(VREL) = {_vdd_vrel}
+{% elif param.val0_oirc[2] == "d" %}
+.IC V(VREL) = {_vss_vrel}
+{% endif %}
 
 *** VCLK
 {% if   param.val0_oirc[3] == "0" %}
-VCLK VCLK 0 PWL(0p {_vss_vclk} {_t_clk0} {_vss_vclk} {_t_clk1} {_vdd_vclk} {_t_clk2} {_vdd_vclk} {_t_clk3}
-+                  {_vss_vclk} {_t_clk4} {_vss_vclk} {_t_clk5} {_vdd_vclk} {_t_clk6} {_vdd_vclk} {_t_clk7} {_vss_vclk})
-{%- else %}
-VCLK VCLK 0 PWL(0p {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vclk} {_t_clk2} {_vss_vclk} {_t_clk3}
-+                  {_vdd_vclk} {_t_clk4} {_vdd_vclk} {_t_clk5} {_vss_vclk} {_t_clk6} {_vss_vclk} {_t_clk7} {_vdd_vclk})
-{%- endif %}
+VCLK VCLK 0 PWL({_timestep} {_vss_vclk} {_t_clk0} {_vss_vclk} {_t_clk1} {_vdd_vclk} {_t_clk2} {_vdd_vclk} 
+ {%- if (param.clk_role == "related") %}
++               {_t_clk3} {_vss_vclk} {_t_clk4} {_vss_vclk} {_t_clk5} {_vdd_vclk} {_t_clk6} {_vdd_vclk} {_t_clk7} {_vss_vclk})
+ {%- elif (param.clk_role == "input") and (param.arc_oirc[3]=="rise") %}
++               {_t_clk3} {_vss_vclk} {_t_clk4} {_vss_vclk} {_t_clk5} {_vdd_vclk} {_t_clk6} {_vdd_vclk} {_t_clk7} {_vss_vclk})
+ {%- elif (param.clk_role == "input") and (param.arc_oirc[3]=="fall") %}
++               {_t_clk3} {_vdd_vclk} {_t_clk4} {_vdd_vclk} {_t_clk5} {_vss_vclk} {_t_clk6} {_vss_vclk} {_t_clk7} {_vss_vclk})
+ {%- endif %}                
+
+{% else %}
+VCLK VCLK 0 PWL({_timestep} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vclk} {_t_clk2} {_vss_vclk}
+ {%- if (param.clk_role == "related")  %}
++               {_t_clk3} {_vdd_vclk} {_t_clk4} {_vdd_vclk} {_t_clk5} {_vss_vclk} {_t_clk6} {_vss_vclk} {_t_clk7} {_vdd_vclk})
+ {%- elif (param.clk_role == "input") and (param.arc_oirc[3]=="fall") %}
++               {_t_clk3} {_vdd_vclk} {_t_clk4} {_vdd_vclk} {_t_clk5} {_vss_vclk} {_t_clk6} {_vss_vclk} {_t_clk7} {_vdd_vclk})
+ {%- elif (param.clk_role == "input") and (param.arc_oirc[3]=="rise") %}
++               {_t_clk3} {_vss_vclk} {_t_clk4} {_vss_vclk} {_t_clk5} {_vdd_vclk} {_t_clk6} {_vdd_vclk} {_t_clk7} {_vdd_vclk})
+ {%- endif %}                
+                
+{% endif %}
 
 
 ** MEASURE
@@ -162,30 +201,30 @@ VCLK VCLK 0 PWL(0p {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vclk} {_t_c
 {%- if   (param.arc_oirc[0] in ["rise","fall"]) and (param.arc_oirc[2] in ["rise","fall"]) %}
 *** Prop delay 
 .MEASURE TRAN prop_in_out
-+ TRIG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1  TD={_t_rel0}
-+ TARG v(VOUT) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1
++ TRIG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_rel0}
++ TARG v(VOUT) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0}
 {%- endif %}
 
 {%- if  param.arc_oirc[0] in ["rise","fall"] %}
 *** Trans delay 
 .MEASURE TRAN trans_out
 + TRIG v(VOUT) VAL={{param.tran_v0_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0}
-+ TARG v(VOUT) VAL={{param.tran_v1_oirc[0]}} {{param.arc_oirc[0]}}=1 
++ TARG v(VOUT) VAL={{param.tran_v1_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0}
 {%- endif %}
 
 {%-if (param.arc_oirc[1] in ["rise","fall"]) and (param.arc_oirc[2] in ["rise","fall"])%}
 *** setup/recovery
 .MEASURE TRAN setup_in_rel
-+ TRIG v(VIN)  VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc[1]}}=1  TD={_t_clk3}
-+ TARG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1
++ TRIG v(VIN)  VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc[1]}}=1 TD={_t_clk3}
++ TARG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_clk3}
 
 *** hold/removal
 .MEASURE TRAN hold_rel_in
-+ TRIG v(VREL)  VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1  TD={_t_clk3}
-+ TARG v(VIN)   VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc[1]}}=1
-{%-endif %}
++ TRIG v(VREL)  VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_clk3}
++ TARG v(VIN)   VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc[1]}}=1 TD={_t_clk3}
+{%- endif %}
 
-{%- if   param.meas_energy >  0 %}
+{%- if   param.meas_energy in [1,2] %}
 *** energy time
 .MEASURE TRAN energy_start
 + WHEN V(VREL)={{param.ener_v0_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_rel0}
@@ -194,7 +233,7 @@ VCLK VCLK 0 PWL(0p {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vclk} {_t_c
 + WHEN V(VOUT)={{param.ener_v1_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0}
 {%- endif %}
 
-{%- if   param.meas_energy >  1 %}
+{%- if   param.meas_energy in [2,4] %}
 *** In/Out Q, Capacitance 
 .MEASURE TRAN q_rel_dyn INTEG I(VREL)  FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 .MEASURE TRAN q_in_dyn  INTEG I(VIN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
@@ -214,9 +253,16 @@ VCLK VCLK 0 PWL(0p {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vclk} {_t_c
 .MEASURE TRAN i_vssio_leak AVG I(VSSIO_DYN) FROM={_t_in0 - 101*_timestep} TO={_t_in0 - 1*_timestep}
 
 * Gate leak current 
-.MEASURE TRAN i_rel_leak avg I(VREL) FROM={_t_rel0} TO={_t_rel1}
-.MEASURE TRAN i_in_leak  avg I(VIN)  FROM={_t_in0}  TO={_t_in1}
-.MEASURE TRAN i_clk_leak avg I(VCLK) FROM={_t_rel0} TO={_t_rel1}
+.MEASURE TRAN i_rel_leak AVG I(VREL) FROM={_t_rel0} TO={_t_rel1}
+.MEASURE TRAN i_in_leak  AVG I(VIN)  FROM={_t_in0}  TO={_t_in1}
+.MEASURE TRAN i_clk_leak AVG I(VCLK) FROM={_t_rel0} TO={_t_rel1}
+
+{%- elif   param.meas_energy == 3 %}
+* Gate leak current 
+.MEASURE TRAN i_vdd_leak   AVG I(VDD_DYN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+.MEASURE TRAN i_vddio_leak AVG I(VDDIO_DYN) FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+.MEASURE TRAN i_rel_leak   AVG I(VREL)      FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+
 {%- endif %}
 
 
@@ -250,8 +296,10 @@ C0 WOUT VSS_DYN 'cap'
 **** for three state enable
 {% if param.pullres_role == "up" %}
  R0 WOUT VDD_PULL_DYN 'pullres'
+ .IC V(WOUT)={_vdd_vout}
 {% elif param.pullres_role == "down" %}
  R0 WOUT VSS_PULL_DYN 'pullres'
+ .IC V(WOUT)={_vss_vout}
 {% endif %}
 
 **** for three state disable
@@ -268,6 +316,7 @@ C0 WOUT VSS_DYN 'cap'
 
 .SUBCKT DUT CLK REL IN OUT HIGH LOW HIGH_IO LOW_IO VDD VSS VNW VPW VDDIO VSSIO
 {{param.tb_instance}}
+
 .ends 
 
 .end 

@@ -130,8 +130,8 @@ def main():
       os.chdir("../")
 
       ## export
-      exportFiles(harnessList=harnessList) 
-      exportDoc(harnessList=harnessList) 
+      exportFiles(targetCell=targetCell, harnessList=harnessList) 
+      exportDoc(targetCell=targetCell, harnessList=harnessList) 
       num_gen_file += 1
       
   #--- cell_seq.jsonc
@@ -166,8 +166,8 @@ def main():
       os.chdir("../")
       
       ## export
-      exportFiles(harnessList) 
-      exportDoc(harnessList) 
+      exportFiles(targetCell=targetCell, harnessList=harnessList) 
+      exportDoc(targetCell=targetCell, harnessList=harnessList) 
       num_gen_file += 1
 
       
@@ -203,8 +203,8 @@ def main():
       os.chdir("../")
 
       ## export
-      exportFiles(harnessList=harnessList) 
-      exportDoc(harnessList=harnessList) 
+      exportFiles(targetCell=targetCell, harnessList=harnessList) 
+      exportDoc(targetCell=targetCell, harnessList=harnessList) 
       num_gen_file += 1
 
   ## exit

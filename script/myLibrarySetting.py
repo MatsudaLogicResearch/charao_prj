@@ -25,13 +25,15 @@ class MyLibrarySetting(BaseModel):
   model_path       : str = "./target"    
   cell_spice_path  : str = "./spice"     
   io_spice_path    : str = "./spice"     
-  cell_name_prefix : str = "_V1"         ; #
+  revision         : str = "V1"
   vdd_name         : str = "VDD"
   vss_name         : str = "VSS"
+  vdd2_name        : str = ""
+  vss2_name        : str = ""
   pwell_name       : str = "VPW"
   nwell_name       : str = "VNW"    
-  vddio_name       : str = "VDD"
-  vssio_name       : str = "VSS"
+  vddio_name       : str = ""
+  vssio_name       : str = ""
   voltage_unit     : str = "V"
   capacitance_unit : str = "pf"
   resistance_unit  : str = "Ohm"
@@ -63,10 +65,12 @@ class MyLibrarySetting(BaseModel):
   temperature                 : float = 25.0 ;#usually set by argv.
   vdd_voltage                 : float = 5.0  ;#usually set by argv.
   vss_voltage                 : float = 0.0  ;#usually set by argv.
+  vdd2_voltage                : float|None = None  ;#usually set by argv.
+  vss2_voltage                : float|None = None  ;#usually set by argv.
   nwell_voltage               : float = 5.0  ;#usually set by argv.
   pwell_voltage               : float = 0.0  ;#usually set by argv.
-  vddio_voltage               : float = 5.0  ;#usually set by argv.
-  vssio_voltage               : float = 0.0  ;#usually set by argv.
+  vddio_voltage               : float|None = None  ;#usually set by argv.
+  vssio_voltage               : float|None = None  ;#usually set by argv.
   logic_threshold_high        : float = 0.8  ;#
   logic_threshold_low         : float = 0.2  ;#
   logic_high_to_low_threshold : float = 0.5  ;#
@@ -103,7 +107,8 @@ class MyLibrarySetting(BaseModel):
   sim_prop_io_tri_max : float =20.0
   sim_d2c_max         : float = 5.0
   sim_c2d_min         : float =10.0
-  sim_c2d_max_per_unit: float = 5.0
+  sim_c2d_max         : float =200.0
+  sim_c2d_max_per_unit: float = 10.0; # additional delay per 1ps.
   #sim_c2d_max         : float = 5.0;
   sim_segment_timestep_start : float = 1.0
   sim_segment_timestep_ratio : float = 0.1
@@ -178,28 +183,35 @@ class MyLibrarySetting(BaseModel):
   
     
   def update_name(self):
-    #--- convert float to string.(5.0 ----> 5P0)
-    uv_str="{:.2f}".format(self.usage_voltage);
+    #--- convert float to string.(5.0 ----> 5P00V)
+    uv_str="{:.2f}V".format(self.usage_voltage);
     uv_str=uv_str.replace('.','P');
     
-    #--- convert float to string.(5.0 ----> 5P0)
-    vdd_str="{:.2f}".format(self.vdd_voltage);
+    #--- convert float to string.(5.0 ----> 5P00V)
+    vdd_str="{:.2f}V".format(self.vdd_voltage);
     vdd_str=vdd_str.replace('.','P');
-
-    #--- convert float to string.(5.0 ----> 5P0)
-    vddio_str="{:.2f}V".format(self.vddio_voltage);
-    vddio_str=vdd_str.replace('.','P');
     
-    #--- convert float to string.( -25.0 ----> M25)
+    vdd2_str=""
+    if self.vdd2_name:
+      vdd2_str="{:.2f}V".format(self.vdd2_voltage);
+      vdd2_str=vdd_str.replace('.','P');
+
+    vddio_str=""
+    if self.vddio_name:
+      vddio_str="{:.2f}V".format(self.vddio_voltage);
+      vddio_str=vdd_str.replace('.','P');
+      
+    #--- convert float to string.( -25.0 ----> M25C)
     temp_str="M{:}C".format(int(-1.0 * self.temperature)) if self.temperature < 0 else "{:}C".format(int(self.temperature))
 
     #---
     #self.operating_condition=f"{self.process_corner}_{vdd_str}_{temp_str}"
-    self.operating_condition=f"{self.process_corner}{vdd_str}{temp_str}"
+    self.operating_condition=f"{self.process_corner}{vdd_str}{vdd2_str}{vddio_str}{temp_str}"
     
     #---
     #self.lib_name         = self.process_name + "_"+self.lib_vendor_id+"_"+vdd_str+"_"+temp_str
-    basename=f"{self.process_name}_{self.lib_vendor_id}_{self.cell_group}_{uv_str}"
+    #basename=f"{self.process_name}_{self.lib_vendor_id}_{self.cell_group}_{uv_str}"
+    basename=f"{self.process_name}_{self.lib_vendor_id}_{self.cell_group}"
     
     self.lib_name         = f"{basename}_{self.operating_condition}"
     self.dotlib_name      = f"{self.lib_name}.lib"
@@ -360,6 +372,10 @@ class MyLibrarySetting(BaseModel):
           index1_num = len1_min
           index2_num = len2_min
           
+      #-- ignore grid=0x0 
+      if index1_num==0 and index2_num==0:
+        continue
+      
       #-- create table header
       #if kind in ["const","delay","mpw"]:
       if kind in ["const","delay","mpw","delay_c2c","delay_i2c","delay_c2i","delay_i2i"]:

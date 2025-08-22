@@ -57,6 +57,9 @@ def runExpectation(targetLib:Mls, targetCell:Mlc, expectationdictList:List[Mec])
     elif   measure_type in ["three_state_enable_c2i","three_state_disable_c2i"]: #-- for IO cell
       rslt_Harness = runSpiceDelayPowerMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
       
+    elif measure_type in ["leakage"]:
+      rslt_Harness = runSpiceLeakageMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+      
     else:
       print(f"[Error] not support measure_type={measure_type}.")
       my_exit()
@@ -73,7 +76,7 @@ def runExpectation(targetLib:Mls, targetCell:Mlc, expectationdictList:List[Mec])
   #targetCell.set_pleak_icrs(harnessList=harnessList) 
 
   ## average pleak of each harness & cell 
-  targetCell.set_pleak_cell(harnessList=harnessList) 
+  targetCell.set_max_pleak(harnessList=harnessList) 
 
   ##
   return harnessList
@@ -248,11 +251,17 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float
   # create parameter
   arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
   arc_oirc=h.mec.arc_oir+[arc_c0]
-  tsim_end=1e-6
 
-  #sim_c2d_max = h.mls.sim_c2d_max_per_unit * index2_load
-  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * index2_load, h.mls.sim_c2d_min)
+  #sim_c2d_max
+  sim_c2d_max_per_unit = h.mls.sim_c2d_max_per_unit
+  if h.mlc.isio:
+    sim_c2d_max_per_unit = sim_c2d_max_per_unit * 0.1
+  sim_c2d_max = max(sim_c2d_max_per_unit * index2_load, h.mls.sim_c2d_min) 
+  sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
 
+  #tsim_end=1e-6
+  tsim_end=max(1e-6, 2*sim_c2d_max* h.mls.time_mag) 
+  
   #change timestep
   timestep = h.mls.simulation_timestep
   slope    = index1_slope
@@ -310,10 +319,10 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float
     ,tsim_end     = tsim_end
     ,tdelay_init  = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
-    ,tdelay_in    = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
-    ,tslew_in     = float("{:.5g}".format(timestep                  * h.mls.time_mag))
-    ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_prop_max        * h.mls.time_mag))
-    ,tslew_rel    = float("{:.5g}".format(index1_slope              * h.mls.time_mag))
+    ,tdelay_in    = float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
+    ,tslew_in     = float("{:.5g}".format(timestep            * h.mls.time_mag))
+    ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_prop_max  * h.mls.time_mag))
+    ,tslew_rel    = float("{:.5g}".format(index1_slope        * h.mls.time_mag))
     ,tpulse_rel   = tsim_end
     ,tsweep_rel   = 0.0
   );
@@ -391,7 +400,7 @@ def runSpicePowerSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
       targetHarness.dict_list2["eintl"][index1_slope][index2_load] = rslt2["eintl"]
       targetHarness.dict_list2["ein"  ][index1_slope][index2_load] = rslt2["ein"  ]
       targetHarness.dict_list2["cin"  ][index1_slope][index2_load] = rslt2["cin"  ]
-      targetHarness.dict_list2["pleak"][index1_slope][index2_load] = rslt2["pleak"]
+      #targetHarness.dict_list2["pleak"][index1_slope][index2_load] = rslt2["pleak"]
     
     
   
@@ -405,11 +414,16 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
   arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
   arc_oirc=h.mec.arc_oir+[arc_c0]
 
-  tsim_end=eend + 2e-9 if meas_energy == 2 else 1e-6
-  
-  #sim_c2d_max = h.mls.sim_c2d_max_per_unit * index2_load
-  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * index2_load, h.mls.sim_c2d_min)
+  #sim_c2d_max
+  sim_c2d_max_per_unit = h.mls.sim_c2d_max_per_unit
+  if h.mlc.isio:
+    sim_c2d_max_per_unit = sim_c2d_max_per_unit * 0.1
+  sim_c2d_max = max(sim_c2d_max_per_unit * index2_load, h.mls.sim_c2d_min)
+  sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
 
+  tsim_end=eend + 1e-9 if meas_energy == 2 else max(1e-6, 2*sim_c2d_max* h.mls.time_mag)
+  
+  
   #change timestep
   timestep = h.mls.simulation_timestep
   slope    = index1_slope
@@ -444,10 +458,11 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
     ,tsim_end     = tsim_end
     ,tdelay_init  = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
-    ,tdelay_in    = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
-    ,tslew_in     = float("{:.5g}".format(10*timestep * h.mls.time_mag))
-    ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_prop_max        * h.mls.time_mag))
-    ,tslew_rel    = float("{:.5g}".format(index1_slope              * h.mls.time_mag))
+    #,tdelay_in    = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
+    ,tdelay_in    = float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
+    ,tslew_in     = float("{:.5g}".format(10*timestep         * h.mls.time_mag))
+    ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_prop_max  * h.mls.time_mag))
+    ,tslew_rel    = float("{:.5g}".format(index1_slope        * h.mls.time_mag))
     ,tpulse_rel   = tsim_end
     ,tsweep_rel   = 0.0
   );
@@ -534,7 +549,12 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
     e_load =  float(res["q_out_dyn"])*(h.mls.energy_meas_high_threshold_voltage) if (float(res["q_out_dyn"]) > 0) else 0.0; #-- dynamic power of Cload(E=C*V*V=Q*V)
     
     e_leak = pleak *energy_time
-    eintl  = e_all - e_load - e_leak
+
+    eintl = e_all
+    if (e_load >0.0) and (eintl > e_load):
+      eintl=eintl - e_load
+    if (e_leak >0.0) and (eintl > e_leak):
+      eintl=eintl - e_leak
 
     #
     rslt["eintl"]=eintl
@@ -626,9 +646,10 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
   # rename
   h=targetHarness
   
-  #sim_c2d_max = targetHarness.mls.sim_c2d_max_per_unit * 0.1
-  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min)
-    
+  #sim_c2d_max
+  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min) 
+  sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
+
   #change timestep
   timestep = h.mls.simulation_timestep
   slope    = index1_slope_rel
@@ -724,8 +745,9 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float,
   arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
   arc_oirc=h.mec.arc_oir + [arc_c0]
 
-  #sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
-  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min)
+  #sim_c2d_max
+  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min) 
+  sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
 
   #change timestep
   timestep = h.mls.simulation_timestep
@@ -756,7 +778,7 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float,
     ,tsim_end     =tsim_end
     ,tdelay_init  =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
-    ,tdelay_in    =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
+    ,tdelay_in    =float("{:.5g}".format(sim_c2d_max        * h.mls.time_mag))
     ,tslew_in     =float("{:.5g}".format(index2_slope_const * h.mls.time_mag))
     ,tdelay_rel   =float("{:.5g}".format(h.mls.sim_d2c_max  * h.mls.time_mag))
     ,tslew_rel    =float("{:.5g}".format(index1_slope_rel   * h.mls.time_mag))
@@ -887,8 +909,9 @@ def runSpiceHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_
   # rename
   h=targetHarness
   
-  #sim_c2d_max = targetHarness.mls.sim_c2d_max_per_unit * 0.1
-  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min)
+  #sim_c2d_max
+  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min) 
+  sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
   
   #change timestep
   timestep = h.mls.simulation_timestep
@@ -989,7 +1012,8 @@ def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float, 
   arc_oirc=h.mec.arc_oir + [arc_c0]
   
   #sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
-  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min)
+  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min) 
+  sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
 
   #change timestep
   timestep = h.mls.simulation_timestep
@@ -1130,9 +1154,6 @@ def runSpicePassiveMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar
   for thread in threadlist:
     thread.join() 
 
-  h_passive.set_lut(value_name="eintl")
-  h_passive.set_lut(value_name="ein")
-
   #------ update max_trans_in
   mlc.update_max_trans4in(port_name=h_passive.target_inport, new_value=max(index1_slopes_in))
 
@@ -1170,10 +1191,13 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
   h=targetHarness
 
   # create parameter
-  arc_oirc=h.mec.arc_oir + ["n"]
+  #arc_oirc=h.mec.arc_oir + ["n"]
+  arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
+  arc_oirc=h.mec.arc_oir + [arc_c0]
   
   #sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
-  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min)
+  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min) 
+  sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
 
   #change timestep
   timestep = h.mls.simulation_timestep
@@ -1184,7 +1208,7 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
   #esatrt=_t0/ eend=t1
   #estart  = (5 * h.mls.simulation_timestep + h.mls.sim_d2c_max +h.mls.sim_pulse_max+ h.mls.sim_c2d_max)* h.mls.time_mag  
   estart  = (5 * timestep + h.mls.sim_d2c_max +h.mls.sim_pulse_max+ sim_c2d_max)* h.mls.time_mag
-  eend    = estart + (index1_slope_in * h.mls.time_mag)
+  eend    = estart + (index1_slope_in + 5 * timestep )* h.mls.time_mag
   tsim_end= eend + 1e-9 
 
   
@@ -1203,14 +1227,14 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
     #--,val0_oirc    =[]
      cap          =0.0
     ,clk_role     =h.clk_role
-    ,meas_energy  =2
+    ,meas_energy  =4
     ,time_energy  =[estart,eend]  
     ,meas_o_max_min=0
     ,timestep     =float("{:.5g}".format(timestep * h.mls.time_mag))
     ,tsim_end     =tsim_end
     ,tdelay_init  =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
-    ,tdelay_in    =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
+    ,tdelay_in    =float("{:.5g}".format(sim_c2d_max           * h.mls.time_mag))
     ,tslew_in     =float("{:.5g}".format(index1_slope_in       * h.mls.time_mag))
     ,tdelay_rel   =float("{:.5g}".format(h.mls.sim_prop_max    * h.mls.time_mag))
     ,tslew_rel    =float("{:.5g}".format(index1_slope_in       * h.mls.time_mag))
@@ -1219,6 +1243,7 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
   );
 
   param.set_common_value(harness=h, arc_oirc=arc_oirc)
+  #print(param)
   
   #-- generate testbench
   rendered = tb_template.render(param=param)
@@ -1261,7 +1286,7 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
   rslt={
     ## pleak
     "pleak": abs(float(res["i_vdd_leak"])) * h.mls.vdd_voltage,
-    ## input energy
+    ### input energy
     "ein"  : abs(float(res["q_in_dyn"])) * h.mls.vdd_voltage,
     ## Cin = Qin / V
     "cin"  : abs(float(res["q_in_dyn"]))/h.mls.vdd_voltage,
@@ -1392,7 +1417,8 @@ def genFileLogic_MinPulse1x(targetHarness:Mcar, spicef:str, tpulse_rel:float, ts
   arc_oirc=h.mec.arc_oir + [arc_c0]
 
   #sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
-  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min)
+  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min) 
+  sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
 
   #change timestep
   timestep = h.mls.simulation_timestep
@@ -1422,7 +1448,7 @@ def genFileLogic_MinPulse1x(targetHarness:Mcar, spicef:str, tpulse_rel:float, ts
     ,tsim_end     =tsim_end
     ,tdelay_init  =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
-    ,tdelay_in    =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
+    ,tdelay_in    =float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
     ,tslew_in     =tslew
     ,tdelay_rel   =float("{:.5g}".format(h.mls.sim_d2c_max         * h.mls.time_mag))
     ,tslew_rel    =tslew
@@ -1473,5 +1499,208 @@ def genFileLogic_MinPulse1x(targetHarness:Mcar, spicef:str, tpulse_rel:float, ts
     "prop_in_out"  :float(res["prop_in_out"]),
     "pulse"        :tslew + tpulse_rel}
 
+  return (rslt)
+
+#--------------------------------------------------------------------------------------------------
+def runSpiceLeakageMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
+
+  ## spice file name
+  spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
+  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef = spicef0 + spicef1
+  
+  # Limit number of threads
+  # define semaphore 
+  poolg_sema = threading.BoundedSemaphore(mls.num_thread)
+  print("Num threads for simulation:"+str(mls.num_thread))
+
+  ###################################################################
+  #-- for leakage
+  thread_id = 0
+  threadlist = list()
+
+  h_leakage = Mcar(mls=mls, mlc=mlc, mec=mec)
+  h_leakage.set_update()
+
+  #------ get slopes/loads
+  kind="leakage"
+
+  temp=mlc.template[kind]
+  if not temp:
+    print(f"[Error] not defined template={kind} in cell_io.jsonc .")
+    my_exit()
+  
+  index1 =temp.index_1
+  index2 =temp.index_2
+  
+  h_leakage.template_kind  = kind
+  h_leakage.template       = temp
+    
+  if len(index2)>0:
+    print(f"[Error] index1 size is over 0 for template.")
+    my_exit()
+      
+  if len(index1)>0:
+    print(f"[Error] index2 size is over 0 for template.")
+    my_exit()
+      
+  #------ energy
+  thread = threading.Thread(target=runSpiceLeakageSingle,
+                            kwargs={"poolg_sema"   :poolg_sema,
+                                    "targetHarness":h_leakage,
+                                    "spicef"       :spicef},
+                            name="%d" % thread_id)
+  threadlist.append(thread)
+  thread_id += 1
+  
+  for thread in threadlist:
+    thread.start() 
+  
+  for thread in threadlist:
+    thread.join() 
+  
+  #----
+  return [h_leakage]
+
+#--------------------------------------------------------------------------------------------------
+def runSpiceLeakageSingle(poolg_sema, targetHarness:Mcar, spicef:str):
+                      
+  with poolg_sema:
+    spicefoe1 = str(spicef)+"_leakage.sp"
+ 
+    ## 1st trial, extract energy_start and energy_end
+    rslt= genFileLogic_LeakageTrial1x(targetHarness=targetHarness, spicef=spicefoe1)
+                             
+    #
+    print(f'  [DEBUG] pleak={rslt["pleak"]}')
+    
+    ## -- result in targetHarness
+    with targetHarness._lock:
+      targetHarness.pleak = rslt["pleak"]
+    
+  
+#--------------------------------------------------------------------------------------------------
+def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str):
+
+  # rename
+  h=targetHarness
+
+  # create parameter
+  arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
+  arc_oirc=h.mec.arc_oir+[arc_c0]
+
+  meas_energy=3
+  
+  #sim_c2d_max = h.mls.sim_c2d_max_per_unit * index2_load
+  sim_c2d_max = h.mls.sim_c2d_min
+
+  #change timestep
+  timestep = h.mls.simulation_timestep
+
+  #set pullres_role for outpt enable
+  pullres_role="nouse"
+
+  # tsim_end = 7*timestep + (tdelay_init+tpulse_init)+(tdelay_in+tslew_in)+(tdelay_rel+tslew_rel+Alpha)
+  tdelay_init = 1   if h.mlc.isflop==0 else h.mls.sim_d2c_max
+  tpulse_init = 1   if h.mlc.isflop==0 else h.mls.sim_pulse_max
+  tdelay_in   = sim_c2d_max
+  tslew_in    = 10*timestep
+  tdelay_rel  = 10*timestep
+  tslew_rel   = 10*timestep
+
+  estart      = (7*timestep+(tdelay_init + tpulse_init)+(tdelay_in + tslew_in)) * h.mls.time_mag + 10e-9
+  eend        = estart + (10e-9)
+  tsim_end    = eend + (1e-9)
+
+  param = Mtp(
+    #model         = model
+    #,netlist      = netlist
+    #,tb_instance  = tb_instance
+    #--,temp         = 
+    #--,voltage_vsnp =[]
+    #--,prop_vth_oirc=[]
+    #--,tran_v0_oirc =[]
+    #--,tran_v1_oirc =[]
+    #--,ener_v0_oirc =[]
+    #--,ener_v1_oirc =[]
+    #--,arc_oirc     =[]
+    #--,val0_oirc    =[]
+     cap          = 0.0
+    ,clk_role     = h.clk_role
+    ,pullres_role = pullres_role
+    ,meas_energy  = meas_energy     # 0:No Meas for Energy/ 1:Meas Only Time/ 2:Meas all/ 3:Meas leakage
+    ,time_energy  = [estart,eend]
+    ,meas_o_max_min=0
+    ,timestep     = float("{:.5g}".format(timestep * h.mls.time_mag))
+    ,tsim_end     = float("{:.5g}".format(tsim_end))
+    ,tdelay_init  = float("{:.5g}".format(tdelay_init * h.mls.time_mag))
+    ,tpulse_init  = float("{:.5g}".format(tpulse_init * h.mls.time_mag))
+    ,tdelay_in    = float("{:.5g}".format(tpulse_init * h.mls.time_mag))
+    ,tslew_in     = float("{:.5g}".format(tslew_in    * h.mls.time_mag))
+    ,tdelay_rel   = float("{:.5g}".format(tdelay_rel  * h.mls.time_mag))
+    ,tslew_rel    = float("{:.5g}".format(tslew_rel   * h.mls.time_mag))
+    ,tpulse_rel   = tsim_end
+    ,tsweep_rel   = 0.0
+  );
+
+  param.set_common_value(harness=h, arc_oirc=arc_oirc)
+
+  #print(param)
+  
+  #-- generate testbench
+  rendered = tb_template.render(param=param)
+  with open(spicef, 'w') as f:
+    f.write(rendered)
+  print(f"  [INFO] generate tb={spicef}")
+  
+  #-- execute spice
+  spicelis=h.mls.exec_spice(spicef=spicef)
+                              
+  #-- read result
+  # read .mt0 for Xyce
+  if(re.search("Xyce", h.mls.simulator)):
+    spicelis = spicelis[:-3]+"mt0" 
+
+  #-- parse results
+  res_list=["i_vdd_leak", "i_vddio_leak", "i_rel_leak"]
+  res=dict()
+    
+  with open(spicelis,'r') as f:
+    for inline in f:
+      if(re.search("hspice", h.mls.simulator)):
+        inline = re.sub('\=',' ',inline)
+      
+      # search measure
+      for key in res_list:
+        if((re.search(key, inline, re.IGNORECASE))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
+          sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+          res[key]= "{:e}".format(float(sparray[2].strip()))
+
+  # check if measure is exist or not
+  non_value_list=set(res_list)-set(res.keys())
+  if non_value_list:
+    for k in  non_value_list:
+      h.mls.print_msg(f"Value res_{k} is not defined!!")
+      h.mls.print_msg(f"Check simulation result in work directory. rslt={spicelis}")
+    sys.exit()
+
+
+  # calculate result
+  rslt=dict()
+  
+  ## Pleak = (average of Pleak_vdd ) - (average of pleak_vrel = source)
+  i_vdd_leak=float(res["i_vdd_leak"]) *h.mls.vdd_voltage
+  i_rel_leak=float(res["i_rel_leak"]) *h.mls.vdd_voltage
+
+  pleak=abs(i_vdd_leak)* h.mls.vdd_voltage
+  #if h.target_relport_val == "0":
+  if (i_rel_leak > 0.0) and (pleak > i_rel_leak):
+    pleak = pleak - i_rel_leak
+
+  #
+  #print(f"i_vdd_leak={i_vdd_leak}, i_rel_leak={i_rel_leak}, pleak={pleak}")
+  rslt["pleak"]=pleak
+
+  #
   return (rslt)
 

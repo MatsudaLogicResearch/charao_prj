@@ -1,7 +1,7 @@
 {
    "process_name"       :"OSU035"
   ,"lib_vendor_id"      :"SAMPLE"
-  ,"cell_name_prefix"   :"_V1"
+  ,"revision"           :"V001"
 	,"model_path"         :"./target/OSU035"
 	,"cell_spice_path"    :"/home/synology_nfs/Techlibs/Techlib/OSU035/std/fromXXX/v00.00/spice"
   ,"vdd_name"           :"VDD"
