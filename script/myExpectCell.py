@@ -746,6 +746,7 @@ logic_dict={
   "P_VDD":{ 
     "logic_type":"io",
     "functions":{},
+    "vcode":"",
     "expect":
            [
              #--- no spice simulation
@@ -755,6 +756,7 @@ logic_dict={
   "P_VSS":{ 
     "logic_type":"io",
     "functions":{},
+    "vcode":"",
     "expect":
            [
              #--- no spice simulation
@@ -765,6 +767,7 @@ logic_dict={
   "P_ANA1":{ 
     "logic_type":"io",
     "functions":{},
+    "vcode":"",
     "expect":
            [
              #--- leakage
@@ -779,6 +782,16 @@ logic_dict={
   "P_IP_SMTX_PUN_PDP_OX_SLWX_HDX_LDX":{ 
     "logic_type":"io",
     "functions":{"o0":"i0&b0"},
+    "vcode":'''
+      wire pp,PAD_i,c_in,c_buf;
+      bufif0(weak0,weak1)(PAD_i,1'B1,i1);
+      bufif1(weak0,weak1)(PAD_i,1'B0,i2);
+      buf(o0,c_in);
+      and(c_in,c_buf,i0);
+      pmos(c_buf,b0,1'B0);
+      pmos(pp,PAD_i,1'B0);
+      pmos(b0,pp,1'B0);
+    ''',
     "expect":
            [
              #--- PAD to CORE
@@ -822,6 +835,16 @@ logic_dict={
   "P_IP_SMTA_PUN_PDP_OX_SLWX_HDX_LDX":{ 
     "logic_type":"io",
     "functions":{"o0":"i0&b0"},
+    "vcode":'''
+      wire pp,PAD_i,c_in,c_buf;
+      bufif0(weak0,weak1)(PAD_i,1'B1,i1);
+      bufif1(weak0,weak1)(PAD_i,1'B0,i2);
+      buf(o0,c_in);
+      and(c_in,c_buf,i0);
+      pmos(c_buf,b0,1'B0);
+      pmos(pp,PAD_i,1'B0);
+      pmos(b0,pp,1'B0);
+    ''',
     "expect":
            [
              #--- PAD to CORE
@@ -865,6 +888,15 @@ logic_dict={
   "P_IX_SMTX_PUN_PDP_ON_SLWX_HDA_LDA":{ 
     "logic_type":"io",
     "functions":{"b0":"i3"},
+    "vcode":'''
+      wire pp,PAD_i,PAD_q;
+      bufif0(weak0,weak1)(PAD_i,1'B1,i1);
+      bufif1(weak0,weak1)(PAD_i,1'B0,i2);
+      bufif0(PAD_q,i3,i0);
+      pmos(pp,PAD_q,1'B0);
+      pmos(pp,PAD_i,1'B0);
+      pmos(b0,pp,1'B0);
+    ''',
     "expect":
            [
              #--- I to PAD

@@ -105,8 +105,10 @@ def main():
     cell_comb_info_list=[]
     parser=JsonComment()
     with open (json_cell_comb, "r") as f:
-      cell_comb_info_list = parser.load(f)
-
+      ## sort by "cell" name
+      comb_info_list = parser.load(f)
+      cell_comb_info_list = sorted(comb_info_list, key=lambda x: x["cell"])
+      
     #  
     for info in cell_comb_info_list:
 
@@ -124,6 +126,7 @@ def main():
       targetCell.chk_ports()
       targetCell.add_model() 
       targetCell.add_function()
+      targetCell.add_vcode()
   
       ## characterize
       harnessList = characterizeFiles(targetLib, targetCell)
@@ -140,8 +143,10 @@ def main():
     cell_seq_info_list=[]
     parser=JsonComment()
     with open (json_cell_seq, "r") as f:  
-      cell_seq_info_list = parser.load(f)
-
+      ## sort by "cell" name
+      seq_info_list = parser.load(f)
+      cell_seq_info_list = sorted(seq_info_list, key=lambda x: x["cell"])
+      
     #
     for info in cell_seq_info_list:
 
@@ -160,6 +165,7 @@ def main():
       targetCell.chk_ports()
       targetCell.add_model() 
       targetCell.add_function()
+      targetCell.add_vcode()
 
       ## characterize
       harnessList = characterizeFiles(targetLib, targetCell)
@@ -177,7 +183,9 @@ def main():
     cell_io_info_list=[]
     parser=JsonComment()
     with open (json_cell_io, "r") as f:    
-      cell_io_info_list = parser.load(f)
+      ## sort by "cell" name
+      io_info_list = parser.load(f)
+      cell_io_info_list = sorted(io_info_list, key=lambda x: x["cell"])
 
     #  
     for info in cell_io_info_list:
@@ -197,6 +205,7 @@ def main():
       targetCell.chk_ports()
       targetCell.add_model() 
       targetCell.add_function()
+      targetCell.add_vcode()
   
       ## characterize
       harnessList = characterizeFiles(targetLib, targetCell)

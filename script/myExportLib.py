@@ -48,8 +48,10 @@ def initLib(targetLib:Mls):
   outlines.append(f'// Verilog model for {targetLib.lib_name}')
   outlines.append(f'`timescale 1ns/1ns')
   outlines.append(f'')
-  outlines.append(f'{code_primitive}')
-  outlines.append(f'')
+  
+  if targetLib.cell_group == "std":
+    outlines.append(f'{code_primitive}')
+    outlines.append(f'')
   
   with open(targetLib.verilog_name, 'w') as f:
     s = "\n".join(outlines) + "\n"
@@ -664,8 +666,13 @@ def exportVerilog(targetLib:Mls, targetCell:Mlc):
     outlines.append(f'inout {target_vport};')
 
   #===================================================================
+  ## code from myExpectCell
+  if targetCell.vcode :
+    outlines.append(f'{targetCell.vcode}')
+  
+  #===================================================================
   ## branch for sequencial cell
-  if(targetCell.isflop):
+  elif(targetCell.isflop):
     ## lr_dff (q, d, cp, cdn, sdn, notifier)  ---- q=o0, d=i0, cp=c0, cdn=r0, sdn=s0
       
     ##---- clock
@@ -721,7 +728,7 @@ def exportVerilog(targetLib:Mls, targetCell:Mlc):
     outlines.append(f'lr_dff({q_buf},{d_buf},{cp_buf},{rst_buf},{set_buf},notifier);')
         
   #===================================================================
-  ## branch for combinational cell
+  ## branch for combinational cell/io cell
   else:
     ## assign statement
     for outport in targetCell.outports:
@@ -729,28 +736,35 @@ def exportVerilog(targetLib:Mls, targetCell:Mlc):
 
   #===================================================================
   ## specify
-  outlines.append(f'');
-  outlines.append(f'specify');
+
+  specify=[exp.specify for exp in logic_dict[targetCell.logic]["expect"] if exp.specify !=""]
+  
+  if len(specify):
     
-  for expectationdict in logic_dict[targetCell.logic]["expect"]:
-    if expectationdict.specify != "":
-      when   =targetCell.replace_by_portmap(expectationdict.tmg_when)
-
-      flag_ifnone=False
-      if expectationdict.specify.endswith(";;"):
-        flag_ifnone=True;
+    outlines.append(f'');
+    outlines.append(f'specify');
+    
+    for expectationdict in logic_dict[targetCell.logic]["expect"]:
+      if expectationdict.specify != "":
+        when   =targetCell.replace_by_portmap(expectationdict.tmg_when)
+    
+        flag_ifnone=False
+        if expectationdict.specify.endswith(";;"):
+          flag_ifnone=True;
+            
+        specify=targetCell.replace_by_portmap(expectationdict.specify.replace(";;",";"))
           
-      specify=targetCell.replace_by_portmap(expectationdict.specify.replace(";;",";"))
-        
-      if when != "":
-        outlines.append(f'  if ({when}) {specify}');
-      else:
-        outlines.append(f'  {specify}');
+        if when != "":
+          outlines.append(f'  if ({when}) {specify}');
+        else:
+          outlines.append(f'  {specify}');
+    
+        if flag_ifnone:
+          outlines.append(f'  ifnone {specify}');
+          
+    outlines.append(f'endspecify');
 
-      if flag_ifnone:
-        outlines.append(f'  ifnone {specify}');
-        
-  outlines.append(f'endspecify');
+  #-------------------------------------------------------------------
   outlines.append(f'endmodule')
   outlines.append(f'`endcelldefine')
   outlines.append(f'')

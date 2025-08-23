@@ -29,6 +29,7 @@ class MyLogicCell(BaseModel):
   area      : float= None;    ## set area
   spice     : str  = None;    ## spice file name
   functions : Dict[str,str] = Field(default_factory=dict); ## cell function
+  vcode     : str = None;     ## verilog code
   ff        : Dict[str,str] = Field(default_factory=dict); ## ff infomation
   #io        : Dict[str,str] = Field(default_factory=dict); ## io infomation
   #pin       : Dict[str,str] = Field(default_factory=dict); ## pin infomation for IO cell
@@ -150,7 +151,7 @@ class MyLogicCell(BaseModel):
   def update_max_trans4in(self, port_name:str, new_value:float):
 
     ## check port
-    #if not port_name in self.inports + [self.clock]:
+    #if not port_name in self.inports + [self.clock]:    
     if not port_name in [p for p in (self.inports + [self.clock] + self.biports) if p is not None]:
       print(f"[Error] inport={port_name} is not exist in logic={self.logic}.")
       my_exit()
@@ -293,6 +294,11 @@ class MyLogicCell(BaseModel):
           
     print("add function: " + str(self.functions))
 
+  def add_vcode(self):
+    if "vcode" in logic_dict[self.logic].keys():
+      if logic_dict[self.logic]["vcode"]:
+        self.vcode = self.replace_by_portmap(logic_dict[self.logic]["vcode"])
+        print("add vcode")
 
   def add_ff(self):
     if not self.logic in logic_dict.keys():
@@ -312,13 +318,15 @@ class MyLogicCell(BaseModel):
   ## average of cin in all harness.dict_list2["cin"]["index_2"]["index_1"]
   def set_cin_avg(self, harnessList:list["Mcar"]):
 
-    for inport in (self.inports + [self.clock] + self.biports):
+    ports=(self.inports + [self.clock] + self.biports)
+    for inport in list(filter(lambda x: x is not None, ports)):
       
       cin_all=[]
       for h in harnessList:
         #print(f"inport={inport}, relport={h.target_relport}")
         
-        if h.target_relport == inport:
+        #if h.target_relport == inport:
+        if h.target_inport == inport:
           #-- list of dict_list2["cin"]["index_1"]["index_2"]
           cin_list=[v for index_1 in h.dict_list2["cin"].values() for v in index_1.values()]
           cin_all.extend(cin_list)
@@ -420,6 +428,7 @@ class MyLogicCell(BaseModel):
   #--- replace local port name in local_str to spice port name.
   def replace_by_portmap(self, local_str):
     new_str=local_str
+    
     for k,v in self.ports_dict.items():
       new_str = new_str.replace(v, k)
     return(new_str)

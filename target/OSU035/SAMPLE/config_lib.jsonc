@@ -33,6 +33,8 @@
   ,"hold_meas_high_threshold"    : 0.01
   ,"hold_meas_low_threshold"     : 0.99	
 	,"templates"                   :[
+																	 //---- for leakage
+	                                 {"kind":"leakage","grid":"0x0","name":"d0" ,"index_1":[], "index_2":[]},
 																	 //---- for std
 																	 {"kind":"const"  ,"grid":"2x2","name":"d1","index_1":[0.1,1.1], "index_2":[0.11,1.11]},
 																 	 {"kind":"delay"  ,"grid":"2x2","name":"d1","index_1":[0.2,1.2], "index_2":[0.22,1.22]},

@@ -64,7 +64,7 @@ class MyConditionsAndResults(BaseModel):
   direction_power: str = ""
   timing_type    : str = ""
   timing_sense   : str = ""
-  timing_unate   : str = ""
+  #timing_unate   : str = ""
   timing_when    : str = ""
   constraint     : str = ""
   passive_power  : str = ""

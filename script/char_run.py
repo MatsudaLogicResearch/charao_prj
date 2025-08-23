@@ -112,7 +112,7 @@ def runSpiceDelayPowerMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[M
   
   temp=mlc.template[kind]
   if not temp:
-    print(f"[Error] not defined template={kind} in cell_io.jsonc .")
+    print(f"[Error] not defined template={kind} in cell_xx.jsonc .")
     my_exit()
   
   index1_slopes=temp.index_1
@@ -179,7 +179,7 @@ def runSpiceDelayPowerMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[M
     
     temp=mlc.template[kind]
     if not temp:
-      print(f"[Error] not defined template={kind} in cell_io.jsonc .")
+      print(f"[Error] not defined template={kind} in cell_xx.jsonc .")
       my_exit()
   
     index1_slopes=temp.index_1
@@ -276,7 +276,7 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float
   elif h.timing_type == "three_state_disable":
     outport=h.mec.pin_oir[0]
     if outport not in h.mlc.oe_infos.keys():
-      print(f"[ERROR] no oe_infos exist for {outport} in cell_io.jsonc.");
+      print(f"[ERROR] no oe_infos exist for {outport} in cell_xx.jsonc.");
       my_exit()
       
     if arc_oirc[0]=="r":
@@ -518,7 +518,7 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
   
   if(meas_energy == 2):
 
-    q_in_dyn=res["q_clk_dyn"] if h.target_relport=="c0" else res["q_rel_dyn"]
+    q_in_dyn =res["q_clk_dyn"] if h.target_relport=="c0" else res["q_rel_dyn"]
     
     ## Pleak = average of Pleak_vdd and Pleak_vss
     ## P = I * V
@@ -592,7 +592,7 @@ def runSpiceSetupMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
   kind="const"
   temp=mlc.template[kind]
   if not temp:
-    print(f"[Error] not defined template={kind} in cell_io.jsonc .")
+    print(f"[Error] not defined template={kind} in cell_xx.jsonc .")
     my_exit()
 
   index1_slopes_rel  =temp.index_1
@@ -859,7 +859,7 @@ def runSpiceHoldMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
   kind="const"
   temp=mlc.template[kind]
   if not temp:
-    print(f"[Error] not defined template={kind} in cell_io.jsonc .")
+    print(f"[Error] not defined template={kind} in cell_xx.jsonc .")
     my_exit()
 
   index1_slopes_rel  =temp.index_1
@@ -1122,7 +1122,7 @@ def runSpicePassiveMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar
   kind="passive"
   temp=mlc.template[kind]
   if not temp:
-    print(f"[Error] not defined template={kind} in cell_io.jsonc .")
+    print(f"[Error] not defined template={kind} in cell_xx.jsonc .")
     my_exit()
 
   index1_slopes_in=temp.index_1
@@ -1527,7 +1527,7 @@ def runSpiceLeakageMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar
 
   temp=mlc.template[kind]
   if not temp:
-    print(f"[Error] not defined template={kind} in cell_io.jsonc .")
+    print(f"[Error] not defined template={kind} in cell_xx.jsonc .")
     my_exit()
   
   index1 =temp.index_1
