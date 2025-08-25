@@ -362,7 +362,7 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       print(f"  [INFO] group(delay): target={port}, relport={target_relport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
 
       size_exp=1 if timing_type in ["clear","preset"] else 2
-      if size != size_exp: ## pair of fall/rise
+      if (size != size_exp): ## pair of fall/rise
         print(f"Error: len(group) is not {size_exp}(={size}) @{timing_type}")
         my_exit()
 
@@ -421,7 +421,8 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       size_exp=1 if timing_type in ["clear","preset"] else 2
       if size != size_exp:
         print(f"Error: len(group) is not {size_exp}(={size}) @{timing_type}")
-
+        my_exit()
+        
       ## check
       h1 = group_list[0]
       if size > 1:
@@ -577,10 +578,6 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       size=len(group_list)
       print(f"  [INFO] group(passive): inport={port}, relport={target_relport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
         
-      size_exp=1 if timing_type in ["removal_rising","removal_fallin","removal_rising","removal_falling"] else 2
-      if size != size_exp:
-        print(f"Error: len(group) is not {size_exp}(={size}) @ {timing_type}")
-
       ## check
       h1 = group_list[0]
       

@@ -18,10 +18,13 @@ from myFunc import my_exit, f2s_ceil
 
 #DictKey=Literal["prop","trans","setup_hold",
 #                "eintl","ein","cin", "pleak"]
+#DictKey=Literal["prop","trans","setup_hold",
+#                "eintl","ein","cin"]
 DictKey=Literal["prop","trans","setup_hold",
-                "eintl","ein","cin"]
+                "eintl","cin","crel","cclk"]
   
-LutKey = Literal["prop","trans","setup_hold","eintl","ein"]
+#LutKey = Literal["prop","trans","setup_hold","eintl","ein"]
+LutKey = Literal["prop","trans","setup_hold","eintl"]
 
 NestedDefaultDict = Annotated[
     DefaultDict[float, float],  # slope -> value
@@ -286,6 +289,12 @@ class MyConditionsAndResults(BaseModel):
     if flag:
       pin=flag.group(1)
       pos=int(flag.group(2))
+      
+    #elif pin_pos == "":
+    #  #-- no clock/latch port
+    #  pin_pos=None
+    #  val0 = "x"
+
     else:
       print(f"  [Error] related port name={pin_pos} is illegal name.")
       my_exit()
@@ -293,7 +302,8 @@ class MyConditionsAndResults(BaseModel):
     #-- get pin value
     ival = self.mec.ival;          #initial value dict
     val0 = ival[pin][pos] if (pin in ival and pos < len(ival[pin])) else ""
-
+      
+    #-- 
     if val0:
       self.target_relport      = pin_pos
       self.target_relport_val  = val0
@@ -365,13 +375,19 @@ class MyConditionsAndResults(BaseModel):
   def set_lut(self, value_name:str):
     
     ## select mag
-    mag = self.mls.energy_mag if value_name in ["eintl","ein"] else self.mls.time_mag
+    #mag = self.mls.energy_mag if value_name in ["eintl","ein"] else self.mls.time_mag
+    if value_name in ["ein"]:
+      print("not support value_name=ein")
+      my_exit()
+      
+    mag = self.mls.energy_mag if value_name in ["eintl"] else self.mls.time_mag
 
     ## significant digits
     sigdigs=self.mls.significant_digits
     
     ## get index
-    if value_name in ["eintl", "ein"]:
+    #if value_name in ["eintl", "ein"]:
+    if value_name in ["eintl"]:
       if not self.template_kind in ["power","passive", "power_c2c", "power_i2c", "power_c2i", "power_i2i"]:
         print(f"[Error] value_name={value_name}/template_kind={self.template_kind} are missmatch.")
         my_exit()

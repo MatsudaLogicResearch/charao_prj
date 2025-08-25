@@ -1,0 +1,6 @@
+[
+  {"template_kgn":[["leakage","0x0","d0"],["const","4x4","d0"],["delay","7x8","d1"],["power","7x8","d1"],["passive","7x0","d1"]], "spice":"DFFR.cir", "cell":"DFFR","logic":"DFFB_PC_PR","area":1.0
+      ,"ports_dict":{"CK":"c0","D":"i0","RST":"r0","Q":"o0","QB":"o1","VDD":"vdd","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d0"],["const","4x4","d0"],["delay","7x8","d1"],["power","7x8","d1"],["passive","7x0","d1"]], "spice":"DFFS.cir", "cell":"DFFS","logic":"DFFB_PC_NS","area":1.0
+      ,"ports_dict":{"CK":"c0","D":"i0","SET":"s0","Q":"o0","QB":"o1","VDD":"vdd","VSS":"vss"}},
+]

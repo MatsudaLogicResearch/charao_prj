@@ -132,9 +132,9 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
       outlines.append(f'|Registers  | {targetCell.replace_by_portmap(targetCell.ff["out"])} |')
       outlines.append(f'|Clocked On | {targetCell.replace_by_portmap(targetCell.ff["clocked_on"])} |')
       outlines.append(f'|Next State | {targetCell.replace_by_portmap(targetCell.ff["next_state"])} |')
-      if targetCell.ff["clear"]:
+      if "clear" in targetCell.ff.keys():
         outlines.append(f'|Clear | {targetCell.replace_by_portmap(targetCell.ff["clear"])} |')
-      if targetCell.ff["preset"]:
+      if "preset" in targetCell.ff.keys():
         outlines.append(f'|Preset | {targetCell.replace_by_portmap(targetCell.ff["preset"])} |')
       outlines.append(f'')
 
@@ -152,6 +152,39 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
         outlines.append(f'')
 
     ##-------------------------------------------------
+    outlines.append(f'### INPUT PIN CAPACITANCE({targetLib.capacitance_unit})')
+    outlines.append(f'| Pin| Direction | Capacitance ({targetLib.capacitance_unit}) |')
+    outlines.append(f'|----|----|----|')
+
+    for p in targetCell.cins.keys():
+      cap="-" if abs(targetCell.cins[p]) < 1e-20 else f2s_ceil(f=targetCell.cins[p], sigdigs=sigdigs)
+      name=targetCell.replace_by_portmap(p)
+      direction="input" if (p in targetCell.inports + [targetCell.clock]) else "inout" if (p in targetCell.biports + targetCell.vports) else "output"
+      outlines.append(f'| {name} | {direction} | {cap} |')
+      
+    outlines.append(f'')
+
+    ##-------------------------------------------------
+    inports=[p for p in (targetCell.inports + [targetCell.clock] + targetCell.biports) if p is not None]
+    
+    if targetCell.min_pulse_width_high.keys() or targetCell.min_pulse_width_low.keys():
+        
+      outlines.append(f'### MIN PULSE WIDTH')
+      outlines.append(f'| Input Pin| Width for L({targetLib.time_unit}) | Width for H({targetLib.time_unit})|')
+      outlines.append(f'|----|----|----|')
+      
+      for port in inports:
+        port_name = targetCell.replace_by_portmap(port)
+        val_low = f2s_ceil(f=targetCell.min_pulse_width_low[port] , sigdigs=sigdigs)  if port in targetCell.min_pulse_width_low.keys()  else "-"
+        val_high= f2s_ceil(f=targetCell.min_pulse_width_high[port], sigdigs=sigdigs)  if port in targetCell.min_pulse_width_high.keys() else "-"
+ 
+        if (val_low !="-")  or (val_high !="-") :
+          outlines.append(f'| {port_name} | {val_low} | {val_high} |')
+
+      #---
+      outlines.append(f'')
+
+    ##-------------------------------------------------
     #h_list = [h for h in harnessList if (h.template_kind.startswith("delay") and  h.timing_type.startswith("three_state"))]
 
     for setup_hold in ["setup","hold","recovery","removal"]:
@@ -163,43 +196,29 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
         outlines.append(f'| Constraint Pin | Related pin | Constraint Pin Slew({targetLib.time_unit}) | Related pin Slew({targetLib.time_unit}) | When | {setup_hold}({targetLib.time_unit})|')
         outlines.append(f'|----|----|----|----|----|----|')
 
-      for (timing_type, inport, relport, constraint,timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_inport,x.target_relport, x.constraint, x.timing_when)):
-        group_list=list(group);
-        size=len(group_list)
-
-        for g in group_list:
-          index1_pos=len(g.template.index_1)//2
-          index2_pos=len(g.template.index_2)//2
-          index1_val=g.template.index_1[index1_pos]
-          index2_val=g.template.index_2[index2_pos]
+        for (timing_type, inport, relport, constraint,timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_inport,x.target_relport, x.constraint, x.timing_when)):
+          group_list=list(group);
+          size=len(group_list)
         
-          const_arc=constraint.rstrip('_constraint')
-          rel_arc  =timing_type.strip(setup_hold+"_")
-        
-          const_pin=f'{targetCell.replace_by_portmap(inport)}({const_arc})'
-          rel_pin  =f'{targetCell.replace_by_portmap(relport)}({rel_arc})'
-          const_slew=index2_val
-          rel_slew=index1_val
-          when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
-          val     = g.dict_list2["setup_hold"][index1_val][index2_val] / targetLib.time_mag
-          outlines.append(f'| {const_pin} | {rel_pin} | {const_slew} | {rel_slew} | {when} | {f2s_ceil(f=val, sigdigs=sigdigs)}|')
+          for g in group_list:
+            index1_pos=len(g.template.index_1)//2
+            index2_pos=len(g.template.index_2)//2
+            index1_val=g.template.index_1[index1_pos]
+            index2_val=g.template.index_2[index2_pos]
           
-      #
-      outlines.append(f'')
-
-    
-    ##-------------------------------------------------
-    outlines.append(f'### PIN DIRECTION & CAPACITANCE({targetLib.capacitance_unit})')
-    outlines.append(f'| Pin| Direction | Capacitance ({targetLib.capacitance_unit}) |')
-    outlines.append(f'|----|----|----|')
-
-    for p in targetCell.cins.keys():
-      cap=f2s_ceil(f=targetCell.cins[p], sigdigs=sigdigs)
-      name=targetCell.replace_by_portmap(p)
-      direction="input" if (p in targetCell.inports + [targetCell.clock]) else "inout" if (p in targetCell.biports + targetCell.vports) else "output"
-      outlines.append(f'| {name} | {direction} | {cap} |')
-      
-    outlines.append(f'')
+            const_arc=constraint.replace('_constraint',"")
+            rel_arc  =timing_type.replace(setup_hold+"_","")
+          
+            const_pin=f'{targetCell.replace_by_portmap(inport)}({const_arc})'
+            rel_pin  =f'{targetCell.replace_by_portmap(relport)}({rel_arc})'
+            const_slew=index2_val
+            rel_slew=index1_val
+            when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
+            val     = g.dict_list2["setup_hold"][index1_val][index2_val] / targetLib.time_mag
+            outlines.append(f'| {const_pin} | {rel_pin} | {const_slew} | {rel_slew} | {when} | {f2s_ceil(f=val, sigdigs=sigdigs)}|')
+            
+        #
+        outlines.append(f'')
 
     
     ##-------------------------------------------------    
@@ -211,31 +230,32 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
       outlines.append(f'| Input Pin | Output pin | When | Input Pin Slew({targetLib.time_unit}) | Out Load({targetLib.capacitance_unit}) | Delay({targetLib.time_unit})| Transition({targetLib.time_unit}) |')
       outlines.append(f'|----|----|----|----|----|----|----|')
 
-    for (timing_type, relport, outport, direction_tran, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_tran, x.timing_when)):
-      group_list=list(group);
-      size=len(group_list)
+      for (timing_type, relport, outport, direction_tran, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_tran, x.timing_when)):
+        group_list=list(group);
+        size=len(group_list)
+      
+        for g in group_list:
+          index1_pos=len(g.template.index_1)//2
+          index2_pos=len(g.template.index_2)//2
+          index1_val=g.template.index_1[index1_pos]
+          index2_val=g.template.index_2[index2_pos]
+          
+          rel_dir="LH" if g.mec.arc_oir[2]=='r' else "HL"
+          tran =direction_tran.replace("_transition","")
+      
+          rel_pin=f'{targetCell.replace_by_portmap(relport)}({rel_dir})'
+          out_pin=f'{targetCell.replace_by_portmap(outport)}({tran})'
+          when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
+          rel_slew =index1_val
+          out_load=index2_val
+          delay_val = g.dict_list2["prop"][index1_val][index2_val] / targetLib.time_mag
+          trans_val = g.dict_list2["trans"][index1_val][index2_val] / targetLib.time_mag
+      
+          outlines.append(f'| {rel_pin} | {out_pin} | {when} | {rel_slew} | {out_load} | {f2s_ceil(f=delay_val, sigdigs=sigdigs)} | {f2s_ceil(f=trans_val, sigdigs=sigdigs)} |')
+      #
+      outlines.append(f'')
 
-      for g in group_list:
-        index1_pos=len(g.template.index_1)//2
-        index2_pos=len(g.template.index_2)//2
-        index1_val=g.template.index_1[index1_pos]
-        index2_val=g.template.index_2[index2_pos]
-        
-        rel_dir="LH" if g.mec.arc_oir[2]=='r' else "HL"
-        tran =direction_tran.rstrip("_transition")
-
-        rel_pin=f'{targetCell.replace_by_portmap(relport)}({rel_dir})'
-        out_pin=f'{targetCell.replace_by_portmap(outport)}({tran})'
-        when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
-        rel_slew =index1_val
-        out_load=index2_val
-        delay_val = g.dict_list2["prop"][index1_val][index2_val] / targetLib.time_mag
-        trans_val = g.dict_list2["trans"][index1_val][index2_val] / targetLib.time_mag
-
-        outlines.append(f'| {rel_pin} | {out_pin} | {when} | {rel_slew} | {out_load} | {f2s_ceil(f=delay_val, sigdigs=sigdigs)} | {f2s_ceil(f=trans_val, sigdigs=sigdigs)} |')
-    #
-    outlines.append(f'')
-
+    
     ##-------------------------------------------------    
     #h_list = [h for h in harnessList if (h.template_kind in ["delay"])]
     h_list = [h for h in harnessList if (h.template_kind.startswith("delay") and  h.timing_type.startswith("three_state"))]
@@ -246,32 +266,32 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
       outlines.append(f'| OE | Input Pin | Output pin | When | Input Pin Slew({targetLib.time_unit}) | Out Load({targetLib.capacitance_unit}) | Delay({targetLib.time_unit})| Transition({targetLib.time_unit}) |')
       outlines.append(f'|----|----|----|----|----|----|----|----|')
 
-    for (timing_type, relport, outport, direction_tran, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_tran, x.timing_when)):
-      group_list=list(group);
-      size=len(group_list)
-
-      for g in group_list:
-        index1_pos=len(g.template.index_1)//2
-        index2_pos=len(g.template.index_2)//2
-        index1_val=g.template.index_1[index1_pos]
-        index2_val=g.template.index_2[index2_pos]
-        
-        rel_dir="LH" if g.mec.arc_oir[2]=='r' else "HL"
-        tran =direction_tran.rstrip("_transition")
-
-        #timing_type=g.timing_type
-        timing_type=g.timing_type.strip("three_state_")
-        rel_pin=f'{targetCell.replace_by_portmap(relport)}({rel_dir})'
-        out_pin=f'{targetCell.replace_by_portmap(outport)}({tran})'
-        when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
-        rel_slew =index1_val
-        out_load=index2_val
-        delay_val = g.dict_list2["prop"][index1_val][index2_val] / targetLib.time_mag
-        trans_val = g.dict_list2["trans"][index1_val][index2_val] / targetLib.time_mag
-
-        outlines.append(f'| {timing_type} | {rel_pin} | {out_pin} | {when} | {rel_slew} | {out_load} | {f2s_ceil(f=delay_val, sigdigs=sigdigs)} | {f2s_ceil(f=trans_val, sigdigs=sigdigs)} |')
-    #
-    outlines.append(f'')
+      for (timing_type, relport, outport, direction_tran, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_tran, x.timing_when)):
+        group_list=list(group);
+        size=len(group_list)
+      
+        for g in group_list:
+          index1_pos=len(g.template.index_1)//2
+          index2_pos=len(g.template.index_2)//2
+          index1_val=g.template.index_1[index1_pos]
+          index2_val=g.template.index_2[index2_pos]
+          
+          rel_dir="LH" if g.mec.arc_oir[2]=='r' else "HL"
+          tran =direction_tran.replace("_transition","")
+      
+          #timing_type=g.timing_type
+          timing_type="enable" if g.timing_type.startswith("three_state_enable") else "disable"
+          rel_pin=f'{targetCell.replace_by_portmap(relport)}({rel_dir})'
+          out_pin=f'{targetCell.replace_by_portmap(outport)}({tran})'
+          when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
+          rel_slew =index1_val
+          out_load=index2_val
+          delay_val = g.dict_list2["prop"][index1_val][index2_val] / targetLib.time_mag
+          trans_val = g.dict_list2["trans"][index1_val][index2_val] / targetLib.time_mag
+      
+          outlines.append(f'| {timing_type} | {rel_pin} | {out_pin} | {when} | {rel_slew} | {out_load} | {f2s_ceil(f=delay_val, sigdigs=sigdigs)} | {f2s_ceil(f=trans_val, sigdigs=sigdigs)} |')
+      #
+      outlines.append(f'')
 
     
     ##-------------------------------------------------
@@ -286,30 +306,30 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
       outlines.append(f'| Input Pin | When | Output pin | Input Pin Slew({targetLib.time_unit}) | Out Load({targetLib.capacitance_unit}) | Energy({targetLib.energy_unit})|')
       outlines.append(f'|----|----|----|----|----|----|')
 
-    for (timing_type, relport, outport, direction_power, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_power, x.timing_when)):
-      group_list=list(group);
-      size=len(group_list)
-
-      for g in group_list:
-        index1_pos=len(g.template.index_1)//2
-        index2_pos=len(g.template.index_2)//2
-        index1_val=g.template.index_1[index1_pos]
-        index2_val=g.template.index_2[index2_pos]
-        
-        rel_dir="LH" if g.mec.arc_oir[2]=='r' else "HL"
-        pwr_dir =direction_power.rstrip("_power")
-
-        rel_pin=f'{targetCell.replace_by_portmap(relport)}({rel_dir})'
-        when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
-        out_pin=f'{targetCell.replace_by_portmap(outport)}({pwr_dir})'
-        rel_slew =index1_val
-        out_load=index2_val
-        energy = g.dict_list2["eintl"][index1_val][index2_val] / targetLib.energy_mag
-
-        outlines.append(f'| {rel_pin} | {when} | {out_pin} | {rel_slew} | {out_load} | {f2s_ceil(f=energy, sigdigs=sigdigs)} |')
-        
-    #
-    outlines.append(f'')
+      for (timing_type, relport, outport, direction_power, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_power, x.timing_when)):
+        group_list=list(group);
+        size=len(group_list)
+      
+        for g in group_list:
+          index1_pos=len(g.template.index_1)//2
+          index2_pos=len(g.template.index_2)//2
+          index1_val=g.template.index_1[index1_pos]
+          index2_val=g.template.index_2[index2_pos]
+          
+          rel_dir="LH" if g.mec.arc_oir[2]=='r' else "HL"
+          pwr_dir =direction_power.replace("_power","")
+      
+          rel_pin=f'{targetCell.replace_by_portmap(relport)}({rel_dir})'
+          when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
+          out_pin=f'{targetCell.replace_by_portmap(outport)}({pwr_dir})'
+          rel_slew =index1_val
+          out_load=index2_val
+          energy = g.dict_list2["eintl"][index1_val][index2_val] / targetLib.energy_mag
+      
+          outlines.append(f'| {rel_pin} | {when} | {out_pin} | {rel_slew} | {out_load} | {f2s_ceil(f=energy, sigdigs=sigdigs)} |')
+          
+      #
+      outlines.append(f'')
 
     ##-------------------------------------------------
     h_list = [h for h in harnessList if (h.template_kind in ["passive"])]
@@ -320,26 +340,26 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
       outlines.append(f'| Input Pin | When | Input Pin Slew({targetLib.time_unit}) | Energy({targetLib.energy_unit})|')
       outlines.append(f'|----|----|----|----|')
 
-    for (inport, arc_in, timing_when),group in groupby(sorted_h, key=lambda x:(x.target_inport, x.mec.arc_oir[1], x.timing_when)):
-      group_list=list(group);
-      size=len(group_list)
-
-      for g in group_list:
-        index1_pos=len(g.template.index_1)//2
-        index1_val=g.template.index_1[index1_pos]
-        
-        in_dir="LH" if arc_in=='r' else "HL"
-
-        in_pin=f'{targetCell.replace_by_portmap(inport)}({in_dir})'
-        when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
-
-        in_slew =index1_val
-        energy = g.dict_list2["eintl"][index1_val][0] / targetLib.energy_mag
-
-        outlines.append(f'| {in_pin} | {when} | {in_slew} | {f2s_ceil(f=energy, sigdigs=sigdigs)} |')
-        
-    #
-    outlines.append(f'')
+      for (inport, arc_in, timing_when),group in groupby(sorted_h, key=lambda x:(x.target_inport, x.mec.arc_oir[1], x.timing_when)):
+        group_list=list(group);
+        size=len(group_list)
+      
+        for g in group_list:
+          index1_pos=len(g.template.index_1)//2
+          index1_val=g.template.index_1[index1_pos]
+          
+          in_dir="LH" if arc_in=='r' else "HL"
+      
+          in_pin=f'{targetCell.replace_by_portmap(inport)}({in_dir})'
+          when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
+      
+          in_slew =index1_val
+          energy = g.dict_list2["eintl"][index1_val][0] / targetLib.energy_mag
+      
+          outlines.append(f'| {in_pin} | {when} | {in_slew} | {f2s_ceil(f=energy, sigdigs=sigdigs)} |')
+          
+      #
+      outlines.append(f'')
 
     ##-------------------------------------------------
     outlines.append(f'### LEAKAGE POWER')

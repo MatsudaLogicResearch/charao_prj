@@ -481,25 +481,25 @@ logic_dict={
                         ,meas_type="removal_rising",tmg_sense="non",arc_oir=["s","r","r"], tmg_when="", specify="$hold(posedge c0, posedge s0, 0, notifier);"),
              
              #--- passive power(data)
-             MyExpectCell(pin_oir=["o0","i0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oir=["0","1","0"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","s"], tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oir=["1","0","0"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","s"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","i0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oir=["0","1","1"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","r"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","i0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oir=["1","0","0"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","f"], tmg_when="", specify=""),
              #--- passive power(reset)
-             MyExpectCell(pin_oir=["o0","r0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oir=["0","0","0"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","s"], tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","r0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["0"],"s":["1"]}, mondrv_oir=["0","1","0"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","s"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","r0","r0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["0"],"s":["1"]}, mondrv_oir=["0","1","1"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","r"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","r0","r0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oir=["0","0","0"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","r"], tmg_when="", specify=""),
              #--- passive power(set)
-             MyExpectCell(pin_oir=["o0","s0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oir=["1","0","0"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","s"], tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","s0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"],"s":["0"]}, mondrv_oir=["1","1","0"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","s"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","s0","s0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"],"s":["0"]}, mondrv_oir=["1","1","1"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","r"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","s0","s0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oir=["1","0","0"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","f"], tmg_when="", specify=""),
              #--- passive power(clk)
-             MyExpectCell(pin_oir=["o0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oir=["0","1","1"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","s"], tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"],"r":["1"],"s":["1"]}, mondrv_oir=["0","0","0"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","s"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oir=["0","1","1"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","s","r"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oir=["0","0","0"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","s","f"], tmg_when="", specify=""),
              #--- min_pulse(clk)
              MyExpectCell(pin_oir=["o0","i0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oir=["1","1","1"]
                         ,meas_type="min_pulse_width_high",tmg_sense="non",arc_oir=["r","r","r"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
@@ -559,21 +559,21 @@ logic_dict={
                         ,meas_type="removal_rising",tmg_sense="non",arc_oir=["r","f","r"], tmg_when="", specify="$hold(posedge c0, negedge r0, 0, notifier);"),
              
              #--- passive power(data)
-             MyExpectCell(pin_oir=["o0","i0","c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"r":["0"]}, mondrv_oir=["0","1","0"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","s"], tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","c0"], ival={"o":["1","0"],"i":["1"],"b":[],"c":["0"],"r":["0"]}, mondrv_oir=["1","0","0"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","s"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","i0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"r":["0"]}, mondrv_oir=["0","1","1"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","r"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","i0"], ival={"o":["1","0"],"i":["1"],"b":[],"c":["0"],"r":["0"]}, mondrv_oir=["1","0","0"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","f"], tmg_when="", specify=""),
              #--- passive power(reset)
-             MyExpectCell(pin_oir=["o0","r0","c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"r":["0"]}, mondrv_oir=["0","1","0"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","s"], tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","r0","c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"r":["1"]}, mondrv_oir=["0","0","0"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","s"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","r0","r0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"r":["0"]}, mondrv_oir=["0","1","1"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","f"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","r0","r0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"r":["1"]}, mondrv_oir=["0","0","0"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","r"], tmg_when="", specify=""),
              
              #--- passive power(clk)
              MyExpectCell(pin_oir=["o0","c0","c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"r":["0"]}, mondrv_oir=["0","1","1"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","s"], tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","c0","c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["1"],"r":["0"]}, mondrv_oir=["0","0","0"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","s"], tmg_when="", specify=""),
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","r"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","c0","c0"], ival={"o":["0","0"],"i":["1"],"b":[],"c":["0"],"r":["0"]}, mondrv_oir=["0","0","0"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","f"], tmg_when="", specify=""),
              #--- min_pulse(clk)
              MyExpectCell(pin_oir=["o0","i0","c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"r":["0"]}, mondrv_oir=["1","1","1"]
                         ,meas_type="min_pulse_width_high",tmg_sense="non",arc_oir=["r","r","r"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
@@ -647,21 +647,21 @@ logic_dict={
                         ,meas_type="removal_rising",tmg_sense="pos",arc_oir=["f","r","r"], tmg_when="", specify="$hold(posedge c0, posedge s0, 0, notifier);"),
              
              #--- passive power(data)
-             MyExpectCell(pin_oir=["o0","i0","c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"s":["1"]}, mondrv_oir=["0","1","0"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","s"], tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","c0"], ival={"o":["1","0"],"i":["1"],"b":[],"c":["0"],"s":["1"]}, mondrv_oir=["1","0","0"]
+             MyExpectCell(pin_oir=["o0","i0","i0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"s":["1"]}, mondrv_oir=["0","1","1"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","r"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","i0"], ival={"o":["1","0"],"i":["1"],"b":[],"c":["0"],"s":["1"]}, mondrv_oir=["1","0","0"]
                         ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","f"], tmg_when="", specify=""),
              #--- passive power(preset)
-             MyExpectCell(pin_oir=["o0","s0","c0"], ival={"o":["1","0"],"i":["1"],"b":[],"c":["0"],"s":["0"]}, mondrv_oir=["1","1","0"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","s"], tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","s0","c0"], ival={"o":["1","0"],"i":["1"],"b":[],"c":["0"],"s":["1"]}, mondrv_oir=["1","0","0"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","s"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","s0","s0"], ival={"o":["1","0"],"i":["1"],"b":[],"c":["0"],"s":["0"]}, mondrv_oir=["1","1","1"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","r"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","s0","s0"], ival={"o":["1","0"],"i":["1"],"b":[],"c":["0"],"s":["1"]}, mondrv_oir=["1","0","0"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","f"], tmg_when="", specify=""),
              
              #--- passive power(clk)
-             MyExpectCell(pin_oir=["o0","c0","s0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"s":["1"]}, mondrv_oir=["0","1","1"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","s"], tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","c0","s0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["1"],"s":["1"]}, mondrv_oir=["0","0","1"]
-                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","s"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","c0","c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"s":["1"]}, mondrv_oir=["0","1","1"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","r","r"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["o0","c0","c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"s":["1"]}, mondrv_oir=["0","0","0"]
+                        ,meas_type="passive"      ,tmg_sense="non",arc_oir=["s","f","f"], tmg_when="", specify=""),
              
              #--- min_pulse(clk)
              MyExpectCell(pin_oir=["o0","i0","c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"s":["1"]}, mondrv_oir=["1","1","1"]

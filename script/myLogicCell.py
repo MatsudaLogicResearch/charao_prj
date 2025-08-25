@@ -325,8 +325,8 @@ class MyLogicCell(BaseModel):
       for h in harnessList:
         #print(f"inport={inport}, relport={h.target_relport}")
         
-        #if h.target_relport == inport:
-        if h.target_inport == inport:
+        if h.target_relport == inport:
+        #if h.target_inport == inport:
           #-- list of dict_list2["cin"]["index_1"]["index_2"]
           cin_list=[v for index_1 in h.dict_list2["cin"].values() for v in index_1.values()]
           cin_all.extend(cin_list)
@@ -343,71 +343,24 @@ class MyLogicCell(BaseModel):
       val_avr=st.mean(cin_all)/mag
       self.cins[inport]=val_avr
 
-#---  ## leak_power=max(i_vdd_leak) in all harness.dict_list2["i_vdd_leak"]["index_2"]["index_1"]
-#---  def set_pleak_icrs(self, harnessList:list["Mcar"]):
-#---
-#---    #-- sort by when-condition
-#---    #sorted_harnessList=sorted(harnessList, key=lambda x: (tuple(x.mec.rval.get("i",[])),
-#---    #                                                      tuple(x.mec.rval.get("c",[])),
-#---    #                                                      tuple(x.mec.rval.get("r",[])),
-#---    #                                                      tuple(x.mec.rval.get("s",[]))))
-#---    sorted_harnessList=sorted(harnessList, key=lambda x: (tuple(x.mec.ival.get("i",[])),
-#---                                                          tuple(x.mec.ival.get("c",[])),
-#---                                                          tuple(x.mec.ival.get("r",[])),
-#---                                                          tuple(x.mec.ival.get("s",[]))))
-#---
-#---    #-- generate pleak by when-condition
-#---    #for (i,c,r,s),group in groupby(
-#---    #    sorted_harnessList, key=lambda x:(tuple(x.mec.rval.get("i",[])),
-#---    #                                      tuple(x.mec.rval.get("c",[])),
-#---    #                                      tuple(x.mec.rval.get("r",[])),
-#---    #                                      tuple(x.mec.rval.get("s",[])))):
-#---    #  rval={"i":i, "c":c, "r":r, "s":s}
-#---    for (i,c,r,s),group in groupby(
-#---        sorted_harnessList, key=lambda x:(tuple(x.mec.ival.get("i",[])),
-#---                                          tuple(x.mec.ival.get("c",[])),
-#---                                          tuple(x.mec.ival.get("r",[])),
-#---                                          tuple(x.mec.ival.get("s",[])))):
-#---      rval={"i":i, "c":c, "r":r, "s":s}
-#---
-#---      h_group=list(group);
-#---      size=len(h_group)
-#---      #print(rval)
-#---
-#---      ##-- generate when condition from harnessList.mec
-#---      ##---  str_when = "i0","!i1","c0","r1"
-#---      cond_when=[]
-#---      for port_type in ["i", "c", "r", "s"]:
-#---        for index,val in enumerate(rval[port_type]):
-#---          neg_str="!" if val=="0" else ""
-#---          cond_when.append(f"{neg_str}{port_type}{index}")
-#---
-#---      str_when=" ".join(cond_when)
-#---      
-#---      ##-- get max(pleak) when same input condition
-#---      pleak_all=[]
-#---      for h in h_group:
-#---        #pleak_list=[v for index_1 in h.dict_list2["i_vdd_leak"].values() for v in index_1.values()]
-#---        pleak_list=[v for index_1 in h.dict_list2["pleak"].values() for v in index_1.values()]
-#---        pleak_all.extend(pleak_list)
-#---
-#---      #print(f"[DEBUG] cond={str_when}, pleak_all={pleak_all}")
-#---      if len(pleak_all)<1:
-#---        self.pleak_icrs[str_when]=0.0
-#---        continue
-#---
-#---      mag=self.mls.leakage_power_mag
-#---      pleak_max=max(abs(x/mag) for x in pleak_all)
-#---      
-#---      ##-- update
-#---      if not str_when in self.pleak_icrs.keys():
-#---        self.pleak_icrs[str_when]=0.0
-#---
-#---      self.pleak_icrs[str_when]=max(pleak_max, self.pleak_icrs[str_when])
-#---
-#---    #--
-#---    #print(f"[DEBUG] pleak_icrs={self.pleak_icrs}.")
+  def set_cin_max(self, harnessList:list["Mcar"]):
 
+    ports=(self.inports + [self.clock] + self.biports)
+    for inport in list(filter(lambda x: x is not None, ports)):
+
+      max_cin = 0.0
+      for h in [x for x in harnessList if x.target_relport == inport and x.dict_list2["cin"]]:
+        ## dict_list2["cin"][index1][index2] --- dict_list2["cin"]=[,,,,,,]
+        cin_list=[v for index_1 in h.dict_list2["cin"].values() for v in index_1.values()]
+
+        ## update in every harness
+        new_cin = max(cin_list)
+        if max_cin < new_cin:
+          max_cin = new_cin
+          
+      mag=self.mls.capacitance_mag
+      self.cins[inport]=max_cin/mag
+      
   ## cell_cleak=max leakage
   def set_max_pleak(self, harnessList:list["Mcar"]):
 
