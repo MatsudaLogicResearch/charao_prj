@@ -1,31 +1,22 @@
 #!/usr/bin/bash
-FAB_PROCESS="TOKAI_IP62"
-VENDOR="ALEX"
-USAGE_VOLTAGE="5.0"
-CELL_GROUP="std"
-
-PROCESS_CORNER="TT"
-TEMP="25.0"
-VDD="5.0"
-VNW="5.0"
-
 OPTION=""
-#OPTION="--cells_only INV_X1"
+#OPTION="--cells_only INV_X1 --measures_only passive"
 
 ## generate liberty
-time python3 script/libretto.py -g ${CELL_GROUP} -f ${FAB_PROCESS} -v ${VENDOR} -u ${USAGE_VOLTAGE} \
-				-p ${PROCESS_CORNER} -t ${TEMP} --vdd ${VDD} --vnw ${VNW} \
-				${OPTION}
-
+time python3 script/libretto.py -f OSU035     -v SAMPLE -g std -u 5.0 -p TT -t 25 --vdd 5.0 ${OPTION}
+time python3 script/libretto.py -f TOKAI_IP62 -v LR     -g std -u 5.0 -p TT -t 25 --vdd 5.0 ${OPTION}
+time python3 script/libretto.py -f TOKAI_IP62 -v LR     -g io  -u 5.0 -p TT -t 25 --vdd 5.0 ${OPTION}
+				
 
 # create pdf
 for md in ./*.md; do
   echo "  convert ${md} -> ${md%.md}.pdf"
-  /bin/pandoc ${md} -o  ${md%.md}.pdf -V documentclass=ltjarticle --pdf-engine=lualatex -V geometry:margin=1in -N --toc -V secnumdepth=4; 
+  /bin/pandoc ${md} -o  ${md%.md}.pdf -V documentclass=ltjarticle --pdf-engine=lualatex  -V tables-alignment=left -V geometry:margin=1in -N --toc -V secnumdepth=4; 
 done
 
 # move files
-for f in ./${FAB_PROCESS}_${VENDOR}*; do
+mkdir -p timing
+for f in *.lib *.v *.md *.pdf ; do
   echo "  mv ${f} -> ./timing/"
 	mv ${f} timing/
 done
