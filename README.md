@@ -1,4 +1,4 @@
-# libretto
+# charao
 ## Introduction
 An open cell library characterizer.
 
