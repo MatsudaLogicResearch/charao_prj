@@ -10,13 +10,16 @@ def my_exit():
 def startup():
   print("  ")
   print("  ------------------------------------")
-  print("  libretto: Cell library characterizer")
-  print("  Version: 0.5")
-  print("  https://github.com/MatsudaLogicResearch/libretto")
+  print("  charao: Cell library characterizer")
+  print("  Version: 0.6")
+  print("  https://github.com/MatsudaLogicResearch/charao")
   print("  ")
 
 def history():
   print("  ------------------------------------")
+  print("  Version: 0.6")
+  print("  + rename to charao")
+  print("  + Support three_state.")
   print("  Version: 0.5")
   print("  + forked from https://github.com/snishizawa/libretto")
   print("  + Support multi template in cell.")
