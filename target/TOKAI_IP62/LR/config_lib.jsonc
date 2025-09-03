@@ -1,10 +1,10 @@
 {
    "process_name"       :"TOKAI_IP62"
   ,"lib_vendor_id"      :"LR"
-	,"revision"           :"V20240515A"
+	,"revision"           :"V20240515A1"
 	,"model_path"         :"target/TOKAI_IP62"
 	,"cell_spice_path"    :"/home/synology_nfs/Techlibs/Techlib/TOKAIR/ip62/std/fromALEX/2024_0515/spice"
-  ,"io_spice_path"      :"./spice/flatten"
+  ,"io_spice_path"      :"/home/synology_nfs/Techlibs/Techlib/TOKAIR/ip62/io/fromLR/2024_0515/spice/flatten"
   ,"vdd_name"           :"VDD"
   ,"vss_name"           :"VSS"
   ,"vdd2_name"          :""

@@ -43,7 +43,7 @@ def exportLib2doc(targetLib:Mls, targetCell:Mlc):
     outlines.append(f"## Units")
     outlines.append(f"| cap | volt | cur | energy | leak | time | res |")
     outlines.append(f"|----|----|----|----|----|----|----|")
-    outlines.append(f"| {targetLib.capacitance_unit} | {targetLib.voltage_unit} | | {targetLib.current_unit} | {targetLib.energy_unit} | {targetLib.leakage_power_unit} | {targetLib.time_unit} | {targetLib.resistance_unit} |")
+    outlines.append(f"| {targetLib.capacitance_unit} | {targetLib.voltage_unit} | {targetLib.current_unit} | {targetLib.energy_unit} | {targetLib.leakage_power_unit} | {targetLib.time_unit} | {targetLib.resistance_unit} |")
     outlines.append(f"")
     
     outlines.append(f"## Voltage terminals")

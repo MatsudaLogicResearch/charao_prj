@@ -3,9 +3,9 @@ OPTION=""
 #OPTION="--cells_only INV_X1 --measures_only passive"
 
 ## generate liberty
-time python3 script/charao.py -f OSU035     -v SAMPLE -g std -u 5.0 -p TT -t 25 --vdd 5.0 ${OPTION}
-#time python3 script/charao.py -f TOKAI_IP62 -v LR     -g std -u 5.0 -p TT -t 25 --vdd 5.0 ${OPTION}
-#time python3 script/charao.py -f TOKAI_IP62 -v LR     -g io  -u 5.0 -p TT -t 25 --vdd 5.0 ${OPTION}
+time python3 script/charao.py -f OSU035     -v SAMPLE -g std -u 5.0 -p TT -t 25.0 --vdd 5.0 ${OPTION}
+#time python3 script/charao.py -f TOKAI_IP62 -v LR     -g std -u 5.0 -p TT -t 27.0 --vdd 5.0 ${OPTION}
+#time python3 script/charao.py -f TOKAI_IP62 -v LR     -g io  -u 5.0 -p TT -t 27.0 --vdd 5.0 ${OPTION}
 				
 
 # create pdf
