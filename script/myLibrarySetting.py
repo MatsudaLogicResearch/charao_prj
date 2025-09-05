@@ -144,7 +144,8 @@ class MyLibrarySetting(BaseModel):
   compress        :str = "true"
   log_file        :str = "false"
   logf            :str = None 
-
+  date            :str =""
+  
   ## template_lines
   template_lines  : dict[str,list[str]] = Field(default_factory=lambda:{
     "const"  :[],

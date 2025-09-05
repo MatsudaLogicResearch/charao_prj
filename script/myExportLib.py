@@ -67,6 +67,7 @@ def exportLib(targetLib:Mls):
   now = datetime.datetime.now()
   tz = time.tzname[0]
   now_str = now.strftime(f"%a %b %e %H:%M:%S {tz} %Y")  
+  targetLib.date = now_str;  #-- use in myExportDoc
   
   outlines = []
   ## general settings

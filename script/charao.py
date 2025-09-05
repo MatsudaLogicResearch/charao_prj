@@ -13,7 +13,7 @@ from myExpectCell import logic_dict
 
 from myExportLib import exportFiles,exitFiles
 from myExportDoc import exportDoc
-from char_run    import runExpectation
+from charao_run  import runExpectation
 from myFunc      import my_exit, startup, history
 
 def main():

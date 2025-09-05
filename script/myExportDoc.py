@@ -32,9 +32,20 @@ def exportLib2doc(targetLib:Mls, targetCell:Mlc):
     
     outlines = []
 
-    outlines.append(f"\\newpage")    #-- command for luatext
-    
     ## general settings
+    outlines.append(f'---')
+    outlines.append(f'title: "Cell Library Specification"')
+    outlines.append(f'subtitle: "{targetLib.lib_name}(rev:{targetLib.revision})"')
+    outlines.append(f'author: ""')
+    outlines.append(f'date: "{targetLib.date}"')
+    outlines.append(f'toc: false')
+    outlines.append(f'toc-depth: 2')
+    outlines.append(f'---')
+    outlines.append(f"\clearpage")
+    outlines.append(f"\\tableofcontents")
+    outlines.append(f"\clearpage")
+
+    
     outlines.append(f"# Library settings")
     outlines.append(f"| lib. name | delay model |")
     outlines.append(f"|----|----|")
