@@ -1,3 +1,10 @@
+//===================================================================
+// This file is associated with the charao project.
+// Copyright (C) 2025 MATSUDA Masahiro
+// 
+// This configuration file is licensed under the MIT License.
+//===================================================================
+// [Info] The order of "ports_dict" is same as the order of pin-list in the spice file. 
 {
    "process_name"       :"OSU035"
   ,"lib_vendor_id"      :"SAMPLE"

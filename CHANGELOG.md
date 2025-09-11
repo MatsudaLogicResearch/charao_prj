@@ -1,0 +1,24 @@
+# CHANGELOG
+
+このファイルは UTF-8 で記述されています。
+
+---
+
+## [0.6] 2025-09-01
+### Changed
+- ツール名を`charao`へ変更
+
+## [0.5] 2025-xx-xx
+### Added
+- 複数のtemplateに対応
+- パラメータ設定ファイルとして、`jsonc`を採用
+- テストベンチの雛形生成に、`jinja2`を採用
+
+## [0.2] 2025-xx-xx
+### Added
+- 複数の slope / load に対応
+
+## [0.1] 2025-06-23
+### Added
+- `OriginalProject` (https://github.com/snishizawa/libretto) からフォーク
+- SPICEモデルのパスを絶対パスに対応

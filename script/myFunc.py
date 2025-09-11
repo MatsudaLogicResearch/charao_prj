@@ -1,3 +1,22 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+###############################################################################
+# This file is part of charao.
+#
+# Based on OriginalProject (https://github.com/snishizawa/libretto)
+# Original copyright (C) 2022-2025 Original Author
+# Modified by MATSUDA Masahiro, 2025
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+###############################################################################
 import sys, inspect 
 import math
 
@@ -21,7 +40,6 @@ def history():
   print("  + rename to charao")
   print("  + Support three_state.")
   print("  Version: 0.5")
-  print("  + forked from https://github.com/snishizawa/libretto")
   print("  + Support multi template in cell.")
   print("  + Use jonc format files for configuration.")
   print("  + Use jinja2 file for testbench.")

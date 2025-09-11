@@ -1,4 +1,9 @@
 #!/usr/bin/bash
+###############################################################################
+# Sample script for the charao project.
+# (C) 2025 MATSUDA Masahiro. Licensed under the MIT License.
+###############################################################################
+
 OPTION=""
 #OPTION="--cells_only INV_X1 --measures_only passive"
 OPTION="--cells_only INV_X1"

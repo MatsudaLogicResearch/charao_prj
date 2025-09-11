@@ -1,4 +1,10 @@
-// the orde of "ports_dict" is same as teh order of pin-linst in cell. 
+//===================================================================
+// This file is associated with the charao project.
+// Copyright (C) 2025 MATSUDA Masahiro
+// 
+// This configuration file is licensed under the MIT License.
+//===================================================================
+// [Info] The order of "ports_dict" is same as the order of pin-list in the spice file. 
 [
   // input
   {"template_kgn":[["leakage","0x0","d0"],["delay_i2c","5x6","d0"],["power_i2c","5x6","d0"],["delay_c2c","5x6","d0"],["power_c2c","5x6","d0"]],
