@@ -4,7 +4,10 @@
 
 ---
 
-## [0.7.0] 2025-10-24
+## [0.7.1] 2025-10-24
+### Changed
+- charao/target/OSU035/.model_OSU035_xx.spにて、spiceモデルのincludeパスを 実行場所(work)からの相対パスへ変更。
+
 ### Changed
 - プロジェクト名を`charao_prj`へ変更
 - モジュール化対応

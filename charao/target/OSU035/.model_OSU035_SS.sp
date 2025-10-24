@@ -5,8 +5,8 @@
 ** This configuration file is licensed under the MIT License.
 **===================================================================
 
-.inc /home/synology_nfs/Techlibs/Techlib/OSU035/SS/nmos.sp
-.inc /home/synology_nfs/Techlibs/Techlib/OSU035/SS/pmos.sp
+.inc ../src/OSU035/SS/nmos.sp
+.inc ../src/OSU035/SS/pmos.sp
 
 * .TEMP 125
 
