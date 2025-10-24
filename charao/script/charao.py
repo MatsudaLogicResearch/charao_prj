@@ -26,20 +26,20 @@ from pydantic import BaseModel, ConfigDict
 import numpy as np
 
 #from myConditionsAndResults import myConditionsAndResults as mcar
-from myLibrarySetting import MyLibrarySetting as Mls
-from myLogicCell      import MyLogicCell      as Mlc
-from myExpectCell import logic_dict 
+from .myLibrarySetting import MyLibrarySetting as Mls
+from .myLogicCell      import MyLogicCell      as Mlc
+from .myExpectCell import logic_dict 
 
-from myExportLib import exportFiles,exitFiles
-from myExportDoc import exportDoc
-from charao_run  import runExpectation
-from myFunc      import my_exit, startup, history
+from .myExportLib import exportFiles,exitFiles
+from .myExportDoc import exportDoc
+from .charao_run  import runExpectation
+from .myFunc      import my_exit, startup, history
 
 def main():
   parser = argparse.ArgumentParser(description='argument')
   parser.add_argument('-g','--cell_group'  , choices=["std","io"], default="std", help='select cell_type')
   parser.add_argument('-f','--fab_process' , type=str            , default="OSU035" , help='FAB process name')
-  parser.add_argument('-v','--cell_vendor' , type=str            , default="SAMPLE" , help='CELL vendor name')
+  parser.add_argument('-v','--cell_vendor' , type=str            , default="NORMAL" , help='CELL type or vendor ID')
   parser.add_argument('-u','--usage_voltage',type=float          , default=5.0      , help='usage voltage')
 
   parser.add_argument('-p','--process_corner', type=str         , default="TT"  , help='process condition')
@@ -49,6 +49,8 @@ def main():
   parser.add_argument('--vnw'           , type=float            , default=5.0   , help='NWELL voltage')
   parser.add_argument('--vpw'           , type=float            , default=0.0   , help='PWELL voltage')
 
+  parser.add_argument('--target'        , type=str              , default="./target"   , help='PATH to <target> directory')
+  
   parser.add_argument('--cells_only'    , type=str, nargs="*"   , default=[]    , help='list of target cell names. blank meas all cells.')
   parser.add_argument('--measures_only' , type=str, nargs="*"   , default=[]    , help='list of measure_type names. blank meas all measure_type.')
   parser.add_argument('-s','--significant_digits'   , type=int  , default=3     , help='significant digits.')
@@ -61,10 +63,10 @@ def main():
   history()
 
   #--- set json file
-  json_config_lib = "./target/"+args.fab_process + "/" + args.cell_vendor + "/config_lib.jsonc"
-  json_cell_comb  = "./target/"+args.fab_process + "/" + args.cell_vendor + "/cell_comb.jsonc"
-  json_cell_seq   = "./target/"+args.fab_process + "/" + args.cell_vendor + "/cell_seq.jsonc"
-  json_cell_io    = "./target/"+args.fab_process + "/" + args.cell_vendor + "/cell_io.jsonc"
+  json_config_lib = args.target + "/" + args.fab_process + "/" + args.cell_vendor + "/config_lib.jsonc"
+  json_cell_comb  = args.target + "/" + args.fab_process + "/" + args.cell_vendor + "/cell_comb.jsonc"
+  json_cell_seq   = args.target + "/" + args.fab_process + "/" + args.cell_vendor + "/cell_seq.jsonc"
+  json_cell_io    = args.target + "/" + args.fab_process + "/" + args.cell_vendor + "/cell_io.jsonc"
     
   #--- check json file
   if args.cell_group == "std":
@@ -87,7 +89,8 @@ def main():
     targetLib = Mls(**config_lib)
     
   #--- targetLib : update from args
-  config_from_args={"usage_voltage"       :args.usage_voltage,
+  config_from_args={
+                    "usage_voltage"       :args.usage_voltage,
                     "cell_group"          :args.cell_group,
                     "process_corner"      :args.process_corner,
                     "temperature"         :args.temp,

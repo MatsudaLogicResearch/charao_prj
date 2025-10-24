@@ -7,10 +7,11 @@
 // [Info] The order of "ports_dict" is same as the order of pin-list in the spice file. 
 {
    "process_name"       :"OSU035"
-  ,"lib_vendor_id"      :"SAMPLE"
-  ,"revision"           :"V001A"
+  ,"lib_vendor_id"      :"NORMAL"
+  ,"revision"           :"V00.00"
 	,"model_path"         :"./target/OSU035"
-	,"cell_spice_path"    :"/home/synology_nfs/Techlibs/Techlib/OSU035/std/fromXXX/v00.00/spice"
+	,"cell_spice_path"    :"./src/OSU035/std/NORMAL/V00.00/spice"
+  ,"io_spice_path"      :"./src/OSU035/io/NORMAL/V00.00/spice"
   ,"vdd_name"           :"VDD"
   ,"vss_name"           :"VSS"
   ,"pwell_name"         :"VPW"

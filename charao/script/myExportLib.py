@@ -23,13 +23,13 @@ import argparse, re, os, shutil, subprocess, sys, inspect, datetime
 from itertools import groupby
 import datetime, locale, time
 
-from myFunc import my_exit, f2s_ceil
-from myLibrarySetting       import MyLibrarySetting        as Mls 
-from myLogicCell            import MyLogicCell             as Mlc
-from myConditionsAndResults import MyConditionsAndResults  as Mcar
+from .myFunc import my_exit, f2s_ceil
+from .myLibrarySetting       import MyLibrarySetting        as Mls 
+from .myLogicCell            import MyLogicCell             as Mlc
+from .myConditionsAndResults import MyConditionsAndResults  as Mcar
 #from myExpectCell          import MyExpectCell
-from myExpectCell          import logic_dict              
-from myExpectCell          import code_primitive
+from .myExpectCell          import logic_dict              
+from .myExpectCell          import code_primitive
 
 def exportFiles(targetCell:Mls, harnessList:list[Mcar]):
 
@@ -41,12 +41,10 @@ def exportFiles(targetCell:Mls, harnessList:list[Mcar]):
   #targetCell= harnessList_new[0].mlc
   targetLib = targetCell.mls
   
-  ## initialize tmp file
+  ## initialize lib
   if(targetLib.isexport == 0):
     initLib(targetLib)
-
-  ## generate / update library general settings 
-  exportLib(targetLib)
+    exportLib(targetLib)
   
   ## export comb. logic
   if((targetLib.isexport == 1) and (targetCell.isexport == 0)):
@@ -61,7 +59,8 @@ def initLib(targetLib:Mls):
   
   ## initilize dotlib file
   outlines = []
-  with open(targetLib.tmp_file, 'w') as f:
+  #with open(targetLib.tmp_file, 'w') as f:
+  with open(targetLib.dotlib_name, 'w') as f:
     f.writelines(outlines)
   
   ## initilize verilog file 
@@ -69,9 +68,12 @@ def initLib(targetLib:Mls):
   outlines.append(f'// Verilog model for {targetLib.lib_name}')
   outlines.append(f'`timescale 1ns/1ns')
   outlines.append(f'')
+
   
   if targetLib.cell_group == "std":
+    outlines.append(f'`ifndef SYNTHESIS')
     outlines.append(f'{code_primitive}')
+    outlines.append(f'`endif //SYNTHESIS')
     outlines.append(f'')
   
   with open(targetLib.verilog_name, 'w') as f:
@@ -106,8 +108,8 @@ def exportLib(targetLib:Mls):
   outlines.append(f'  time_unit : "1{targetLib.time_unit}";')
   outlines.append(f'  voltage_unit : "1{targetLib.voltage_unit}";')
 
-  #outlines.append(f'  voltage_map ({targetLib.vdd_name}, {targetLib.vdd_voltage});')
-  #outlines.append(f'  voltage_map ({targetLib.vss_name}, {targetLib.vss_voltage});')
+  outlines.append(f'  voltage_map ("{targetLib.vdd_name}", {targetLib.vdd_voltage});')
+  outlines.append(f'  voltage_map ("{targetLib.vss_name}", {targetLib.vss_voltage});')
   #outlines.append(f'  voltage_map (GND , {targetLib.vss_voltage});')
   
   outlines.append(f'  default_cell_leakage_power : 0;')
@@ -233,7 +235,7 @@ def exportLib(targetLib:Mls):
   #outlines.append(f'    vomax : "+str(targetLib.vdd_voltage};')
   #outlines.append(f'  }}')
   
-  with open(targetLib.dotlib_name, 'w') as f:
+  with open(targetLib.dotlib_name, 'a') as f:
     s = "\n".join(outlines) + "\n"
     f.write(s)
     
@@ -296,20 +298,31 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
     #
     outlines.append(f'    }}')
     
-  with open(targetLib.tmp_file, 'a') as f:
+  #with open(targetLib.tmp_file, 'a') as f:
+  with open(targetLib.dotlib_name, 'a') as f:
     s = "\n".join(outlines) + "\n"
     f.write(s)
 
   outlines = []
   ### PG infomation
-  for port in targetCell.pad_infos.keys():
-    if port.startswith("v"): #-- VDD/VSS/VDD1/VSS1/VDDIO/VSSIO
-      outlines.append(f'    pin ({targetCell.replace_by_portmap(port)}){{') ## pin start
-      outlines.append(f'      direction : inout')
+  for port in [p for p in (targetCell.vports ) if p is not None]:
+    #-- VDD/VSS/VDD1/VSS1/VDDIO/VSSIO
+    pin_name=targetCell.replace_by_portmap(port)        
+    outlines.append(f'    pg_pin ({pin_name}){{') ## 
+    if port.startswith("vdd"): 
+      outlines.append(f'      pg_type : "primary_power";')
+    else:
+      outlines.append(f'      pg_type : "primary_ground";')
+
+    outlines.append(f'      voltage_name : "{pin_name}";')
+    outlines.append(f'      direction : "inout";')
+
+    if port in targetCell.pad_infos.keys():
       for k,v in targetCell.pad_infos[port].items():
         if v:
           outlines.append(f'      {k} : {targetCell.replace_by_portmap(v)};')
-      outlines.append(f'    }}')
+          
+    outlines.append(f'    }}')
   
 
   ## outport / ioport ############################################################
@@ -320,7 +333,7 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
     outlines.append(f'    pin ({targetCell.replace_by_portmap(port)}){{') ## pin start
 
     if port.startswith("b"):
-      outlines.append(f'      direction : inout;')
+      outlines.append(f'      direction : "inout";')
       #-- for output
       if port in targetCell.functions.keys():  #--- inout port with output
         outlines.append(f'      function : "{targetCell.replace_by_portmap(targetCell.functions[port])}";')
@@ -335,7 +348,7 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       outlines.append(f'      capacitance : "{f2s_ceil(f=max_capacitance, sigdigs=sigdigs)}";')
         
     else: ##"o"
-      outlines.append(f'      direction : output;')
+      outlines.append(f'      direction : "output";')
       outlines.append(f'      function : "{targetCell.replace_by_portmap(targetCell.functions[port])}";')
       
       if port in targetCell.max_load4out.keys():
@@ -357,9 +370,9 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       else:
         outlines.append(f'      output_signal_level : {voltage};')
       
-      
-    #outlines.append(f'      related_power_pin : "{targetLib.vdd_name}";')
-    #outlines.append(f'      related_ground_pin : "{targetLib.vss_name}";')
+    ###  
+    outlines.append(f'      related_power_pin : "{targetLib.vdd_name}";')
+    outlines.append(f'      related_ground_pin : "{targetLib.vss_name}";')
     #outlines.append(f'      output_voltage : default_{targetLib.vdd_name}_{targetLib.vss_name}_output;')
 
     ##-------------------------------------------------------------------------
@@ -486,7 +499,8 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
     outlines.append(f'    }}') ## out pin end
 
   ## end of outport/biport
-  with open(targetLib.tmp_file, 'a') as f:
+  #with open(targetLib.tmp_file, 'a') as f:
+  with open(targetLib.dotlib_name, 'a') as f:
     s = "\n".join(outlines) + "\n"
     f.write(s)
 
@@ -498,7 +512,7 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
     ##-------------------------------------------------------------------------
     ## pin infomation
     outlines.append(f'    pin ({targetCell.replace_by_portmap(port)}){{') ## 
-    outlines.append(f'      direction : input;')
+    outlines.append(f'      direction : "input";')
 
     ###  pad infomation
     if port in targetCell.pad_infos.keys():
@@ -512,8 +526,8 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       outlines.append(f'      input_signal_level : {voltage};')
     
     #outlines.append(f'      input_voltage : default_{targetLib.vdd_name}_{targetLib.vss_name}_input;')
-    #outlines.append(f'      related_power_pin : {targetLib.vdd_name};')
-    #outlines.append(f'      related_ground_pin : {targetLib.vss_name};')
+    outlines.append(f'      related_power_pin : "{targetLib.vdd_name}";')
+    outlines.append(f'      related_ground_pin : "{targetLib.vss_name}";')
       
     max_transition = targetCell.max_trans4in[port] if (port in targetCell.max_trans4in.keys()) else 3.0
     outlines.append(f'      max_transition : {f2s_ceil(f=max_transition, sigdigs=sigdigs)};')
@@ -641,7 +655,8 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
 
   outlines.append(f'  }}') ## cell end
 
-  with open(targetLib.tmp_file, 'a') as f:
+  #with open(targetLib.tmp_file, 'a') as f:
+  with open(targetLib.dotlib_name, 'a') as f:
     #f.writelines(outlines)
     s = "\n".join(outlines) + "\n"
     f.write(s)
@@ -683,7 +698,11 @@ def exportVerilog(targetLib:Mls, targetCell:Mlc):
   ## power statement
   for target_vport in targetCell.rvs_portmap(targetCell.vports):
     outlines.append(f'inout {target_vport};')
+    #outlines.append(f'input {target_vport}; //use input instead of inout for Yosys.')
 
+  #===================================================================
+  outlines.append(f'`ifndef SYNTHESIS')
+    
   #===================================================================
   ## code from myExpectCell
   if targetCell.vcode :
@@ -783,6 +802,9 @@ def exportVerilog(targetLib:Mls, targetCell:Mlc):
           
     outlines.append(f'endspecify');
 
+  #===================================================================
+  outlines.append(f'`endif //SYNTHESIS')
+    
   #-------------------------------------------------------------------
   outlines.append(f'endmodule')
   outlines.append(f'`endcelldefine')
@@ -817,9 +839,9 @@ def compressFiles(targetLib, targetCell):
 def exitFiles(targetLib, num_gen_file):
   try:
     with open(targetLib.dotlib_name, 'a') as out:
-      with open(targetLib.tmp_file, 'r') as infile:
-        out.write(infile.read())
-        out.write(f"\n}}\n")
+      #with open(targetLib.tmp_file, 'r') as infile:
+      #  out.write(infile.read())
+      out.write(f"\n}}\n")
 
     #
     print(f"\n--  generation completed!!  ")

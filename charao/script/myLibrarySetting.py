@@ -22,8 +22,8 @@ from pydantic import BaseModel, model_validator, Field
 from typing import Any
 from itertools import groupby
 
-from myItem import MyItemTemplate
-from myFunc import my_exit
+from .myItem import MyItemTemplate
+from .myFunc import my_exit
 
 import time
 
@@ -201,26 +201,26 @@ class MyLibrarySetting(BaseModel):
   
     
   def update_name(self):
-    #--- convert float to string.(5.0 ----> 5P00V)
-    uv_str="{:.2f}V".format(self.usage_voltage);
+    #--- convert float to string.(5.0 ----> V5P00)
+    uv_str="V{:.2f}".format(self.usage_voltage);
     uv_str=uv_str.replace('.','P');
     
-    #--- convert float to string.(5.0 ----> 5P00V)
-    vdd_str="{:.2f}V".format(self.vdd_voltage);
+    #--- convert float to string.(5.0 ----> V5P00)
+    vdd_str="V{:.2f}".format(self.vdd_voltage);
     vdd_str=vdd_str.replace('.','P');
     
     vdd2_str=""
     if self.vdd2_name:
-      vdd2_str="{:.2f}V".format(self.vdd2_voltage);
+      vdd2_str="V{:.2f}".format(self.vdd2_voltage);
       vdd2_str=vdd_str.replace('.','P');
 
     vddio_str=""
     if self.vddio_name:
-      vddio_str="{:.2f}V".format(self.vddio_voltage);
+      vddio_str="V{:.2f}".format(self.vddio_voltage);
       vddio_str=vdd_str.replace('.','P');
       
-    #--- convert float to string.( -25.0 ----> M25C)
-    temp_str="M{:}C".format(int(-1.0 * self.temperature)) if self.temperature < 0 else "{:}C".format(int(self.temperature))
+    #--- convert float to string.( -25.0 ----> CM25)
+    temp_str="CM{:}".format(int(-1.0 * self.temperature)) if self.temperature < 0 else "C{:}".format(int(self.temperature))
 
     #---
     #self.operating_condition=f"{self.process_corner}_{vdd_str}_{temp_str}"
@@ -229,7 +229,9 @@ class MyLibrarySetting(BaseModel):
     #---
     #self.lib_name         = self.process_name + "_"+self.lib_vendor_id+"_"+vdd_str+"_"+temp_str
     #basename=f"{self.process_name}_{self.lib_vendor_id}_{self.cell_group}_{uv_str}"
-    basename=f"{self.process_name}_{self.lib_vendor_id}_{self.cell_group}"
+
+    ip_type="CB" if self.cell_group=="std" else "P" if self.cell_group=="io" else "X"
+    basename=f"{self.process_name}{ip_type}{uv_str}{self.lib_vendor_id}{self.revision}"
     
     self.lib_name         = f"{basename}_{self.operating_condition}"
     self.dotlib_name      = f"{self.lib_name}.lib"

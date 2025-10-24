@@ -24,14 +24,13 @@ from typing import Any, Dict, TYPE_CHECKING, List, Optional
 import statistics as st
 from itertools import groupby
 
-from myFunc import my_exit
-
-from myLibrarySetting       import MyLibrarySetting as Mls 
-from myExpectCell           import logic_dict
-from myItem                 import MyItemTemplate
+from .myFunc import my_exit
+from .myLibrarySetting       import MyLibrarySetting as Mls 
+from .myExpectCell           import logic_dict
+from .myItem                 import MyItemTemplate
 
 if TYPE_CHECKING:
-  from myConditionsAndResults import MyConditionsAndResults  as Mcar
+  from .myConditionsAndResults import MyConditionsAndResults  as Mcar
 
 class MyLogicCell(BaseModel):
   #=====================================
@@ -225,7 +224,7 @@ class MyLogicCell(BaseModel):
         #print("self.cell.lower:"+str(self.cell.lower()))
         #print("line.lower:"+str(line.lower()))
         if((self.cell.lower() in line.lower()) and (".subckt" in line.lower())):
-          print(f"   [INFO]: Cell definition found for {str(self.cell)} in netlist/")
+          print(f"   [INFO]: Cell definition found for {str(self.cell)} in netlist.")
           #print(line)
           self.definition = line
         

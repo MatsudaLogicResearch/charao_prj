@@ -22,24 +22,32 @@
 import argparse, re, os, shutil, subprocess, sys, inspect, threading 
 import copy
 
-from myConditionsAndResults import MyConditionsAndResults  as Mcar
-from myLibrarySetting       import MyLibrarySetting        as Mls 
-from myLogicCell            import MyLogicCell             as Mlc
-from myExpectCell           import MyExpectCell            as Mec
-from myTbParam              import MyTbParam               as Mtp
+from .myConditionsAndResults import MyConditionsAndResults  as Mcar
+from .myLibrarySetting       import MyLibrarySetting        as Mls 
+from .myLogicCell            import MyLogicCell             as Mlc
+from .myExpectCell           import MyExpectCell            as Mec
+from .myTbParam              import MyTbParam               as Mtp
+from .myFunc import my_exit
 
 import numpy as np
-from myFunc import my_exit
 from typing import List
 from jinja2 import Environment, FileSystemLoader
 from dataclasses import dataclass
+from pathlib import Path
 
+#env = Environment(
+#    loader=FileSystemLoader('.'),
+#    line_comment_prefix='##',
+#)
+#tb_template = env.get_template('./template/temp_testbench.sp.jp2')
+
+
+base_dir=Path(__file__).resolve().parent
 env = Environment(
-    loader=FileSystemLoader('.'),
+    loader=FileSystemLoader(str(base_dir)),
     line_comment_prefix='##',
 )
-tb_template = env.get_template('./template/temp_testbench.sp.jp2')
-
+tb_template = env.get_template("temp_testbench.sp.jp2")
   
 #--------------------------------------------------------------------------------------------------
 def runExpectation(targetLib:Mls, targetCell:Mlc, expectationdictList:List[Mec]):
@@ -371,7 +379,7 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float
     
     for inline in f:
       if(re.search("hspice", h.mls.simulator)):
-        inline = re.sub('\=',' ',inline)
+        inline = re.sub(r'\=',' ',inline)
       
       # search measure
       for key in res_list:
@@ -516,7 +524,7 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
   with open(spicelis,'r') as f:
     for inline in f:
       if(re.search("hspice", h.mls.simulator)):
-        inline = re.sub('\=',' ',inline)
+        inline = re.sub(r'\=',' ',inline)
       
       # search measure
       for key in res_list:
@@ -842,7 +850,7 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float,
     
     for inline in f:
       if(re.search("hspice", h.mls.simulator)):
-        inline = re.sub('\=',' ',inline)
+        inline = re.sub(r'\=',' ',inline)
       
       # search measure
       #for key in ["chg_out","setup_in_rel","hold_rel_in","prop_in_out"]:
@@ -1108,7 +1116,7 @@ def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float, 
     
     for inline in f:
       if(re.search("hspice", h.mls.simulator)):
-        inline = re.sub('\=',' ',inline)
+        inline = re.sub(r'\=',' ',inline)
       
       # search measure
       for key in res_list:
@@ -1299,7 +1307,7 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
     
     for inline in f:
       if(re.search("hspice", h.mls.simulator)):
-        inline = re.sub('\=',' ',inline)
+        inline = re.sub(r'\=',' ',inline)
       
       # search measure
       for key in res_list:
@@ -1536,7 +1544,7 @@ def genFileLogic_MinPulse1x(targetHarness:Mcar, spicef:str, tpulse_rel:float, ts
     
     for inline in f:
       if(re.search("hspice", h.mls.simulator)):
-        inline = re.sub('\=',' ',inline)
+        inline = re.sub(r'\=',' ',inline)
       
       # search measure
       for key in ["chg_out","setup_in_rel","hold_rel_in","prop_in_out"]:
@@ -1721,7 +1729,7 @@ def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str):
   with open(spicelis,'r') as f:
     for inline in f:
       if(re.search("hspice", h.mls.simulator)):
-        inline = re.sub('\=',' ',inline)
+        inline = re.sub(r'\=',' ',inline)
       
       # search measure
       for key in res_list:

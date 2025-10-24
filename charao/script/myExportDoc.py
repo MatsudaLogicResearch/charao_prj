@@ -19,12 +19,12 @@
 ###############################################################################
 import argparse, re, os, shutil, subprocess, sys, inspect 
 from itertools import groupby
-from myFunc import my_exit, f2s_ceil
 
-from myLibrarySetting       import MyLibrarySetting        as Mls 
-from myLogicCell            import MyLogicCell             as Mlc
-from myConditionsAndResults import MyConditionsAndResults  as Mcar
-from myExpectCell           import MyExpectCell            as Mec
+from .myFunc import my_exit, f2s_ceil
+from .myLibrarySetting       import MyLibrarySetting        as Mls 
+from .myLogicCell            import MyLogicCell             as Mlc
+from .myConditionsAndResults import MyConditionsAndResults  as Mcar
+from .myExpectCell           import MyExpectCell            as Mec
 #from myExpectCell           import logic_dict              
 
 def exportDoc(targetCell:Mls, harnessList:[Mcar]):

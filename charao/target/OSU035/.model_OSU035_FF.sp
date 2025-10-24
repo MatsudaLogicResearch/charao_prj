@@ -5,7 +5,8 @@
 ** This configuration file is licensed under the MIT License.
 **===================================================================
 
-.inc /home/synology_nfs/Techlibs/Techlib/TOKAIR/ip62/model/ip62_models
+.inc /home/synology_nfs/Techlibs/Techlib/OSU035/FF/nmos.sp
+.inc /home/synology_nfs/Techlibs/Techlib/OSU035/FF/pmos.sp
 
-* .TEMP 27
+* .TEMP -40
 

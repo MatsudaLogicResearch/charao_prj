@@ -1,0 +1,5 @@
+from .script.charao import main
+
+if __name__ == "__main__":
+    main()
+    

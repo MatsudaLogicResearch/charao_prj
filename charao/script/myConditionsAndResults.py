@@ -27,13 +27,11 @@ from typing import Any, Dict, List, DefaultDict,Annotated,Literal, Optional
 from collections import defaultdict
 
 
-from myExpectCell     import MyExpectCell as Mec
-
-from myLibrarySetting import MyLibrarySetting as Mls 
-from myLogicCell      import MyLogicCell      as Mlc
-from myItem           import MyItemTemplate
-
-from myFunc import my_exit, f2s_ceil
+from .myExpectCell     import MyExpectCell as Mec
+from .myLibrarySetting import MyLibrarySetting as Mls 
+from .myLogicCell      import MyLogicCell      as Mlc
+from .myItem           import MyItemTemplate
+from .myFunc import my_exit, f2s_ceil
 
 #DictKey=Literal["prop","trans","setup_hold",
 #                "eintl","ein","cin", "pleak"]

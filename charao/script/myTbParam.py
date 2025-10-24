@@ -18,9 +18,9 @@
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
 
-from myLibrarySetting       import MyLibrarySetting        as Mls 
-from myLogicCell            import MyLogicCell             as Mlc
-from myConditionsAndResults import MyConditionsAndResults  as Mcar
+from .myLibrarySetting       import MyLibrarySetting        as Mls 
+from .myLogicCell            import MyLogicCell             as Mlc
+from .myConditionsAndResults import MyConditionsAndResults  as Mcar
 
 
 @dataclass
