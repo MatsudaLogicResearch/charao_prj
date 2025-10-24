@@ -66,6 +66,7 @@ def initLib(targetLib:Mls):
   ## initilize verilog file 
   outlines = []
   outlines.append(f'// Verilog model for {targetLib.lib_name}')
+  outlines.append(f'`default_nettype wire')
   outlines.append(f'`timescale 1ns/1ns')
   outlines.append(f'')
 
@@ -732,17 +733,23 @@ def exportVerilog(targetLib:Mls, targetCell:Mlc):
     rst_buf ="rst_buf"
     if "r0" in targetCell.inports:
       rst =targetCell.rvs_portmap(["r0"])[0]
-      outlines.append(f'buf   ({rst_buf}, {rst});')
+      if "_NR" in targetCell.logic:
+        outlines.append(f'buf   ({rst_buf}, {rst});'); #-- reset=active low
+      else:
+        outlines.append(f'not   ({rst_buf}, {rst});'); #-- reset=active high
     else:
-      outlines.append(f'pullup({rst_buf});')
+      outlines.append(f'pullup({rst_buf});'); #-- active low on primitive
 
     ##---- set
     set_buf ="set_buf"
     if "s0" in targetCell.inports:
       set =targetCell.rvs_portmap(["s0"])[0]
-      outlines.append(f'buf   ({set_buf}, {set});')
+      if "_NS" in targetCell.logic:
+        outlines.append(f'buf   ({set_buf}, {set});'); #-- set=active low
+      else:        
+        outlines.append(f'not   ({set_buf}, {set});'); #-- set=active high
     else:
-      outlines.append(f'pullup({set_buf});')
+      outlines.append(f'pullup({set_buf});'); #-- active low on primitive
 
     ##---- q
     q_buf ="q_buf"
@@ -755,9 +762,9 @@ def exportVerilog(targetLib:Mls, targetCell:Mlc):
 
     ##---- qn
     qn_buf ="qn_buf"
-    if "o1" in targetCell.inports:
+    if "o1" in targetCell.outports:
       qn =targetCell.rvs_portmap(["o1"])[0]
-      outlines.append(f'not   ({qn}, {qn_buf});')
+      outlines.append(f'not   ({qn}, {q_buf});')
 
     ##---- notifier
     outlines.append(f'reg   notifier;')

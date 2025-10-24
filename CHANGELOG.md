@@ -4,6 +4,10 @@
 
 ---
 
+## [0.7.2] 2025-10-24
+### Changed
+- DFFのverilog出力内容の訂正。
+
 ## [0.7.1] 2025-10-24
 ### Changed
 - charao/target/OSU035/.model_OSU035_xx.spにて、spiceモデルのincludeパスを 実行場所(work)からの相対パスへ変更。

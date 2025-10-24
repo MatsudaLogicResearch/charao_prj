@@ -4,16 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "charao"
-version = "0.7.1"
+version = "0.7.2"
 description = "An open cell library characterizer by Python."
 authors = [{ name = "LogicResearch K.K.(MATSUDA Masahiro)", email = "matsuda@logic-research.co.jp" }]
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = []
+dependencies = ["jsoncomment","pydantic","numpy","jinja2"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["charao","charao.script","charao.target"]
+include = ["charao","charao.script"]
 
 [tool.setuptools.package-data]
 "charao.script" = ["temp_testbench.sp.jp2"]
