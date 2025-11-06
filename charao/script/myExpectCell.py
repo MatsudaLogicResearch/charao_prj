@@ -486,16 +486,16 @@ logic_dict={
                         ,meas_type="hold_rising",tmg_sense="non",arc_oir=["f","f","r"], tmg_when="", specify="$hold(posedge c0, posedge i0, 0, notifier);"),
              #--- recovery reset
              MyExpectCell(pin_oir=["o0","r0", "c0"], ival={"o":["0"],"i":["1"],"b":[],"c":["0"],"r":["0"],"s":["1"]}, mondrv_oir=["1","1","1"]
-                       ,meas_type="recovery_rising",tmg_sense="pos",arc_oir=["r","r","r"], tmg_when="", specify="$recovery(posedge r0, posedge c0, 0, notifier);"),
+                       ,meas_type="recovery_rising",tmg_sense="pos",arc_oir=["r","r","r"], tmg_when="", specify="$recovery(negedge r0, posedge c0, 0, notifier);"),
              #--- recovery set
              MyExpectCell(pin_oir=["o0","s0", "c0"], ival={"o":["1"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["0"]}, mondrv_oir=["0","1","1"]
-                       ,meas_type="recovery_rising",tmg_sense="pos",arc_oir=["f","r","r"], tmg_when="", specify="$recovery(posedge s0, posedge c0, 0, notifier);"),
+                       ,meas_type="recovery_rising",tmg_sense="pos",arc_oir=["f","r","r"], tmg_when="", specify="$recovery(negedge s0, posedge c0, 0, notifier);"),
              #--- removal reset(arc_oir is same as recovery)
              MyExpectCell(pin_oir=["o0","r0","c0"], ival={"o":["0"],"i":["1"],"b":[],"c":["0"],"r":["0"],"s":["1"]}, mondrv_oir=["0","1","1"]
-                        ,meas_type="removal_rising",tmg_sense="non",arc_oir=["s","r","r"], tmg_when="", specify="$hold(posedge c0, posedge r0, 0, notifier);"),
+                        ,meas_type="removal_rising",tmg_sense="non",arc_oir=["s","r","r"], tmg_when="", specify="$removal(negedge r0, posedge c0, 0, notifier);"),
              #--- removal set(arc_oir is same as recovery)
              MyExpectCell(pin_oir=["o0","s0","c0"], ival={"o":["1"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["0"]}, mondrv_oir=["1","0","1"]
-                        ,meas_type="removal_rising",tmg_sense="non",arc_oir=["s","r","r"], tmg_when="", specify="$hold(posedge c0, posedge s0, 0, notifier);"),
+                        ,meas_type="removal_rising",tmg_sense="non",arc_oir=["s","r","r"], tmg_when="", specify="$removal(negedge s0, posedge c0, 0, notifier);"),
              
              #--- passive power(data)
              MyExpectCell(pin_oir=["o0","i0","i0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oir=["0","1","1"]
@@ -570,10 +570,10 @@ logic_dict={
                         ,meas_type="hold_rising",tmg_sense="non",arc_oir=["f","f","r"], tmg_when="", specify="$hold(posedge c0, posedge i0, 0, notifier);"),
              #--- recovery reset
              MyExpectCell(pin_oir=["o0","r0", "c0"], ival={"o":["0","1"],"i":["1"],"b":[],"c":["0"],"r":["1"]}, mondrv_oir=["1","0","1"]
-                       ,meas_type="recovery_rising",tmg_sense="pos",arc_oir=["r","f","r"], tmg_when="", specify="$recovery(negedge r0, posedge c0, 0, notifier);"),
+                       ,meas_type="recovery_rising",tmg_sense="pos",arc_oir=["r","f","r"], tmg_when="", specify="$recovery(posedge r0, posedge c0, 0, notifier);"),
              #--- removal reset(arc_oir is same as recovery)
              MyExpectCell(pin_oir=["o0","r0", "c0"], ival={"o":["0","1"],"i":["1"],"b":[],"c":["0"],"r":["1"]}, mondrv_oir=["0","0","1"]
-                        ,meas_type="removal_rising",tmg_sense="non",arc_oir=["r","f","r"], tmg_when="", specify="$hold(posedge c0, negedge r0, 0, notifier);"),
+                        ,meas_type="removal_rising",tmg_sense="non",arc_oir=["r","f","r"], tmg_when="", specify="$removal(posedge r0, posedge c0, 0, notifier);"),
              
              #--- passive power(data)
              MyExpectCell(pin_oir=["o0","i0","i0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"r":["0"]}, mondrv_oir=["0","1","1"]
@@ -658,10 +658,10 @@ logic_dict={
 
              #--- recovery preset
              MyExpectCell(pin_oir=["o0","s0", "c0"], ival={"o":["1","0"],"i":["0"],"b":[],"c":["0"],"s":["0"]}, mondrv_oir=["0","1","1"]
-                       ,meas_type="recovery_rising",tmg_sense="pos",arc_oir=["f","r","r"], tmg_when="", specify="$recovery(posedge s0, posedge c0, 0, notifier);"),
+                       ,meas_type="recovery_rising",tmg_sense="pos",arc_oir=["f","r","r"], tmg_when="", specify="$recovery(negedge s0, posedge c0, 0, notifier);"),
              #--- removal preset(arc_oir is same as recovery)
              MyExpectCell(pin_oir=["o0","s0", "c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"s":["0"]}, mondrv_oir=["0","1","1"]
-                        ,meas_type="removal_rising",tmg_sense="pos",arc_oir=["f","r","r"], tmg_when="", specify="$hold(posedge c0, posedge s0, 0, notifier);"),
+                        ,meas_type="removal_rising",tmg_sense="pos",arc_oir=["f","r","r"], tmg_when="", specify="$removal(negedge s0, posedge c0, 0, notifier);"),
              
              #--- passive power(data)
              MyExpectCell(pin_oir=["o0","i0","i0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"s":["1"]}, mondrv_oir=["0","1","1"]

@@ -4,6 +4,11 @@
 
 ---
 
+## [0.7.3] 2025-11-06
+### Changed
+- DFFのspecify出力内容の訂正(recovery)。
+- verilogのtimescaleを1ns/1psに訂正。
+
 ## [0.7.2] 2025-10-24
 ### Changed
 - DFFのverilog出力内容の訂正。
