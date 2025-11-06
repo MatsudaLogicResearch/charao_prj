@@ -658,7 +658,7 @@ logic_dict={
 
              #--- recovery preset
              MyExpectCell(pin_oir=["o0","s0", "c0"], ival={"o":["1","0"],"i":["0"],"b":[],"c":["0"],"s":["0"]}, mondrv_oir=["0","1","1"]
-                       ,meas_type="recovery_rising",tmg_sense="pos",arc_oir=["f","r","r"], tmg_when="", specify="$recovery(posdge s0, posedge c0, 0, notifier);"),
+                       ,meas_type="recovery_rising",tmg_sense="pos",arc_oir=["f","r","r"], tmg_when="", specify="$recovery(posedge s0, posedge c0, 0, notifier);"),
              #--- removal preset(arc_oir is same as recovery)
              MyExpectCell(pin_oir=["o0","s0", "c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["0"],"s":["0"]}, mondrv_oir=["0","1","1"]
                         ,meas_type="removal_rising",tmg_sense="pos",arc_oir=["f","r","r"], tmg_when="", specify="$removal(posedge s0, posedge c0, 0, notifier);"),
