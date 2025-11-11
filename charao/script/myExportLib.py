@@ -421,8 +421,10 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
 
       #-- when/sense/type
       if h1.timing_when:
-        outlines.append(f'        when  : "{targetCell.replace_by_portmap(h1.timing_when).replace("&"," ")}";')
-        outlines.append(f'        sdf_cond  : "{targetCell.replace_by_portmap(h1.timing_when).replace("&"," ")}";')
+        #outlines.append(f'        when  : "{targetCell.replace_by_portmap(h1.timing_when).replace("&"," ")}";')
+        #outlines.append(f'        sdf_cond  : "{targetCell.replace_by_portmap(h1.timing_when).replace("&"," ")}";')
+        outlines.append(f'        when  : "{targetCell.replace_by_portmap(h1.timing_when)}";')
+        outlines.append(f'        sdf_cond  : "{targetCell.replace_by_portmap(h1.timing_when)}";')
         
       outlines.append(f'        timing_sense : "{h1.timing_sense}";')
       outlines.append(f'        timing_type : "{h1.timing_type}";')
@@ -591,8 +593,10 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
 
       #-- when/sense/type
       if h1.timing_when:
-        outlines.append(f'        when  : "{targetCell.replace_by_portmap(h1.timing_when).replace("&"," ")}";')
-        outlines.append(f'        sdf_cond  : "{targetCell.replace_by_portmap(h1.timing_when).replace("&"," ")}";')
+        #outlines.append(f'        when  : "{targetCell.replace_by_portmap(h1.timing_when).replace("&"," ")}";')
+        #outlines.append(f'        sdf_cond  : "{targetCell.replace_by_portmap(h1.timing_when).replace("&"," ")}";')
+        outlines.append(f'        when  : "{targetCell.replace_by_portmap(h1.timing_when)}";')
+        outlines.append(f'        sdf_cond  : "{targetCell.replace_by_portmap(h1.timing_when)}";')
         
       outlines.append(f'        timing_type : "{h1.timing_type}";')
 

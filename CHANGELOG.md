@@ -4,6 +4,10 @@
 
 ---
 
+## [0.7.4] 2025-11-11
+### Changed
+- Fix specify/libery CONDITION for MUX2.
+
 ## [0.7.3] 2025-11-06
 ### Changed
 - Fix specify (recovery) and timescale in Verilog output.

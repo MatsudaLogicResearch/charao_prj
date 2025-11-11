@@ -425,10 +425,10 @@ logic_dict={
             "functions":{"o0":"(i0&!i2)|(i1&i2)"},  #--- o0 = (i2)? i1 : i0
             "expect":                                                     
             [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["0","0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="!i2", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["1","0","0"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="!i2", specify="(i0 => o0) = (0,0);;"),
+             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["1","0","0"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="!i2", specify="(i0 => o0) = (0,0);"),
 
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["0","0","1"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="!i2", specify=""),
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["0","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="!i2", specify="(i1 => o0) = (0,0);;"),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["0","0","1"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="i2", specify=""),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["0","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="i2", specify="(i1 => o0) = (0,0);;"),
 
              MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["0","1","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="!i0&i1", specify=""),
              MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["0","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="!i0&i1", specify="(i2 => o0) = (0,0);"),
