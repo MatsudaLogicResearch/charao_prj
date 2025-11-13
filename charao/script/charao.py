@@ -54,6 +54,7 @@ def main():
   parser.add_argument('--cells_only'    , type=str, nargs="*"   , default=[]    , help='list of target cell names. blank meas all cells.')
   parser.add_argument('--measures_only' , type=str, nargs="*"   , default=[]    , help='list of measure_type names. blank meas all measure_type.')
   parser.add_argument('-s','--significant_digits'   , type=int  , default=3     , help='significant digits.')
+  parser.add_argument('-b','--build_stamp',type=str             , default="b00" , help='build-stamp for output files.')
   
   args = parser.parse_args()
   #print(args.batch)
@@ -108,7 +109,7 @@ def main():
   #print(targetLib.templates)
   
   #--- targetLib : update & display 
-  targetLib.update_name()
+  targetLib.update_name(build_stamp=args.build_stamp)
   targetLib.update_mag()
   targetLib.update_threshold_voltage()
   targetLib.print_variable()

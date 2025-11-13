@@ -200,7 +200,7 @@ class MyLibrarySetting(BaseModel):
       print(f"   {k}={v}")
   
     
-  def update_name(self):
+  def update_name(self, build_stamp:str="b00"):
     #--- convert float to string.(5.0 ----> V5P00)
     uv_str="V{:.2f}".format(self.usage_voltage);
     uv_str=uv_str.replace('.','P');
@@ -234,10 +234,10 @@ class MyLibrarySetting(BaseModel):
     basename=f"{self.process_name}{ip_type}{uv_str}{self.lib_vendor_id}{self.revision}"
     
     self.lib_name         = f"{basename}_{self.operating_condition}"
-    self.dotlib_name      = f"{self.lib_name}.lib"
-    self.doc_name         = f"{self.lib_name}.md"
+    self.dotlib_name      = f"{self.lib_name}_{build_stamp}.lib"
+    self.doc_name         = f"{self.lib_name}_{build_stamp}.md"
     #self.verilog_name     = f"{self.lib_name}.v"
-    self.verilog_name     = f"{basename}.v"
+    self.verilog_name     = f"{basename}_{build_stamp}.v"
     
     self.cell_name_suffix = f"{basename}".upper()
     

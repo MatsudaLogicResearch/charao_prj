@@ -4,6 +4,10 @@
 
 ---
 
+## [0.7.6] 2025-11-13
+### Changed
+- Add build-stamp by -b option to output files(.lib, .md, .v).
+
 ## [0.7.5] 2025-11-13
 ### Changed
 - Add revision in Verilog output.
