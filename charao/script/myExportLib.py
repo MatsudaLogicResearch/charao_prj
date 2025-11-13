@@ -65,7 +65,8 @@ def initLib(targetLib:Mls):
   
   ## initilize verilog file 
   outlines = []
-  outlines.append(f'// Verilog model for {targetLib.lib_name}')
+  outlines.append(f'// Verilog model :{targetLib.lib_name}')
+  outlines.append(f'// Revision      :{targetLib.revision}')
   outlines.append(f'`default_nettype wire')
   outlines.append(f'`timescale 1ns/1ps')
   outlines.append(f'')

@@ -4,6 +4,10 @@
 
 ---
 
+## [0.7.5] 2025-11-13
+### Changed
+- Add revision in Verilog output.
+
 ## [0.7.4] 2025-11-11
 ### Changed
 - Fix specify/libery CONDITION for MUX2.
