@@ -66,8 +66,11 @@ class MyTbParam:
 
     #--
     self.tb_instance  = h.gen_instance_for_tb()
-    self.model        = h.mlc.model   if h.mlc.model.startswith("/")   else "../" + h.mlc.model
-    self.netlist      = h.mlc.netlist if h.mlc.netlist.startswith("/") else "../" + h.mlc.netlist
+    
+    #self.model        = h.mlc.model   if h.mlc.model.startswith("/")   else "../" + h.mlc.model
+    #self.netlist      = h.mlc.netlist if h.mlc.netlist.startswith("/") else "../" + h.mlc.netlist
+    self.model        = h.mlc.model   
+    self.netlist      = h.mlc.netlist
 
     #--
     self.temp         = h.mls.temperature

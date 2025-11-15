@@ -23,6 +23,7 @@ from pydantic import BaseModel, model_validator, Field
 from typing import Any, Dict, TYPE_CHECKING, List, Optional
 import statistics as st
 from itertools import groupby
+from pathlib import Path
 
 from .myFunc import my_exit
 from .myLibrarySetting       import MyLibrarySetting as Mls 
@@ -133,7 +134,8 @@ class MyLogicCell(BaseModel):
       print(f"   {k}={v}")
 
   def set_spice_path(self, spice_path:str="./cdl"):
-    self.spice_path = spice_path
+    #self.spice_path = spice_path
+    self.spice_path = Path(spice_path).resolve().as_posix(); #-- absolute PATH
     
   def set_supress_message(self):
     self.supress_msg = self.mls.supress_msg 
@@ -294,7 +296,10 @@ class MyLogicCell(BaseModel):
     
   def add_model(self):
     targetLib=self.mls
-    self.model = targetLib.model_path +"/.model_"+targetLib.process_name +"_"+targetLib.process_corner+".sp"
+
+    #self.model = targetLib.model_path +"/.model_"+targetLib.process_name +"_"+targetLib.process_corner+".sp"
+    model = targetLib.model_path +"/.model_"+targetLib.process_name +"_"+targetLib.process_corner+".sp"
+    self.model = Path(model).resolve().as_posix(); #--absolute PATH
 
     if not os.path.exists(self.model):
       print("  model file is not exits. {0}".format(self.model))

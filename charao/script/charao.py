@@ -168,7 +168,7 @@ def main():
   
       ## characterize
       harnessList = characterizeFiles(targetLib, targetCell)
-      os.chdir("../")
+      #os.chdir("../")
 
       ## export
       exportFiles(targetCell=targetCell, harnessList=harnessList) 
@@ -214,7 +214,7 @@ def main():
 
       ## characterize
       harnessList = characterizeFiles(targetLib, targetCell)
-      os.chdir("../")
+      #os.chdir("../")
       
       ## export
       exportFiles(targetCell=targetCell, harnessList=harnessList) 
@@ -262,7 +262,7 @@ def main():
   
       ## characterize
       harnessList = characterizeFiles(targetLib, targetCell)
-      os.chdir("../")
+      #os.chdir("../")
 
       ## export
       exportFiles(targetCell=targetCell, harnessList=harnessList) 
@@ -281,7 +281,8 @@ def initializeFiles(targetLib):
   if (targetLib.runsim.lower() == "true"):
     if os.path.exists(targetLib.work_dir):
       shutil.rmtree(targetLib.work_dir)
-    os.mkdir(targetLib.work_dir)
+    #os.mkdir(targetLib.work_dir)
+    os.makedirs(targetLib.work_dir, exist_ok=True)
   elif (targetLib.runsim.lower() == "false"):
     print("save past working directory and files\n")
   else:
@@ -289,29 +290,40 @@ def initializeFiles(targetLib):
     my_exit()
   
 def characterizeFiles(targetLib, targetCell):
-  print ("characterize\n")
-  os.chdir(targetLib.work_dir)
 
-  ## Branch to each logic function
-  if not targetCell.logic in logic_dict.keys():
-    print ("Target logic:"+targetCell.logic+" is not registered for characterization(not exist in myExpectLogic.py)!\n")
-    print ("Add characterization function for this program! -> die\n")
-    my_exit()
+  current_dir = os.getcwd()
+  rslt=None
+  
+  try:
+    print ("characterize\n")
+    os.chdir(targetLib.work_dir)
 
-  #--
-  print("cell=" + targetCell.cell + "(" + targetCell.logic + ")");
+    ## Branch to each logic function
+    if not targetCell.logic in logic_dict.keys():
+      print ("Target logic:"+targetCell.logic+" is not registered for characterization(not exist in myExpectLogic.py)!\n")
+      print ("Add characterization function for this program! -> die\n")
+      my_exit()
 
-  logic_type=logic_dict[targetCell.logic]["logic_type"]
-  if   logic_type  == "comb":
-    rslt=runExpectation(targetLib, targetCell, logic_dict[targetCell.logic]["expect"])
-  elif logic_type  == "seq":
-    rslt=runExpectation(targetLib, targetCell, logic_dict[targetCell.logic]["expect"])
-  elif logic_type  == "io":
-    rslt=runExpectation(targetLib, targetCell, logic_dict[targetCell.logic]["expect"])
-  else:
-    print(f"[Error] unknown logic_type={logic_type}.")
-    my_exit()
-    
+    #--
+    print("cell=" + targetCell.cell + "(" + targetCell.logic + ")");
+
+    logic_type=logic_dict[targetCell.logic]["logic_type"]
+    if   logic_type  == "comb":
+      rslt=runExpectation(targetLib, targetCell, logic_dict[targetCell.logic]["expect"])
+    elif logic_type  == "seq":
+      rslt=runExpectation(targetLib, targetCell, logic_dict[targetCell.logic]["expect"])
+    elif logic_type  == "io":
+      rslt=runExpectation(targetLib, targetCell, logic_dict[targetCell.logic]["expect"])
+    else:
+      print(f"[Error] unknown logic_type={logic_type}.")
+      my_exit()
+
+  except Exception as e:
+    print(f"[Error] An exception occurred: {str(e)}")
+
+  finally:
+    os.chdir(current_dir)
+
   #
   return rslt
 

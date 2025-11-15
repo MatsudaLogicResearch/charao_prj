@@ -4,6 +4,10 @@
 
 ---
 
+## [0.8.1] 2025-11-15
+### Changed
+- Support -w option to change work directory.
+
 ## [0.8.0] 2025-11-15
 ### Changed
 - Change PATH to jsonc(target/[fab_process]/[cell_vendor]/[cell_revision]).
