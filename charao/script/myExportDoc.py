@@ -54,9 +54,9 @@ def exportLib2doc(targetLib:Mls, targetCell:Mlc):
     ## general settings
     outlines.append(f'---')
     outlines.append(f'title: "Cell Library Specification"')
-    outlines.append(f'subtitle: "{targetLib.lib_name}(rev:{targetLib.revision})"')
+    outlines.append(f'subtitle: "{targetLib.lib_name}(build_rev:{targetLib.build_stamp})"')
     outlines.append(f'author: ""')
-    outlines.append(f'date: "{targetLib.date}"')
+    outlines.append(f'date: "{targetLib.build_date}"')
     outlines.append(f'toc: false')
     outlines.append(f'toc-depth: 2')
     outlines.append(f'---')

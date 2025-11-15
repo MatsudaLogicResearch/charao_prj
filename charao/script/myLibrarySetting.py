@@ -21,6 +21,7 @@ import argparse, re, os, shutil, subprocess, threading
 from pydantic import BaseModel, model_validator, Field
 from typing import Any
 from itertools import groupby
+import datetime, locale, time
 
 from .myItem import MyItemTemplate
 from .myFunc import my_exit
@@ -42,8 +43,8 @@ class MyLibrarySetting(BaseModel):
   process_name     : str = "FAB0P80"
   lib_vendor_id    : str = "VENDOR"      
   model_path       : str = "./target"    
-  cell_spice_path  : str = "./spice"     
-  io_spice_path    : str = "./spice"     
+#  cell_spice_path  : str = "./spice"     
+# io_spice_path    : str = "./spice"     
   revision         : str = "V1"
   vdd_name         : str = "VDD"
   vss_name         : str = "VSS"
@@ -111,8 +112,8 @@ class MyLibrarySetting(BaseModel):
   
   ## characterizer setting 
   work_dir :str = "work"
-  tmp_dir  :str = "work"
-  tmp_file :str = "__tmp__"
+  #tmp_dir  :str = "work"
+  #tmp_file :str = "__tmp__"
   simulator : str = "ngspice"
   runsim   :str = "true"
   num_thread : int = 1 
@@ -163,7 +164,8 @@ class MyLibrarySetting(BaseModel):
   compress        :str = "true"
   log_file        :str = "false"
   logf            :str = None 
-  date            :str =""
+  build_date      :str =""
+  build_stamp     :str =""
   
   ## template_lines
   template_lines  : dict[str,list[str]] = Field(default_factory=lambda:{
@@ -198,12 +200,23 @@ class MyLibrarySetting(BaseModel):
   def print_variable(self):
     for k,v in self.__dict__.items():
       print(f"   {k}={v}")
-  
+      
+  def set_build_info(self, build_stamp=""):
+
+    self.build_stamp= build_stamp
+    
+    ## get current time
+    locale.setlocale(locale.LC_TIME, 'en_US.UTF-8')
+    now = datetime.datetime.now()
+    tz = time.tzname[0]
+    now_str = now.strftime(f"%a %b %e %H:%M:%S {tz} %Y")  
+    self.build_date = now_str; 
     
   def update_name(self, build_stamp:str="b00"):
     #--- convert float to string.(5.0 ----> V5P00)
-    uv_str="V{:.2f}".format(self.usage_voltage);
-    uv_str=uv_str.replace('.','P');
+    #uv_str="V{:.2f}".format(self.usage_voltage);
+    #uv_str=uv_str.replace('.','P');
+    uv_str=self.usage_voltage
     
     #--- convert float to string.(5.0 ----> V5P00)
     vdd_str="V{:.2f}".format(self.vdd_voltage);

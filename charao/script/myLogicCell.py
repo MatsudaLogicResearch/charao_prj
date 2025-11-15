@@ -41,7 +41,8 @@ class MyLogicCell(BaseModel):
 
   #-- reference
   mls: Optional[Mls] = None
-  
+
+  spice_path: str = "./cdl"   ## path to spice
   cell      : str = None;     ## cell name
   logic     : str = None;     ## logic name
   area      : float= None;    ## set area
@@ -130,7 +131,10 @@ class MyLogicCell(BaseModel):
   def print_variable(self):
     for k,v in self.__dict__.items():
       print(f"   {k}={v}")
-  
+
+  def set_spice_path(self, spice_path:str="./cdl"):
+    self.spice_path = spice_path
+    
   def set_supress_message(self):
     self.supress_msg = self.mls.supress_msg 
 
@@ -206,10 +210,12 @@ class MyLogicCell(BaseModel):
     
   def chk_netlist(self):
     targetLib=self.mls
-    if self.isio:
-      self.netlist = targetLib.io_spice_path +"/"+self.spice
-    else:
-      self.netlist = targetLib.cell_spice_path +"/"+self.spice
+    
+    #if self.isio:
+    #  self.netlist = targetLib.io_spice_path +"/"+self.spice
+    #else:
+    #  self.netlist = targetLib.cell_spice_path +"/"+self.spice
+    self.netlist = f"{self.spice_path}/{self.spice}"
       
     self.definition = None
 

@@ -20,7 +20,7 @@
 # Originally named: libretto.py in OriginalProject
 ###############################################################################
 
-import argparse, re, os, shutil, subprocess, sys, inspect, datetime 
+import argparse, re, os, shutil, subprocess, sys, inspect
 from jsoncomment import JsonComment
 from pydantic import BaseModel, ConfigDict
 import numpy as np
@@ -37,10 +37,11 @@ from .myFunc      import my_exit, startup, history
 
 def main():
   parser = argparse.ArgumentParser(description='argument')
-  parser.add_argument('-g','--cell_group'  , choices=["std","io"], default="std", help='select cell_type')
-  parser.add_argument('-f','--fab_process' , type=str            , default="OSU035" , help='FAB process name')
-  parser.add_argument('-v','--cell_vendor' , type=str            , default="NORMAL" , help='CELL type or vendor ID')
-  parser.add_argument('-u','--usage_voltage',type=float          , default=5.0      , help='usage voltage')
+  parser.add_argument('-f','--fab_process' , type=str            , default="OSU035" , help='FAB process name(use for only search PATH)')
+  parser.add_argument('-v','--cell_vendor' , type=str            , default="VENDOR" , help='CELL type or vendor ID(use for only search PATH)')
+  parser.add_argument('-r','--cell_revision', type=str           , default="CB_REV2", help='CELL revision(use for only search PATH)')
+  parser.add_argument('-g','--cell_group'  , choices=["std","io"], default="std"    , help='select cell_type(use for only to select macro)')
+  parser.add_argument('-u','--usage_voltage',type=str            , default="V5P00"  , help='usage voltage(use for only to create file name)')
 
   parser.add_argument('-p','--process_corner', type=str         , default="TT"  , help='process condition')
   parser.add_argument('-t','--temp'     , type=float            , default=25.0  , help='temperature.')
@@ -55,6 +56,7 @@ def main():
   parser.add_argument('--measures_only' , type=str, nargs="*"   , default=[]    , help='list of measure_type names. blank meas all measure_type.')
   parser.add_argument('-s','--significant_digits'   , type=int  , default=3     , help='significant digits.')
   parser.add_argument('-b','--build_stamp',type=str             , default="b00" , help='build-stamp for output files.')
+  parser.add_argument('-w','--work_dir' ,type=str               , default="work", help='work directory.')
   
   args = parser.parse_args()
   #print(args.batch)
@@ -64,23 +66,27 @@ def main():
   history()
 
   #--- set json file
-  json_config_lib = args.target + "/" + args.fab_process + "/" + args.cell_vendor + "/config_lib.jsonc"
-  json_cell_comb  = args.target + "/" + args.fab_process + "/" + args.cell_vendor + "/cell_comb.jsonc"
-  json_cell_seq   = args.target + "/" + args.fab_process + "/" + args.cell_vendor + "/cell_seq.jsonc"
-  json_cell_io    = args.target + "/" + args.fab_process + "/" + args.cell_vendor + "/cell_io.jsonc"
+  json_config_lib=""
+  json_group_list = []
+  
+  json_path=f"{args.target}/{args.fab_process}/{args.cell_vendor}/{args.cell_revision}"
+  for f in os.listdir(json_path):
     
-  #--- check json file
-  if args.cell_group == "std":
-    json_list=[json_config_lib,json_cell_comb, json_cell_seq]
-  else:
-    json_list=[json_config_lib,json_cell_io]
-    
-  for j in json_list:
-    if os.path.isfile(j):
-      print (" [INF]: detected json=" + j)
+    if not os.path.isfile(f"{json_path}/{f}") :
+      continue
+    elif f == "config_lib.jsonc":
+      json_config_lib = f"{json_path}/{f}"
+    elif f.startswith(args.cell_group) and f.endswith(".jsonc"):
+      json_group_list.append(f)
     else:
-      print (" [ERR]: not json=" + j)
-      my_exit()
+      continue
+    #
+    print (f" [INF]: detected json={json_path}/{f}")
+    
+  
+  if json_config_lib =="" or len(json_group_list)<1:
+    print (f" [ERR]: not valid json files(config_lib.jsonc, {args.cell_group}*.jsonc)")
+    my_exit()
 
   
   #--- read setting from  jsonc(lib_common, char_dict)
@@ -101,7 +107,8 @@ def main():
                     "pwell_voltage"       :args.vpw,
                     "cells_only"          :args.cells_only,
                     "measures_only"       :args.measures_only,
-                    "significant_digits"  :args.significant_digits
+                    "significant_digits"  :args.significant_digits,
+                    "work_dir"            :args.work_dir
                     }
   targetLib = targetLib.model_copy(update=config_from_args)
 
@@ -109,6 +116,7 @@ def main():
   #print(targetLib.templates)
   
   #--- targetLib : update & display 
+  targetLib.set_build_info(build_stamp=args.build_stamp)
   targetLib.update_name(build_stamp=args.build_stamp)
   targetLib.update_mag()
   targetLib.update_threshold_voltage()
@@ -122,14 +130,20 @@ def main():
   # characterization
   num_gen_file = 0
   
-  #--- cell_comb.jsonc
-  if targetLib.cell_group == "std":
+  #--- std_comb_xxx.jsonc
+  for jsonc in json_group_list:
+    if not jsonc.startswith("std_comb"):
+      continue
     
     cell_comb_info_list=[]
     parser=JsonComment()
-    with open (json_cell_comb, "r") as f:
+    json_file=f"{json_path}/{jsonc}"
+    with open (json_file, "r") as f:
+      ## read cell_spice_path, cell
+      path_cell=parser.load(f)
+
       ## sort by "cell" name
-      comb_info_list = parser.load(f)
+      comb_info_list = path_cell["cell_info"]
       cell_comb_info_list = sorted(comb_info_list, key=lambda x: x["cell"])
       
     #  
@@ -143,6 +157,7 @@ def main():
 
       #
       targetCell = Mlc(mls=targetLib, **info)
+      targetCell.set_spice_path(path_cell["spice_path"]) 
       targetCell.set_supress_message() 
       targetCell.add_template()
       targetCell.chk_netlist() 
@@ -160,14 +175,20 @@ def main():
       exportDoc(targetCell=targetCell, harnessList=harnessList) 
       num_gen_file += 1
       
-  #--- cell_seq.jsonc
-  if targetLib.cell_group == "std":
+  #--- std_seq_xxx.jsonc
+  for jsonc in json_group_list:
+    if not jsonc.startswith("std_seq"):
+      continue
       
     cell_seq_info_list=[]
     parser=JsonComment()
-    with open (json_cell_seq, "r") as f:  
+    json_file=f"{json_path}/{jsonc}"
+    with open (json_file, "r") as f:
+      ## read cell_spice_path, cell
+      path_cell=parser.load(f)
+      
       ## sort by "cell" name
-      seq_info_list = parser.load(f)
+      seq_info_list = path_cell["cell_info"]
       cell_seq_info_list = sorted(seq_info_list, key=lambda x: x["cell"])
       
     #
@@ -181,6 +202,7 @@ def main():
 
       #
       targetCell = Mlc(mls=targetLib, **info)
+      targetCell.set_spice_path(path_cell["spice_path"]) 
       targetCell.set_supress_message() 
       targetCell.add_ff()
       targetCell.add_template()
@@ -200,14 +222,21 @@ def main():
       num_gen_file += 1
 
       
-  #--- cell_io.jsonc
-  if targetLib.cell_group == "io":
+  #--- io_xxx.jsonc
+  for jsonc in json_group_list:
+
+    if not jsonc.startswith("io_"):
+      continue
 
     cell_io_info_list=[]
     parser=JsonComment()
-    with open (json_cell_io, "r") as f:    
-      ## sort by "cell" name
-      io_info_list = parser.load(f)
+    json_file=f"{json_path}/{jsonc}"
+    with open (json_file, "r") as f:
+      ## read cell_spice_path, cell
+      path_cell=parser.load(f)
+      
+      ## sort by "cell" name      
+      io_info_list = path_cell["cell_info"]
       cell_io_info_list = sorted(io_info_list, key=lambda x: x["cell"])
 
     #  
@@ -221,6 +250,7 @@ def main():
 
       #
       targetCell = Mlc(mls=targetLib, **info)
+      targetCell.set_spice_path(path_cell["spice_path"]) 
       targetCell.set_supress_message() 
       targetCell.add_io()
       targetCell.add_template()
@@ -239,6 +269,8 @@ def main():
       exportDoc(targetCell=targetCell, harnessList=harnessList) 
       num_gen_file += 1
 
+  #--- 
+      
   ## exit
   exitFiles(targetLib, num_gen_file) 
 

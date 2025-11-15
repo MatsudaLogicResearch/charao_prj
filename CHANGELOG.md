@@ -4,6 +4,12 @@
 
 ---
 
+## [0.8.0] 2025-11-15
+### Changed
+- Change PATH to jsonc(target/[fab_process]/[cell_vendor]/[cell_revision]).
+- Support Multi JSONC file for same [cell_group].
+- Change JSONC format (Set spice_path in each [cell_group].jsonc). 
+
 ## [0.7.6] 2025-11-13
 ### Changed
 - Add build-stamp by -b option to output files(.lib, .md, .v).

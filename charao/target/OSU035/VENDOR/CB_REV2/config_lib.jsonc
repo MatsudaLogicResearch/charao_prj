@@ -7,11 +7,11 @@
 // [Info] The order of "ports_dict" is same as the order of pin-list in the spice file. 
 {
    "process_name"       :"OSU035"
-  ,"lib_vendor_id"      :"NORMAL"
-  ,"revision"           :"V00.00"
+  ,"lib_vendor_id"      :"VENDOR"
+  ,"revision"           :"REV2"
 	,"model_path"         :"./target/OSU035"
-	,"cell_spice_path"    :"./src/OSU035/std/NORMAL/V00.00/spice"
-  ,"io_spice_path"      :"./src/OSU035/io/NORMAL/V00.00/spice"
+//,"cell_spice_path"    :"./src/OSU035/std/NORMAL/V00.00/spice"
+//,"io_spice_path"      :"./src/OSU035/io/NORMAL/V00.00/spice"
   ,"vdd_name"           :"VDD"
   ,"vss_name"           :"VSS"
   ,"pwell_name"         :"VPW"
@@ -54,9 +54,9 @@
 																	 ]
 	
 //characterizer settings
-  ,"work_dir"  :"work"
-  ,"tmp_dir"   :"work"
-  ,"tmp_file"  :"_tmp__"
+//,"work_dir"  :"work"      //--- set by argv of libretto.py
+//,"tmp_dir"   :"work"
+//,"tmp_file"  :"_tmp__"
   ,"simulator" :"ngspice"
 //,"simulator" :/"usr/local/bin/ngspice"
 //,"simulator" :"/eda/synopsys/hspice/T-2022.06/hspice/linux64/hspice"

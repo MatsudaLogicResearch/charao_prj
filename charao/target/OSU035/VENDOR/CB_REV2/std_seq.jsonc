@@ -4,8 +4,13 @@
 // 
 // This configuration file is licensed under the MIT License.
 //===================================================================
-// [Info] The order of "ports_dict" is same as the order of pin-list in the spice file. 
-[
+{
+"spice_path":"./src/OSU035/std/NORMAL/V00.00/spice",
+
+"cell_info": [
+   // [Info] The order of "ports_dict" is same as the order of pin-list in the spice file. 
+
   {"template_kgn":[["leakage","0x0","d0"],["const","2x2","d1"],["delay","2x2","d1"],["power","2x2","d1"],["passive","2x0","d1"]], "spice":"DFFARAS_1X.spi", "cell":"DFFARAS_1X","logic":"DFF_PC_NR_NS","area":1.0
 	    ,"ports_dict":{"CLK":"c0","DATA":"i0","NRST":"r0","NSET":"s0","Q":"o0","VDD":"vdd","VSS":"vss","VNW":"vnw","VPW":"vpw"}},
 ]
+}

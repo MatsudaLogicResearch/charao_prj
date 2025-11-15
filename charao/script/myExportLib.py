@@ -19,7 +19,7 @@
 ###############################################################################
 # Originally named: myExport.py in OriginalProject
 ###############################################################################
-import argparse, re, os, shutil, subprocess, sys, inspect, datetime 
+import argparse, re, os, shutil, subprocess, sys, inspect
 from itertools import groupby
 import datetime, locale, time
 
@@ -66,7 +66,8 @@ def initLib(targetLib:Mls):
   ## initilize verilog file 
   outlines = []
   outlines.append(f'// Verilog model :{targetLib.lib_name}')
-  outlines.append(f'// Revision      :{targetLib.revision}')
+  outlines.append(f'// Build Date    :{targetLib.build_date}')
+  outlines.append(f'// Build Stamp   :{targetLib.build_stamp}')
   outlines.append(f'`default_nettype wire')
   outlines.append(f'`timescale 1ns/1ps')
   outlines.append(f'')
@@ -87,12 +88,12 @@ def initLib(targetLib:Mls):
 ## export library definition to .lib
 def exportLib(targetLib:Mls):
 
-  ## get current time
-  locale.setlocale(locale.LC_TIME, 'en_US.UTF-8')
-  now = datetime.datetime.now()
-  tz = time.tzname[0]
-  now_str = now.strftime(f"%a %b %e %H:%M:%S {tz} %Y")  
-  targetLib.date = now_str;  #-- use in myExportDoc
+  ### get current time
+  #locale.setlocale(locale.LC_TIME, 'en_US.UTF-8')
+  #now = datetime.datetime.now()
+  #tz = time.tzname[0]
+  #now_str = now.strftime(f"%a %b %e %H:%M:%S {tz} %Y")  
+  #targetLib.date = now_str;  #-- use in myExportDoc
   
   outlines = []
   ## general settings
@@ -100,8 +101,8 @@ def exportLib(targetLib:Mls):
   outlines.append(f'library ({targetLib.lib_name}){{')
   
   outlines.append(f'  delay_model : "{targetLib.delay_model}";')
-  outlines.append(f'  date        : "{now_str}";')
-  outlines.append(f'  revision    : "{targetLib.revision}";')
+  outlines.append(f'  date        : "{targetLib.build_date}";')
+  outlines.append(f'  revision    : "{targetLib.build_stamp}";')
 
   outlines.append(f'  capacitive_load_unit (1,{targetLib.capacitance_unit});')
   outlines.append(f'  current_unit : "1{targetLib.current_unit}";')

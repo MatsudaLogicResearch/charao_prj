@@ -4,8 +4,12 @@
 // 
 // This configuration file is licensed under the MIT License.
 //===================================================================
-// [Info] The order of "ports_dict" is same as the order of pin-list in the spice file. 
-[
+{
+"spice_path":"./src/OSU035/std/NORMAL/V00.00/spice",
+
+"cell_info": [
+  // [Info] The order of "ports_dict" is same as the order of pin-list in the spice file. 
+
   {"template_kgn":[["leakage","0x0","d0"],["delay","2x2","d1"],["power","2x2","d1"]],
   	"spice":"AND2_1X.spi", "cell":"AND2_1X","logic":"AND2","area":1.0,"ports_dict":{"A":"i0","B":"i1","Y":"o0","VDD":"vdd","VSS":"vss","VNW":"vnw","VPW":"vpw"}},
   {"template_kgn":[["leakage","0x0","d0"],["delay","2x2","d2"],["power","2x2","d2"]],	
@@ -37,3 +41,4 @@
   {"template_kgn":[["leakage","0x0","d0"],["delay","2x2","d1"],["power","2x2","d1"]],
     "spice":"XNOR2_1X.spi", "cell":"XNOR2_1X","logic":"XNOR2","area":1.0,"ports_dict":{"A":"i0","B":"i1","Y":"o0","VDD":"vdd","VSS":"vss","VNW":"vnw","VPW":"vpw"}},
 ]
+}
