@@ -4,6 +4,10 @@
 
 ---
 
+## [0.8.2] 2025-12-04
+### Changed
+- Support ANTENNA cell(passive/leakage).
+
 ## [0.8.1] 2025-11-15
 ### Changed
 - Support -w option to change work directory.

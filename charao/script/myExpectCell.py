@@ -40,6 +40,10 @@ class MyExpectCell:
     for i, pin_pos in  enumerate(self.pin_oir):
       #-- get new value
       val_new=self.mondrv_oir[i];
+
+      #-- mondrv_oir[i]=""
+      if not val_new:
+        continue
       
       #-- get output/input/related port name
       flag=re.match(r"([oibcrs])([0-9]+)", pin_pos)
@@ -60,6 +64,18 @@ class MyExpectCell:
 #-----
 #--- ";;" in specify block means ifnon statement. 
 logic_dict={
+    "ANTENNA":{"logic_type":"comb",
+           "functions":{},
+           "expect":
+           [#--- passive power
+             MyExpectCell(pin_oir=["","i0","i0"],ival={"o":[""],"i":["0"]},mondrv_oir=["","1","1"],meas_type="passive",tmg_sense="non",arc_oir=["","r","r"], tmg_when="", specify=""),
+             MyExpectCell(pin_oir=["","i0","i0"],ival={"o":[""],"i":["1"]},mondrv_oir=["","0","0"],meas_type="passive",tmg_sense="non",arc_oir=["","f","f"], tmg_when="", specify=""),
+             #--- leakage
+             MyExpectCell(pin_oir=["","i0","i0"],ival={"o":[""],"i":["0"]},mondrv_oir=["","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["","s","s"], tmg_when="!i0", specify=""),
+             MyExpectCell(pin_oir=["","i0","i0"],ival={"o":[""],"i":["1"]},mondrv_oir=["","1","1"],meas_type="leakage",tmg_sense="non",arc_oir=["","s","s"], tmg_when="i0" , specify=""),
+            ]
+    },
+
     "BUF":{"logic_type":"comb",
            "functions":{"o0":"i0"},
            "expect":

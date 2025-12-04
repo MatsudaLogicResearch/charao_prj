@@ -166,7 +166,8 @@ class MyConditionsAndResults(BaseModel):
       self.direction_tran  ="stable"
       self.direction_power ="stable"
       
-    else:
+    elif self.mlc.logic not in ["ANTENNA"]: #-- ANTENNA has only INPUT.
+      print(f"{self.mlc.logic}")
       print(f"[Error] unknown arc_out={arc_out}(output).")
       my_exit()
 
@@ -247,8 +248,16 @@ class MyConditionsAndResults(BaseModel):
     
   def set_target_outport(self):
     
-    #-- get pin name & pin position
     pin_pos=self.mec.pin_oir[0]
+
+    #-- CELL with only input
+    if not pin_pos:
+      self.target_outport      = ""
+      self.target_outport_val  = ""
+      return
+
+    
+    #-- get pin name & pin position
     flag=re.match(r"([a-zA-Z]+)(\d+)", pin_pos)
     if flag:
       pin=flag.group(1)
