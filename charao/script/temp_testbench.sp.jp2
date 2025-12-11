@@ -163,6 +163,9 @@ VIN VIN 0 PWL({_timestep}  {_vss_vin})
 .IC V(VIN)={_vdd_vin}
 {% elif param.val0_oirc[1] == "d" %}
 .IC V(VIN)={_vss_vin}
+{% else %}
+*.IC V(VIN)={_vss_vin}
+VIN VIN 0 DC {_vss_vin}
 {% endif %}
 
 *** VREL
@@ -180,6 +183,9 @@ VREL VREL 0 PWL({_timestep}  {_vss_vrel} )
 .IC V(VREL) = {_vdd_vrel}
 {% elif param.val0_oirc[2] == "d" %}
 .IC V(VREL) = {_vss_vrel}
+{% else %}
+*.IC V(VREL) = {_vss_vrel}
+VREL VREL 0 DC {_vss_vin}
 {% endif %}
 
 *** VCLK

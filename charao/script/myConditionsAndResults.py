@@ -250,7 +250,7 @@ class MyConditionsAndResults(BaseModel):
     
     pin_pos=self.mec.pin_oir[0]
 
-    #-- CELL with only input
+    #-- CELL without output
     if not pin_pos:
       self.target_outport      = ""
       self.target_outport_val  = ""
@@ -282,9 +282,16 @@ class MyConditionsAndResults(BaseModel):
       my_exit();
 
   def set_target_inport(self):
+
+    pin_pos=self.mec.pin_oir[1]
+    
+    #-- CELL without input
+    if not pin_pos:
+      self.target_inport      = ""
+      self.target_inport_val  = ""
+      return
     
     #-- get pin name & pin position
-    pin_pos=self.mec.pin_oir[1]
     flag=re.match(r"([a-zA-Z]+)(\d+)", pin_pos)
     if flag:
       pin=flag.group(1)
@@ -309,8 +316,15 @@ class MyConditionsAndResults(BaseModel):
 
   def set_target_relport(self):
 
-    #-- get pin name & pin position
     pin_pos=self.mec.pin_oir[2]
+    
+    #-- CELL without relport
+    if not pin_pos:
+      self.target_relport      = ""
+      self.target_relport_val  = ""
+      return
+    
+    #-- get pin name & pin position
     flag=re.match(r"([a-zA-Z]+)(\d+)", pin_pos)
     if flag:
       pin=flag.group(1)

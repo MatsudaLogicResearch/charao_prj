@@ -76,6 +76,24 @@ logic_dict={
             ]
     },
 
+    "TIE1":{"logic_type":"comb",
+           "functions":{"o0":"1"},
+           "expect":
+           [
+             #--- leakage
+             MyExpectCell(pin_oir=["o0","",""],ival={"o":["u"],"i":[""]},mondrv_oir=["1","",""],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"], tmg_when="Z", specify=""),
+            ]
+    },
+
+    "TIE0":{"logic_type":"comb",
+           "functions":{"o0":"0"},
+           "expect":
+           [
+             #--- leakage
+             MyExpectCell(pin_oir=["o0","",""],ival={"o":["d"],"i":[""]},mondrv_oir=["0","",""],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"], tmg_when="Z", specify=""),
+            ]
+    },
+
     "BUF":{"logic_type":"comb",
            "functions":{"o0":"i0"},
            "expect":

@@ -4,6 +4,10 @@
 
 ---
 
+## [0.8.3] 2025-12-11
+### Changed
+- Support TIE0/TIE1 cell(leakage).
+
 ## [0.8.2] 2025-12-04
 ### Changed
 - Support ANTENNA cell(passive/leakage).
@@ -16,7 +20,7 @@
 ### Changed
 - Change PATH to jsonc(target/[fab_process]/[cell_vendor]/[cell_revision]).
 - Support Multi JSONC file for same [cell_group].
-- Change JSONC format (Set spice_path in each [cell_group].jsonc). 
+- Change JSONC format (Set spice_path in each [cell_group].jsonc).
 
 ## [0.7.6] 2025-11-13
 ### Changed
