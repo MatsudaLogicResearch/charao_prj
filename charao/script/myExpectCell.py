@@ -81,7 +81,7 @@ logic_dict={
            "expect":
            [
              #--- leakage
-             MyExpectCell(pin_oir=["o0","",""],ival={"o":["u"],"i":[""]},mondrv_oir=["1","",""],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"], tmg_when="Z", specify=""),
+             MyExpectCell(pin_oir=["o0","",""],ival={"o":["1"],"i":[""]},mondrv_oir=["1","",""],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"], tmg_when="o0", specify=""),
             ]
     },
 
@@ -90,7 +90,7 @@ logic_dict={
            "expect":
            [
              #--- leakage
-             MyExpectCell(pin_oir=["o0","",""],ival={"o":["d"],"i":[""]},mondrv_oir=["0","",""],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"], tmg_when="Z", specify=""),
+             MyExpectCell(pin_oir=["o0","",""],ival={"o":["0"],"i":[""]},mondrv_oir=["0","",""],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!o0", specify=""),
             ]
     },
 

@@ -4,6 +4,10 @@
 
 ---
 
+## [0.8.4] 2025-12-18
+### Changed
+- Debug .lib output for TIE0/TIE1 cell.
+
 ## [0.8.3] 2025-12-11
 ### Changed
 - Support TIE0/TIE1 cell(leakage).
