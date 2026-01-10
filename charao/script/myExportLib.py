@@ -22,6 +22,7 @@
 import argparse, re, os, shutil, subprocess, sys, inspect
 from itertools import groupby
 import datetime, locale, time
+from pathlib import Path
 
 from .myFunc import my_exit, f2s_ceil
 from .myLibrarySetting       import MyLibrarySetting        as Mls 
@@ -59,7 +60,11 @@ def initLib(targetLib:Mls):
   
   ## initilize dotlib file
   outlines = []
+
   #with open(targetLib.tmp_file, 'w') as f:
+  out_file = Path(targetLib.dotlib_name)
+  out_file.parent.mkdir(parents=True, exist_ok=True)
+  
   with open(targetLib.dotlib_name, 'w') as f:
     f.writelines(outlines)
   
@@ -79,6 +84,8 @@ def initLib(targetLib:Mls):
     outlines.append(f'`endif //SYNTHESIS')
     outlines.append(f'')
   
+  out_file = Path(targetLib.verilog_name)
+  out_file.parent.mkdir(parents=True, exist_ok=True)
   with open(targetLib.verilog_name, 'w') as f:
     s = "\n".join(outlines) + "\n"
     f.write(s)

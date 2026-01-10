@@ -44,7 +44,8 @@ class MyLibrarySetting(BaseModel):
   lib_vendor_id    : str = "VENDOR"      
   model_path       : str = "./target"    
 #  cell_spice_path  : str = "./spice"     
-# io_spice_path    : str = "./spice"     
+# io_spice_path    : str = "./spice"
+  result_path      : str = "./rslt"
   revision         : str = "V1"
   vdd_name         : str = "VDD"
   vss_name         : str = "VSS"
@@ -247,10 +248,10 @@ class MyLibrarySetting(BaseModel):
     basename=f"{self.process_name}{ip_type}{uv_str}{self.lib_vendor_id}{self.revision}"
     
     self.lib_name         = f"{basename}_{self.operating_condition}"
-    self.dotlib_name      = f"{self.lib_name}_{build_stamp}.lib"
-    self.doc_name         = f"{self.lib_name}_{build_stamp}.md"
+    self.dotlib_name      = f"{self.result_path}/{self.lib_name}_{build_stamp}.lib"
+    self.doc_name         = f"{self.result_path}/{self.lib_name}_{build_stamp}.md"
     #self.verilog_name     = f"{self.lib_name}.v"
-    self.verilog_name     = f"{basename}_{build_stamp}.v"
+    self.verilog_name     = f"{self.result_path}/{basename}_{build_stamp}.v"
     
     self.cell_name_suffix = f"{basename}".upper()
     

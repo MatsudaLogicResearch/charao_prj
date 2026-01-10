@@ -4,6 +4,10 @@
 
 ---
 
+## [0.8.5] 2026-01-10
+### Changed
+- Change default result directory to ./rslt.
+
 ## [0.8.4] 2025-12-18
 ### Changed
 - Debug .lib output for TIE0/TIE1 cell.

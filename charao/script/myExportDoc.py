@@ -19,6 +19,7 @@
 ###############################################################################
 import argparse, re, os, shutil, subprocess, sys, inspect 
 from itertools import groupby
+from pathlib import Path
 
 from .myFunc import my_exit, f2s_ceil
 from .myLibrarySetting       import MyLibrarySetting        as Mls 
@@ -134,6 +135,9 @@ def exportLib2doc(targetLib:Mls, targetCell:Mlc):
 
     #-----
     print(targetLib.doc_name)
+    
+    out_file = Path(targetLib.doc_name)
+    out_file.parent.mkdir(parents=True, exist_ok=True)
     with open(targetLib.doc_name, 'w') as f:
         s = "\n".join(outlines) + "\n"
         f.write(s)

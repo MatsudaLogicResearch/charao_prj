@@ -12,6 +12,7 @@
 	,"model_path"         :"./target/OSU035"
 //,"cell_spice_path"    :"./src/OSU035/std/NORMAL/V00.00/spice"
 //,"io_spice_path"      :"./src/OSU035/io/NORMAL/V00.00/spice"
+  .result_path          :"./rslt"
   ,"vdd_name"           :"VDD"
   ,"vss_name"           :"VSS"
   ,"pwell_name"         :"VPW"
