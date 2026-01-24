@@ -110,6 +110,9 @@ class MyLibrarySetting(BaseModel):
   input_voltages : dict[str,Any] =Field(default_factory=dict);
   output_voltages : dict[str,Any] =Field(default_factory=dict);
   
+  #--- update by mylogc_user.py (class variable)
+  logic_dict : dict[Any,Any] = {}
+  code_primitive : str = ""
   
   ## characterizer setting 
   work_dir :str = "work"

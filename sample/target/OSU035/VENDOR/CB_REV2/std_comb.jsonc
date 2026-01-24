@@ -5,7 +5,7 @@
 // This configuration file is licensed under the MIT License.
 //===================================================================
 {
-"spice_path":"./src/OSU035/std/NORMAL/V00.00/spice",
+"spice_path":"./sample/src/OSU035/std/NORMAL/V00.00/spice",
 
 "cell_info": [
   // [Info] The order of "ports_dict" is same as the order of pin-list in the spice file. 

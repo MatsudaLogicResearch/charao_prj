@@ -20,6 +20,7 @@
 # Originally named: libretto.py in OriginalProject
 ###############################################################################
 
+import importlib, importlib.util
 import argparse, re, os, shutil, subprocess, sys, inspect
 from jsoncomment import JsonComment
 from pydantic import BaseModel, ConfigDict
@@ -28,7 +29,7 @@ import numpy as np
 #from myConditionsAndResults import myConditionsAndResults as mcar
 from .myLibrarySetting import MyLibrarySetting as Mls
 from .myLogicCell      import MyLogicCell      as Mlc
-from .myExpectCell import logic_dict 
+#from .myExpectCell import logic_dict 
 
 from .myExportLib import exportFiles,exitFiles
 from .myExportDoc import exportDoc
@@ -50,13 +51,14 @@ def main():
   parser.add_argument('--vnw'           , type=float            , default=5.0   , help='NWELL voltage')
   parser.add_argument('--vpw'           , type=float            , default=0.0   , help='PWELL voltage')
 
-  parser.add_argument('--target'        , type=str              , default="./target"   , help='PATH to <target> directory')
+  parser.add_argument('--target'        , type=str              , default="./sample/target"   , help='PATH to <target> directory')
   
   parser.add_argument('--cells_only'    , type=str, nargs="*"   , default=[]    , help='list of target cell names. blank meas all cells.')
   parser.add_argument('--measures_only' , type=str, nargs="*"   , default=[]    , help='list of measure_type names. blank meas all measure_type.')
   parser.add_argument('-s','--significant_digits'   , type=int  , default=3     , help='significant digits.')
   parser.add_argument('-b','--build_stamp',type=str             , default="b00" , help='build-stamp for output files.')
   parser.add_argument('-w','--work_dir' ,type=str               , default="work", help='work directory.')
+  parser.add_argument('--mylogic_user'  ,type=str               , default=""    , help='PATH to User-define Logic entries file(ex myloic_user.py).')
   
   args = parser.parse_args()
   #print(args.batch)
@@ -65,7 +67,43 @@ def main():
   startup()
   history()
 
-  #--- set json file
+  #=====================================================
+  # Logic entries/ primitive code
+
+  #--(Base defined)
+  mylogic_base = importlib.import_module("charao.script.mylogic_base")
+
+  logic_dict     = mylogic_base.get_logic_dict()
+  code_primitive = mylogic_base.get_code_primitive()
+
+  #--(User defined)
+  mylogic_user = None
+  mylogic_user_path=f"{args.mylogic_user}"
+  
+  if os.path.isfile(mylogic_user_path) :
+    module_name = f"mylogic_user_{hash(mylogic_user_path)}"
+    spec = importlib.util.spec_from_file_location(module_name, mylogic_user_path)
+    if spec is None or spec.loader is None:
+      print (f" [ERR]: Cannot load mylogic_user module from {mylogic_user_path}")
+      my_exit()
+
+    mylogic_user = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = mylogic_user
+    spec.loader.exec_module(mylogic_user)
+        
+    #-- update
+    for k,v in mylogic_user.get_logic_dict().items():
+      if k in logic_dict.keys():
+        print(f"  [INF]: {k} is overridden by user definitions.")
+      logic_dict[k]=v
+
+    new_primitive=mylogic_user.get_code_primitive()
+    if new_primitive:
+      print(f"  [INF]: code_primitive is replaced by user definitions.")
+      code_primitive = new_primitive
+  
+  #=====================================================
+  #--- json file
   json_config_lib=""
   json_group_list = []
   
@@ -122,6 +160,14 @@ def main():
   targetLib.update_threshold_voltage()
   targetLib.print_variable()
 
+  #--- targetLib : add logic_dict/code_primitive(not display)
+  config_logic_dict={
+                    "logic_dict"      :logic_dict,
+                    "code_primitive"  :code_primitive
+                    }
+  targetLib = targetLib.model_copy(update=config_logic_dict)
+  print(f"[INF]: supported logic_dict = {logic_dict.keys()}")
+  
   #--- targetLib : initialize workspace
   initializeFiles(targetLib) 
   targetLib.gen_lut_templates()
@@ -299,7 +345,7 @@ def characterizeFiles(targetLib, targetCell):
     os.chdir(targetLib.work_dir)
 
     ## Branch to each logic function
-    if not targetCell.logic in logic_dict.keys():
+    if not targetCell.logic in targetLib.logic_dict.keys():
       print ("Target logic:"+targetCell.logic+" is not registered for characterization(not exist in myExpectLogic.py)!\n")
       print ("Add characterization function for this program! -> die\n")
       my_exit()
@@ -307,13 +353,13 @@ def characterizeFiles(targetLib, targetCell):
     #--
     print("cell=" + targetCell.cell + "(" + targetCell.logic + ")");
 
-    logic_type=logic_dict[targetCell.logic]["logic_type"]
+    logic_type = targetLib.logic_dict[targetCell.logic]["logic_type"]
     if   logic_type  == "comb":
-      rslt=runExpectation(targetLib, targetCell, logic_dict[targetCell.logic]["expect"])
+      rslt=runExpectation(targetLib, targetCell, targetLib.logic_dict[targetCell.logic]["expect"])
     elif logic_type  == "seq":
-      rslt=runExpectation(targetLib, targetCell, logic_dict[targetCell.logic]["expect"])
+      rslt=runExpectation(targetLib, targetCell, targetLib.logic_dict[targetCell.logic]["expect"])
     elif logic_type  == "io":
-      rslt=runExpectation(targetLib, targetCell, logic_dict[targetCell.logic]["expect"])
+      rslt=runExpectation(targetLib, targetCell, targetLib.logic_dict[targetCell.logic]["expect"])
     else:
       print(f"[Error] unknown logic_type={logic_type}.")
       my_exit()

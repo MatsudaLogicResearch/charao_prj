@@ -29,8 +29,8 @@ from .myLibrarySetting       import MyLibrarySetting        as Mls
 from .myLogicCell            import MyLogicCell             as Mlc
 from .myConditionsAndResults import MyConditionsAndResults  as Mcar
 #from myExpectCell          import MyExpectCell
-from .myExpectCell          import logic_dict              
-from .myExpectCell          import code_primitive
+#from .myExpectCell          import logic_dict              
+#from .myExpectCell          import code_primitive
 
 def exportFiles(targetCell:Mls, harnessList:list[Mcar]):
 
@@ -80,7 +80,7 @@ def initLib(targetLib:Mls):
   
   if targetLib.cell_group == "std":
     outlines.append(f'`ifndef SYNTHESIS')
-    outlines.append(f'{code_primitive}')
+    outlines.append(f'{targetLib.code_primitive}')
     outlines.append(f'`endif //SYNTHESIS')
     outlines.append(f'')
   
@@ -795,14 +795,14 @@ def exportVerilog(targetLib:Mls, targetCell:Mlc):
   #===================================================================
   ## specify
 
-  specify=[exp.specify for exp in logic_dict[targetCell.logic]["expect"] if exp.specify !=""]
+  specify=[exp.specify for exp in targetLib.logic_dict[targetCell.logic]["expect"] if exp.specify !=""]
   
   if len(specify):
     
     outlines.append(f'');
     outlines.append(f'specify');
     
-    for expectationdict in logic_dict[targetCell.logic]["expect"]:
+    for expectationdict in targetLib.logic_dict[targetCell.logic]["expect"]:
       if expectationdict.specify != "":
         when   =targetCell.replace_by_portmap(expectationdict.tmg_when)
     

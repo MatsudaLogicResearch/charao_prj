@@ -27,7 +27,7 @@ from pathlib import Path
 
 from .myFunc import my_exit
 from .myLibrarySetting       import MyLibrarySetting as Mls 
-from .myExpectCell           import logic_dict
+#from .myExpectCell           import logic_dict
 from .myItem                 import MyItemTemplate
 
 if TYPE_CHECKING:
@@ -42,7 +42,7 @@ class MyLogicCell(BaseModel):
 
   #-- reference
   mls: Optional[Mls] = None
-
+  
   spice_path: str = "./cdl"   ## path to spice
   cell      : str = None;     ## cell name
   logic     : str = None;     ## logic name
@@ -315,30 +315,30 @@ class MyLogicCell(BaseModel):
     self.isexport2doc = 1
         
   def add_function(self):
-    if not self.logic in logic_dict.keys():
+    if not self.logic in self.mls.logic_dict.keys():
       print(f"[Error] logic="+self.logic + " is not exist in MyExpectCell.py.");
       my_exit();
 
-    self.functions = logic_dict[self.logic]["functions"]
+    self.functions = self.mls.logic_dict[self.logic]["functions"]
           
     print("add function: " + str(self.functions))
 
   def add_vcode(self):
-    if "vcode" in logic_dict[self.logic].keys():
-      if logic_dict[self.logic]["vcode"]:
-        self.vcode = self.replace_by_portmap(logic_dict[self.logic]["vcode"])
+    if "vcode" in self.mls.logic_dict[self.logic].keys():
+      if self.mls.logic_dict[self.logic]["vcode"]:
+        self.vcode = self.replace_by_portmap(self.mls.logic_dict[self.logic]["vcode"])
         print("add vcode")
 
   def add_ff(self):
-    if not self.logic in logic_dict.keys():
+    if not self.logic in self.mls.logic_dict.keys():
       print(f"[Error] logic="+self.logic + " is not exist in MyExpectCell.py.");
       my_exit();
 
-    self.ff = logic_dict[self.logic]["ff"]
+    self.ff = self.mls.logic_dict[self.logic]["ff"]
     self.isflop=1
 
   def add_io(self):
-    if not self.logic in logic_dict.keys():
+    if not self.logic in self.mls.logic_dict.keys():
       print(f"[Error] logic="+self.logic + " is not exist in MyExpectCell.py.");
       my_exit();
 

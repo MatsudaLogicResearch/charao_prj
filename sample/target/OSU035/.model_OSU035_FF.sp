@@ -5,8 +5,8 @@
 ** This configuration file is licensed under the MIT License.
 **===================================================================
 
-.inc ../src/OSU035/FF/nmos.sp
-.inc ../src/OSU035/FF/pmos.sp
+.inc ../sample/src/OSU035/FF/nmos.sp
+.inc ../sample/src/OSU035/FF/pmos.sp
 
 * .TEMP -40
 

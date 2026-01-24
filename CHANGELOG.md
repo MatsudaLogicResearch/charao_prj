@@ -4,6 +4,10 @@
 
 ---
 
+## [0.9.0] 2026-01-24
+### Changed
+- Support --mylogic_user option for user-defined logic_dict().
+
 ## [0.8.5] 2026-01-10
 ### Changed
 - Change default result directory to ./rslt.
