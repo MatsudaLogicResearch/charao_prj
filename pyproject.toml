@@ -4,12 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "charao"
-version = "0.9.2"
+version = "0.9.3"
 description = "An open cell library characterizer by Python."
 authors = [{ name = "LogicResearch K.K.(MATSUDA Masahiro)", email = "matsuda@logic-research.co.jp" }]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["jsoncomment","pydantic","numpy","jinja2"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
 
 [tool.setuptools.packages.find]
 where = ["."]

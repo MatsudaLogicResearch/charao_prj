@@ -4,6 +4,13 @@
 
 ---
 
+## [0.9.3] 2026-03-26
+### Added
+- Add pytest to dev dependencies in pyproject.toml
+- Add tests/test_myFunc.py: unit tests for f2s_ceil()
+- Add tests/test_myLibrarySetting.py: unit tests for update_mag() / update_threshold_voltage()
+- Add tests/TEST_PLAN.md: test plan including E2E strategy via lrPymRPC
+
 ## [0.9.2] 2026-03-26
 ### Fixed
 - Fix bare `except:` to `except subprocess.CalledProcessError` with `my_exit()` in myLibrarySetting.py
