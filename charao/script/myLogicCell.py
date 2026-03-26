@@ -238,7 +238,7 @@ class MyLogicCell(BaseModel):
         
     ## if cell name is not found, show error
     if(self.definition == None):
-      if((self.cell == None) and (self.cell == None)):
+      if((self.cell == None) and (self.logic == None)):
         print("Cell definition not found. Please use add_cell command to add your cell")
       elif(self.cell == None):
         print("Cell is not defined by add_cell. Please use add_cell command to add your cell")

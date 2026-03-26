@@ -336,7 +336,7 @@ class MyLibrarySetting(BaseModel):
       print(message)
   
   def print_msg_dbg(self,  message=""):
-    if((self.supress_debug_msg.lower() == "false")or(self.supress_debug_msglower() == "f")):
+    if((self.supress_debug_msg.lower() == "false")or(self.supress_debug_msg.lower() == "f")):
       print(message)
 
   def gen_lut_templates(self):

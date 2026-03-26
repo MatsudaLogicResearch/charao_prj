@@ -150,10 +150,7 @@ def main():
                     }
   targetLib = targetLib.model_copy(update=config_from_args)
 
-  #debug
-  #print(targetLib.templates)
-  
-  #--- targetLib : update & display 
+  #--- targetLib : update & display
   targetLib.set_build_info(build_stamp=args.build_stamp)
   targetLib.update_name(build_stamp=args.build_stamp)
   targetLib.update_mag()

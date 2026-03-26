@@ -278,7 +278,7 @@ class MyConditionsAndResults(BaseModel):
       self.target_outport      = pin_pos
       self.target_outport_val  = val0
     else :
-      print(f"Error out port value error(ival={val0},mondrv={nval}).")
+      print(f"Error out port value error(ival={val0}).")
       my_exit();
 
   def set_target_inport(self):
@@ -311,7 +311,7 @@ class MyConditionsAndResults(BaseModel):
       self.target_inport      = pin_pos
       self.target_inport_val  = val0
     else :
-      print(f"Error target port value error(ival={val0},mondrv={nval}).")
+      print(f"Error target port value error(ival={val0}).")
       my_exit();
 
   def set_target_relport(self):
@@ -348,7 +348,7 @@ class MyConditionsAndResults(BaseModel):
       self.target_relport      = pin_pos
       self.target_relport_val  = val0
     else :
-      print(f"Error related port value error(ival={val0},mondrv={nval}).")
+      print(f"Error related port value error(ival={val0}).")
       my_exit();
 
   def set_target_clkport(self):

@@ -422,7 +422,7 @@ def runSpicePowerSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
     rslt2= genFileLogic_PowerTrial1x(targetHarness=targetHarness, spicef=spicefoe2, meas_energy=2, index1_slope=index1_slope, index2_load=index2_load, estart=estart, eend=eend)
 
     #
-    print(f'  [DEBUG] pleak={rslt2["pleak"]}, load={index2_load}, slope={index1_slope}')
+    print(f'  [INFO] pleak={rslt2["pleak"]}, load={index2_load}, slope={index1_slope}')
     
     ## -- result in targetHarness
     with targetHarness._lock:
@@ -1037,7 +1037,7 @@ def runSpiceHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_
         my_exit()
       
     #--
-    print(f"  [DEBUG]hold={hold_pass}")
+    print(f"  [INFO] hold={hold_pass}")
         
 #--------------------------------------------------------------------------------------------------
 def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float, index2_slope_const:float, tsweep:float, tsim_end:float) -> dict:
@@ -1634,7 +1634,7 @@ def runSpiceLeakageSingle(poolg_sema, targetHarness:Mcar, spicef:str):
     rslt= genFileLogic_LeakageTrial1x(targetHarness=targetHarness, spicef=spicefoe1)
                              
     #
-    print(f'  [DEBUG] pleak2={rslt["pleak"]}')
+    print(f'  [INFO] pleak2={rslt["pleak"]}')
     
     ## -- result in targetHarness
     with targetHarness._lock:

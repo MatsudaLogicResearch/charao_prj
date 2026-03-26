@@ -17,13 +17,14 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 ###############################################################################
-import sys, inspect 
+import sys, inspect
 import math
+from pathlib import Path
 
 def my_exit():
   frame = inspect.currentframe().f_back
-  path = frame.f_code.co_filename.split('/')
-  print("file:"+path[-1] +" in:"+frame.f_code.co_name+", line:"+str(frame.f_lineno))
+  path = Path(frame.f_code.co_filename).name
+  print("file:"+path +" in:"+frame.f_code.co_name+", line:"+str(frame.f_lineno))
   sys.exit()
 
 def startup():
