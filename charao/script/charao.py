@@ -363,6 +363,7 @@ def characterizeFiles(targetLib, targetCell):
 
   except Exception as e:
     print(f"[Error] An exception occurred: {str(e)}")
+    my_exit()
 
   finally:
     os.chdir(current_dir)

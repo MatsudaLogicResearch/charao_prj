@@ -477,8 +477,9 @@ class MyLibrarySetting(BaseModel):
     if(self.runsim == "true"):
       try:
         res = subprocess.check_call(cmd)
-      except:
-        print (f"Failed to lunch spice. lis={spicelis}")
+      except subprocess.CalledProcessError as e:
+        print(f"Failed to launch spice. lis={spicelis}, returncode={e.returncode}")
+        my_exit()
 
     #--
     return(spicelis)

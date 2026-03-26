@@ -4,6 +4,12 @@
 
 ---
 
+## [0.9.2] 2026-03-26
+### Fixed
+- Fix bare `except:` to `except subprocess.CalledProcessError` with `my_exit()` in myLibrarySetting.py
+- Fix typo `lunch` → `launch` in myLibrarySetting.py
+- Add `my_exit()` to `except` clause in charao.py for proper error termination
+
 ## [0.9.1] 2026-03-26
 ### Fixed
 - Fix typo in myLibrarySetting.py: `supress_debug_msglower()` → `supress_debug_msg.lower()` (ISS-00001)
