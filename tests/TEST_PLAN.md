@@ -29,6 +29,23 @@
 | **ngspice** | リモートLinuxサーバー上で実行（Windowsへの導入不要） |
 | **基準ファイル** | `tests/fixtures/` に保存 |
 | **検証内容** | 出力`.lib`/`.v`を基準ファイルと差分チェック |
+| **lrPymRPC インストール** | `pip install git+https://github.com/MatsudaLogicResearch/lrPymRPC_prj.git` |
+
+**E2E実行コマンド（PowerShell / OSU035基準）：**
+```powershell
+python -m lrPymRPC `
+    --SERVER_IP 192.168.168.103 `
+    --REPO_URL charao=git+https://github.com/MatsudaLogicResearch/charao_prj.git@<TAG> `
+    --SOURCE sample `
+    --RESULT rslt `
+    --CMD "python3 -m charao -f OSU035 -v VENDOR -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target sample/target --cells_only INV_1X --measures_only leakage"
+```
+
+**注意事項：**
+- `--cells_only INV_1X` で特定セルのみ実行（高速・軽量）
+- `--measures_only leakage` で特定測定のみ実行
+- `rm not found` はサーバーの意図的なセキュリティ制限で正常動作
+- サーバー許可コマンド：`python, python3, sh, nice, cat, mkdir, ngspice, mv, tar, gzip`
 
 ---
 
