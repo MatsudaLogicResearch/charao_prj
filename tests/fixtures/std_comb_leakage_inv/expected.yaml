@@ -1,0 +1,16 @@
+scenario:
+  cell: INV_1X
+  library: OSU035
+  process: 0.35um
+  lib_revision: CB_REV2
+  group: std
+  measures: leakage
+  charao_tag: "0.9.3"
+
+expected:
+  INV_1X:
+    cell_leakage_power: 85.3   # pW (leakage_power_unit: 1pW)
+    tolerance: 0.01            # ±1%
+    leakage_when:
+      "!A": 85.3
+      "A": 26.4

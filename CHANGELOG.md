@@ -4,6 +4,15 @@
 
 ---
 
+## [0.9.4] 2026-03-27
+### Added
+- Add tests/test_e2e.py: E2E test for OSU035/INV_1X/leakage via lrPymRPC
+- Add tests/conftest.py: E2E fixtures, lrPymRPC runner, .lib parser
+- Add pytest.ini: --tb=short, --capture=tee-sys, lrpymrpc_verbose option
+- Add tests/fixtures/std_comb_leakage_inv/expected.yaml: expected values for P2-0 scenario
+- Add test_log/ output: test_e2e.log and per-scenario lrpymrpc.log
+- Update tests/TEST_PLAN.md: reflect E2E infrastructure completion and SKY130 migration plan
+
 ## [0.9.3] 2026-03-26
 ### Added
 - Add pytest to dev dependencies in pyproject.toml
