@@ -160,7 +160,9 @@ class MyLibrarySetting(BaseModel):
   energy_meas_high_threshold_voltage  : float = 4.95
   
   #--- argv option
-  significant_digits : int  = 3
+  significant_digits   : int       = 3
+  only_template_index1 : list[int] = Field(default_factory=list)
+  only_template_index2 : list[int] = Field(default_factory=list)
   
   #--- other variable
   #load_name       :list[str] = Field(default_factory=list);

@@ -4,6 +4,10 @@
 
 ---
 
+## [0.9.6] 2026-04-11
+### Added
+- Add `--only_template_index1` / `--only_template_index2` options: limit simulation to specified index positions (0-based) for debug/fast-check use
+
 ## [0.9.5] 2026-04-11
 ### Added
 - Add GF180 support: sample/target/gf180/ with config_lib.jsonc and std_comb.jsonc (inv_1)

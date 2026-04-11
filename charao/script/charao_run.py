@@ -146,7 +146,11 @@ def runSpiceDelayPowerMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[M
   
   index1_slopes=temp.index_1
   index2_loads =temp.index_2
-  
+  if mls.only_template_index1:
+    index1_slopes = [index1_slopes[i] for i in mls.only_template_index1 if i < len(index1_slopes)]
+  if mls.only_template_index2:
+    index2_loads  = [index2_loads[i]  for i in mls.only_template_index2 if i < len(index2_loads)]
+
   h_delay.template_kind  = kind
   h_delay.template       = temp
 
@@ -213,7 +217,11 @@ def runSpiceDelayPowerMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[M
   
     index1_slopes=temp.index_1
     index2_loads =temp.index_2
-  
+    if mls.only_template_index1:
+      index1_slopes = [index1_slopes[i] for i in mls.only_template_index1 if i < len(index1_slopes)]
+    if mls.only_template_index2:
+      index2_loads  = [index2_loads[i]  for i in mls.only_template_index2 if i < len(index2_loads)]
+
     h_power.template_kind  = kind
     h_power.template       = temp
     
@@ -581,8 +589,8 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
     #--          ((abs(res_i_vdd_leak) + abs(res_i_vss_leak))/2)*(targetLib.vdd_voltage*targetLib.energy_meas_high_threshold))))
                 
 
-    e_all  = abs(float(res["q_vdd_dyn"])) * h.mls.vdd_voltage
-    
+    e_all  = -float(res["q_vdd_dyn"]) * h.mls.vdd_voltage
+
     e_load = float(res["q_out_dyn"])*(h.mls.energy_meas_high_threshold_voltage) if (float(res["q_out_dyn"]) > 0) else 0.0; #-- dynamic power of Cload(E=C*V*V=Q*V)
     
     e_leak = pleak *energy_time
@@ -635,18 +643,22 @@ def runSpiceSetupMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
   index1_slopes_rel  =temp.index_1
   index2_slopes_const=temp.index_2
-  
+  if mls.only_template_index1:
+    index1_slopes_rel   = [index1_slopes_rel[i]   for i in mls.only_template_index1 if i < len(index1_slopes_rel)]
+  if mls.only_template_index2:
+    index2_slopes_const = [index2_slopes_const[i] for i in mls.only_template_index2 if i < len(index2_slopes_const)]
+
   h_const.template_kind  = kind
   h_const.template       = temp
 
   if len(index1_slopes_rel)<1:
     print(f"[Error] slope for relateed (index_1) size is 0 for template.")
     my_exit()
-    
+
   if len(index2_slopes_const)<1:
     print(f"[Error] slope for constraint(index_2) size is 0 for template.")
     my_exit()
-    
+
   #------ search delay(trans)
   for index2_slope_const in index2_slopes_const:
     for index1_slope_rel in index1_slopes_rel:
@@ -902,18 +914,22 @@ def runSpiceHoldMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
   index1_slopes_rel  =temp.index_1
   index2_slopes_const=temp.index_2
-  
+  if mls.only_template_index1:
+    index1_slopes_rel   = [index1_slopes_rel[i]   for i in mls.only_template_index1 if i < len(index1_slopes_rel)]
+  if mls.only_template_index2:
+    index2_slopes_const = [index2_slopes_const[i] for i in mls.only_template_index2 if i < len(index2_slopes_const)]
+
   h_const.template_kind  = kind
   h_const.template       = temp
 
   if len(index1_slopes_rel)<1:
     print(f"[Error] slope for relateed (index_1) size is 0 for template.")
     my_exit()
-    
+
   if len(index2_slopes_const)<1:
     print(f"[Error] slope for constraint(index_2) size is 0 for template.")
     my_exit()
-    
+
   #------ search hold
   for index2_slope_const in index2_slopes_const:
     for index1_slope_rel in index1_slopes_rel:
@@ -1165,6 +1181,8 @@ def runSpicePassiveMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar
 
   index1_slopes_in=temp.index_1
   index2_unuse =temp.index_2
+  if mls.only_template_index1:
+    index1_slopes_in = [index1_slopes_in[i] for i in mls.only_template_index1 if i < len(index1_slopes_in)]
 
   h_passive.template_kind  = kind
   h_passive.template       = temp
@@ -1341,7 +1359,7 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
   pleak = abs(float(res["i_vdd_leak"])) * h.mls.vdd_voltage
 
   ## intl
-  e_all  = abs(float(res["q_vdd_dyn"])) * h.mls.vdd_voltage
+  e_all  = -float(res["q_vdd_dyn"]) * h.mls.vdd_voltage
   e_load = 0.0; #-- output is stable?
   e_leak = pleak *energy_time
 
