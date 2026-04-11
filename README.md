@@ -16,6 +16,24 @@ Multithread supported. All of the indexes are simulated in parallel.
 pip install git+https://github.com/MatsudaLogicResearch/charao_prj.git
 ```
 
+### Development / E2E Test Environment (venv)
+
+To run E2E tests locally, set up a venv with the following packages:
+
+```powershell
+# Create venv (first time only)
+python -m venv .venv_charao
+
+# Activate
+.venv_charao\Scripts\activate   # Windows
+# source .venv_charao/bin/activate  # Linux/Mac
+
+# Install charao and test dependencies
+pip install -e .
+pip install pyyaml pytest
+pip install git+https://github.com/MatsudaLogicResearch/lrPymRPC_prj.git
+```
+
 ## Required Tools
 - Simulator. We assume ngspice
 - Pandoc, if you want to convert datasheet in Markdown to PDF
@@ -109,6 +127,53 @@ options:
 ```
   OSU035CBV5P00NORMALV00.00_TTV5P00C25.pdf
 ```
+## E2E Tests
+
+E2E tests run charao on a remote Linux server via [lrPymRPC](https://github.com/MatsudaLogicResearch/lrPymRPC_prj) and verify the generated `.lib` output against expected values.
+
+### Prerequisites
+
+- venv with `pyyaml`, `pytest`, and `lrPymRPC` installed (see [Development Environment](#development--e2e-test-environment-venv))
+- Remote server accessible at `192.168.168.103` with ngspice installed
+
+### Test Scenarios
+
+| Scenario | Class | Library | Cell | Measures | Status |
+|----------|-------|---------|------|----------|--------|
+| std_comb_leakage_inv | `TestStdCombLeakageInv` | OSU035 / VENDOR / TT / 25°C / 5.0V | INV_1X | leakage | PASS (v0.9.4) |
+
+### Running Tests
+
+```powershell
+cd D:\git\charao_prj
+.venv_charao\Scripts\activate
+
+# Run all E2E tests
+pytest tests/test_e2e.py -v
+
+# Run a specific scenario
+pytest tests/test_e2e.py::TestStdCombLeakageInv -v
+```
+
+### Options
+
+| Option | Effect |
+|--------|--------|
+| `-v` | Verbose test names |
+| `--tb=long` | Full traceback on failure (default: short) |
+| `--tb=no` | Suppress traceback |
+
+To show full lrPymRPC output (pip install logs etc.) on success, set `lrpymrpc_verbose = true` in `pytest.ini`.
+
+### Log Output
+
+| Log | Path |
+|-----|------|
+| Test results | `test_log/test_e2e.log` |
+| lrPymRPC execution log | `test_log/<scenario_name>/lrpymrpc.log` |
+
+> Note: `test_log/` is recreated at the start of each test session.
+
 ## Known issues (future works)
 4. Multiple voltage for IOs and level shifters
 5. Logic parser to find mismatch between logic definition and netlist.

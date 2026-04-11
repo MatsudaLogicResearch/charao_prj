@@ -61,9 +61,9 @@ def exportLib2doc(targetLib:Mls, targetCell:Mlc):
     outlines.append(f'toc: false')
     outlines.append(f'toc-depth: 2')
     outlines.append(f'---')
-    outlines.append(f"\clearpage")
+    outlines.append(f"\\clearpage")
     outlines.append(f"\\tableofcontents")
-    outlines.append(f"\clearpage")
+    outlines.append(f"\\clearpage")
 
     
     outlines.append(f"# Library settings")

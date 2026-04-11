@@ -4,6 +4,18 @@
 
 ---
 
+## [0.9.5] 2026-04-11
+### Added
+- Add GF180 support: sample/target/gf180/ with config_lib.jsonc and std_comb.jsonc (inv_1)
+- Add `spiceinit` field to MyLibrarySetting: generates .spiceinit from config_lib.jsonc (e.g. `set ngbehavior=hsp`)
+- Add `energy_unit` declaration to .lib header output (prevents EDA tools from misinterpreting fJ values as nJ)
+- Add `i_vnw_leak` measurement to leakage SPICE template (temp_testbench.sp.jp2)
+
+### Fixed
+- Fix leakage power for I=1 state: include I(VNW_DYN)*VNW in pleak calculation (PMOS body-drain junction current was ignored, causing ~0 pW for I=1)
+- Fix SyntaxWarning in myExportDoc.py: invalid escape sequence `\c` → `\\c` in `\clearpage`
+- Fix GF180 model loading: use `.lib typical` instead of individual sections to include fets_mm subckt wrappers
+
 ## [0.9.4] 2026-03-27
 ### Added
 - Add tests/test_e2e.py: E2E test for OSU035/INV_1X/leakage via lrPymRPC

@@ -326,6 +326,9 @@ def initializeFiles(targetLib):
       shutil.rmtree(targetLib.work_dir)
     #os.mkdir(targetLib.work_dir)
     os.makedirs(targetLib.work_dir, exist_ok=True)
+    if targetLib.spiceinit:
+      with open(os.path.join(targetLib.work_dir, ".spiceinit"), 'w') as f:
+        f.write("\n".join(targetLib.spiceinit) + "\n")
   elif (targetLib.runsim.lower() == "false"):
     print("save past working directory and files\n")
   else:

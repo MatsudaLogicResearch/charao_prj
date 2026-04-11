@@ -1723,7 +1723,7 @@ def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str):
     spicelis = spicelis[:-3]+"mt0" 
 
   #-- parse results
-  res_list=["i_vdd_leak", "i_vddio_leak", "i_rel_leak"]
+  res_list=["i_vdd_leak", "i_vnw_leak", "i_vddio_leak", "i_rel_leak"]
   res=dict()
     
   with open(spicelis,'r') as f:
@@ -1749,8 +1749,9 @@ def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str):
   # calculate result
   rslt=dict()
   
-  ## Pleak = (average of Pleak_vdd ) - (average of pleak_vrel = source)
-  pleak = abs(float(res["i_vdd_leak"])) * h.mls.vdd_voltage
+  ## Pleak = I(VDD)*VDD + I(VNW)*VNW  (VNW carries PMOS body-drain junction leakage)
+  pleak = (abs(float(res["i_vdd_leak"])) * h.mls.vdd_voltage
+         + abs(float(res["i_vnw_leak"])) * h.mls.nwell_voltage)
 
   #if h.target_relport_val == "0":
   #if (i_rel_leak > 0.0) and (pleak > i_rel_leak):

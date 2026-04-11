@@ -120,7 +120,8 @@ class MyLibrarySetting(BaseModel):
   #tmp_file :str = "__tmp__"
   simulator : str = "ngspice"
   runsim   :str = "true"
-  num_thread : int = 1 
+  spiceinit: list[str] = []
+  num_thread : int = 1
   sim_nice :int = 19
 
   simulation_timestep : float = 0.001

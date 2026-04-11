@@ -231,7 +231,8 @@ class MyLogicCell(BaseModel):
 
         #print("self.cell.lower:"+str(self.cell.lower()))
         #print("line.lower:"+str(line.lower()))
-        if((self.cell.lower() in line.lower()) and (".subckt" in line.lower())):
+        tokens = line.lower().split()
+        if(len(tokens) >= 2 and tokens[0] == ".subckt" and tokens[1] == self.cell.lower()):
           print(f"   [INFO]: Cell definition found for {str(self.cell)} in netlist.")
           #print(line)
           self.definition = line

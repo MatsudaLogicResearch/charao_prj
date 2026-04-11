@@ -114,6 +114,7 @@ def exportLib(targetLib:Mls):
   outlines.append(f'  capacitive_load_unit (1,{targetLib.capacitance_unit});')
   outlines.append(f'  current_unit : "1{targetLib.current_unit}";')
   outlines.append(f'  leakage_power_unit : "1{targetLib.leakage_power_unit}";')
+  outlines.append(f'  energy_unit : "1{targetLib.energy_unit}";')
   outlines.append(f'  pulling_resistance_unit : "1{targetLib.resistance_unit}";')
   outlines.append(f'  time_unit : "1{targetLib.time_unit}";')
   outlines.append(f'  voltage_unit : "1{targetLib.voltage_unit}";')
