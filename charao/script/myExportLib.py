@@ -852,8 +852,7 @@ def compressFiles(targetLib, targetCell):
     subprocess.run(cmd_str, shell=True)
     
     #cmd_str = "tar -zcvf "+targetLib.work_dir+"/"+targetCell.cell+".tgz "+targetLib.work_dir+"/"+targetCell.cell 
-    cmd_str = "tar -zcf "+targetLib.work_dir+"/"+targetCell.cell+".tgz "+targetLib.work_dir+"/"+targetCell.cell 
-    cmd_str += " && rm -rf " + targetLib.work_dir+"/"+targetCell.cell
+    cmd_str = "tar -zcf "+targetLib.work_dir+"/"+targetCell.cell+".tgz "+targetLib.work_dir+"/"+targetCell.cell
     subprocess.run(cmd_str, shell=True)
 
 ## export harness data to .lib

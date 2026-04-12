@@ -4,6 +4,16 @@
 
 ---
 
+## [0.9.7] 2026-04-12
+### Fixed
+- Fix internal energy calculation for fall transition: remove conditional guard on e_load;
+  use signed Cload energy (e_all - max(e_load, 0)) to correctly handle fall/rise asymmetry
+- Remove `rm -rf` after tar in compressFiles: rm is blocked on remote server
+
+### Added
+- Add charao/script/extract_lib_csv.py: extract leakage/power/timing tables from Liberty .lib
+  to CSV for reference comparison (supports single file and multi-corner directory modes)
+
 ## [0.9.6] 2026-04-11
 ### Added
 - Add `--only_template_index1` / `--only_template_index2` options: limit simulation to specified index positions (0-based) for debug/fast-check use

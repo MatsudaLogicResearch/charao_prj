@@ -591,15 +591,13 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
 
     e_all  = -float(res["q_vdd_dyn"]) * h.mls.vdd_voltage
 
-    e_load = float(res["q_out_dyn"])*(h.mls.energy_meas_high_threshold_voltage) if (float(res["q_out_dyn"]) > 0) else 0.0; #-- dynamic power of Cload(E=C*V*V=Q*V)
-    
-    e_leak = pleak *energy_time
+    e_load = float(res["q_out_dyn"]) * h.mls.energy_meas_high_threshold_voltage  #-- Cload energy (signed: >0=rise, <0=fall)
 
-    eintl = e_all
-    if (e_load >0.0) and (eintl > e_load):
-      eintl=eintl - e_load
-    if (e_leak >0.0) and (eintl > e_leak):
-      eintl=eintl - e_leak
+    e_leak = pleak * energy_time
+
+    eintl = e_all - max(e_load, 0)  #-- internal energy = Evdd - Eload(rise) / Evdd only(fall: Eload<0 → exclude cap discharge energy)
+    if (e_leak > 0.0) and (eintl > e_leak):
+      eintl = eintl - e_leak
 
     #
     rslt["eintl"]=eintl
