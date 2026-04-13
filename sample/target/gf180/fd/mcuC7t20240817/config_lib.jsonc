@@ -28,8 +28,8 @@
   ,"capacitance_unit"   : "pf"
   ,"resistance_unit"    : "Ohm"
   ,"current_unit"       : "mA"
-  ,"leakage_power_unit" : "pW"
-  ,"energy_unit"        : "fJ"
+  ,"leakage_power_unit" : "uW"
+  ,"energy_unit"        : "pJ"
   ,"time_unit"          : "ns"
 
 //--- characterization conditions

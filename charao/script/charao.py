@@ -55,8 +55,8 @@ def main():
   
   parser.add_argument('--cells_only'    , type=str, nargs="*"   , default=[]    , help='list of target cell names. blank meas all cells.')
   parser.add_argument('--measures_only' , type=str, nargs="*"   , default=[]    , help='list of measure_type names. blank meas all measure_type.')
-  parser.add_argument('--only_template_index1', type=int, nargs="*", default=[], help='indices of index_1 to run (0-based). blank means all.')
-  parser.add_argument('--only_template_index2', type=int, nargs="*", default=[], help='indices of index_2 to run (0-based). blank means all.')
+  parser.add_argument('--template_index1_only', type=int, nargs="*", default=[], help='indices of index_1 to run (0-based). blank means all.')
+  parser.add_argument('--template_index2_only', type=int, nargs="*", default=[], help='indices of index_2 to run (0-based). blank means all.')
   parser.add_argument('-s','--significant_digits'   , type=int  , default=3     , help='significant digits.')
   parser.add_argument('-b','--build_stamp',type=str             , default="b00" , help='build-stamp for output files.')
   parser.add_argument('-w','--work_dir' ,type=str               , default="work", help='work directory.')
@@ -147,8 +147,8 @@ def main():
                     "pwell_voltage"       :args.vpw,
                     "cells_only"          :args.cells_only,
                     "measures_only"       :args.measures_only,
-                    "only_template_index1":args.only_template_index1,
-                    "only_template_index2":args.only_template_index2,
+                    "template_index1_only":args.template_index1_only,
+                    "template_index2_only":args.template_index2_only,
                     "significant_digits"  :args.significant_digits,
                     "work_dir"            :args.work_dir
                     }

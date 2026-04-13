@@ -146,10 +146,10 @@ def runSpiceDelayPowerMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[M
   
   index1_slopes=temp.index_1
   index2_loads =temp.index_2
-  if mls.only_template_index1:
-    index1_slopes = [index1_slopes[i] for i in mls.only_template_index1 if i < len(index1_slopes)]
-  if mls.only_template_index2:
-    index2_loads  = [index2_loads[i]  for i in mls.only_template_index2 if i < len(index2_loads)]
+  if mls.template_index1_only:
+    index1_slopes = [index1_slopes[i] for i in mls.template_index1_only if i < len(index1_slopes)]
+  if mls.template_index2_only:
+    index2_loads  = [index2_loads[i]  for i in mls.template_index2_only if i < len(index2_loads)]
 
   h_delay.template_kind  = kind
   h_delay.template       = temp
@@ -217,10 +217,10 @@ def runSpiceDelayPowerMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[M
   
     index1_slopes=temp.index_1
     index2_loads =temp.index_2
-    if mls.only_template_index1:
-      index1_slopes = [index1_slopes[i] for i in mls.only_template_index1 if i < len(index1_slopes)]
-    if mls.only_template_index2:
-      index2_loads  = [index2_loads[i]  for i in mls.only_template_index2 if i < len(index2_loads)]
+    if mls.template_index1_only:
+      index1_slopes = [index1_slopes[i] for i in mls.template_index1_only if i < len(index1_slopes)]
+    if mls.template_index2_only:
+      index2_loads  = [index2_loads[i]  for i in mls.template_index2_only if i < len(index2_loads)]
 
     h_power.template_kind  = kind
     h_power.template       = temp
@@ -300,10 +300,11 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float
   tsim_end=max(1e-6, 2*sim_c2d_max* h.mls.time_mag) 
   
   #change timestep
-  timestep = h.mls.simulation_timestep
-  slope    = index1_slope
-  if timestep < slope * 0.0099 :
-    timestep=slope * 0.0099
+  timestep_tstep = h.mls.simulation_timestep
+  slope          = index1_slope
+  if timestep_tstep < slope * 0.0099 :
+    timestep_tstep=slope * 0.0099
+  timestep_tmax  = max(min(100 * h.mls.simulation_timestep, slope / 5), timestep_tstep)
 
   #set pullres_role for outpt enable
   pullres_role="nouse"
@@ -352,12 +353,13 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float
     ,meas_energy  = 0      # 0:No Meas for Energy/ 1:Meas Only Time/ 2:Meas all
     ,time_energy  = [0,0]  #[start,end]
     ,meas_o_max_min=0
-    ,timestep     = float("{:.5g}".format(timestep * h.mls.time_mag))
+    ,timestep     = float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
+    ,timestep_tmax= float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
     ,tsim_end     = tsim_end
     ,tdelay_init  = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
     ,tdelay_in    = float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
-    ,tslew_in     = float("{:.5g}".format(timestep            * h.mls.time_mag))
+    ,tslew_in     = float("{:.5g}".format(timestep_tstep      * h.mls.time_mag))
     ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_prop_max  * h.mls.time_mag))
     ,tslew_rel    = float("{:.5g}".format(index1_slope        * h.mls.time_mag))
     ,tpulse_rel   = tsim_end
@@ -465,10 +467,11 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
   
   
   #change timestep
-  timestep = h.mls.simulation_timestep
-  slope    = index1_slope
-  if timestep < slope * 0.0099 :
-    timestep=slope * 0.0099
+  timestep_tstep = h.mls.simulation_timestep
+  slope          = index1_slope
+  if timestep_tstep < slope * 0.0099 :
+    timestep_tstep=slope * 0.0099
+  timestep_tmax  = max(min(100 * h.mls.simulation_timestep, slope / 5), timestep_tstep)
 
   #set pullres_role for outpt enable
   pullres_role="nouse"
@@ -494,13 +497,14 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
     ,meas_energy  = meas_energy     # 0:No Meas for Energy/ 1:Meas Only Time/ 2:Meas all
     ,time_energy  = [estart,eend]  if meas_energy == 2 else [0,0]  #[start,end]
     ,meas_o_max_min=0
-    ,timestep     = float("{:.5g}".format(timestep * h.mls.time_mag))
+    ,timestep     = float("{:.5g}".format(timestep_tstep  * h.mls.time_mag))
+    ,timestep_tmax= float("{:.5g}".format(timestep_tmax   * h.mls.time_mag))
     ,tsim_end     = tsim_end
     ,tdelay_init  = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
     #,tdelay_in    = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
-    ,tdelay_in    = float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
-    ,tslew_in     = float("{:.5g}".format(10*timestep         * h.mls.time_mag))
+    ,tdelay_in    = float("{:.5g}".format(sim_c2d_max              * h.mls.time_mag))
+    ,tslew_in     = float("{:.5g}".format(10*timestep_tstep        * h.mls.time_mag))
     ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_prop_max  * h.mls.time_mag))
     ,tslew_rel    = float("{:.5g}".format(index1_slope        * h.mls.time_mag))
     ,tpulse_rel   = tsim_end
@@ -641,10 +645,10 @@ def runSpiceSetupMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
   index1_slopes_rel  =temp.index_1
   index2_slopes_const=temp.index_2
-  if mls.only_template_index1:
-    index1_slopes_rel   = [index1_slopes_rel[i]   for i in mls.only_template_index1 if i < len(index1_slopes_rel)]
-  if mls.only_template_index2:
-    index2_slopes_const = [index2_slopes_const[i] for i in mls.only_template_index2 if i < len(index2_slopes_const)]
+  if mls.template_index1_only:
+    index1_slopes_rel   = [index1_slopes_rel[i]   for i in mls.template_index1_only if i < len(index1_slopes_rel)]
+  if mls.template_index2_only:
+    index2_slopes_const = [index2_slopes_const[i] for i in mls.template_index2_only if i < len(index2_slopes_const)]
 
   h_const.template_kind  = kind
   h_const.template       = temp
@@ -699,16 +703,17 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
   sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
 
   #change timestep
-  timestep = h.mls.simulation_timestep
-  slope    = index1_slope_rel
-  if timestep < slope * 0.0099 :
-    timestep=slope * 0.0099
+  timestep_tstep = h.mls.simulation_timestep
+  slope          = index1_slope_rel
+  if timestep_tstep < slope * 0.0099 :
+    timestep_tstep=slope * 0.0099
+  timestep_tmax  = max(min(100 * h.mls.simulation_timestep, slope / 5), timestep_tstep)
 
   timestep_min = h.mls.sim_segment_timestep_min
-  if timestep_min < timestep:
-    timestep_min=timestep
-  
-    
+  if timestep_min < timestep_tstep:
+    timestep_min=timestep_tstep
+
+
   with poolg_sema:
 
     seg_start  = 0.0
@@ -798,11 +803,12 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float,
   sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
 
   #change timestep
-  timestep = h.mls.simulation_timestep
-  slope    = index1_slope_rel
-  if timestep < slope * 0.0099 :
-    timestep=slope * 0.0099
-  
+  timestep_tstep = h.mls.simulation_timestep
+  slope          = index1_slope_rel
+  if timestep_tstep < slope * 0.0099 :
+    timestep_tstep=slope * 0.0099
+  timestep_tmax  = max(min(100 * h.mls.simulation_timestep, slope / 5), timestep_tstep)
+
   # create parameter
   param = Mtp(
     #--model         = model
@@ -822,7 +828,8 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float,
     ,meas_energy  =0      # 0:No Meas for Energy/ 1:Meas Only Time/ 2:Meas all
     ,time_energy  =[0,0]  #[start,end]
     ,meas_o_max_min=0
-    ,timestep     =float("{:.5g}".format(timestep * h.mls.time_mag))
+    ,timestep     =float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
+    ,timestep_tmax=float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
     ,tsim_end     =tsim_end
     ,tdelay_init  =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
@@ -912,10 +919,10 @@ def runSpiceHoldMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
   index1_slopes_rel  =temp.index_1
   index2_slopes_const=temp.index_2
-  if mls.only_template_index1:
-    index1_slopes_rel   = [index1_slopes_rel[i]   for i in mls.only_template_index1 if i < len(index1_slopes_rel)]
-  if mls.only_template_index2:
-    index2_slopes_const = [index2_slopes_const[i] for i in mls.only_template_index2 if i < len(index2_slopes_const)]
+  if mls.template_index1_only:
+    index1_slopes_rel   = [index1_slopes_rel[i]   for i in mls.template_index1_only if i < len(index1_slopes_rel)]
+  if mls.template_index2_only:
+    index2_slopes_const = [index2_slopes_const[i] for i in mls.template_index2_only if i < len(index2_slopes_const)]
 
   h_const.template_kind  = kind
   h_const.template       = temp
@@ -966,15 +973,16 @@ def runSpiceHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_
   sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
   
   #change timestep
-  timestep = h.mls.simulation_timestep
-  slope    = index1_slope_rel
-  if timestep < slope * 0.0099 :
-    timestep=slope * 0.0099
+  timestep_tstep = h.mls.simulation_timestep
+  slope          = index1_slope_rel
+  if timestep_tstep < slope * 0.0099 :
+    timestep_tstep=slope * 0.0099
+  timestep_tmax  = max(min(100 * h.mls.simulation_timestep, slope / 5), timestep_tstep)
 
   timestep_min = h.mls.sim_segment_timestep_min
-  if timestep_min < timestep:
-    timestep_min=timestep
-    
+  if timestep_min < timestep_tstep:
+    timestep_min=timestep_tstep
+
   with poolg_sema:
     #seg_start  = -1.0*(targetHarness.mls.sim_c2d_max + targetHarness.mls.sim_d2c_max + index1_slope_rel + index2_slope_const) * targetHarness.mls.time_mag
     #seg_start  = -1.0*(sim_c2d_max + h.mls.sim_d2c_max + index1_slope_rel + index2_slope_const) * targetHarness.mls.time_mag
@@ -992,8 +1000,8 @@ def runSpiceHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_
     #tsim_end=1.0E-6
     #tsim_end=h.mls.sim_tsim_end4hold  * h.mls.time_mag
     #----- same as t_in1 + alpha
-    tsim_end  = (5*timestep + h.mls.sim_d2c_max + h.mls.sim_pulse_max) * h.mls.time_mag
-    tsim_end += (  timestep + 2*sim_c2d_max ) * h.mls.time_mag
+    tsim_end  = (5*timestep_tstep + h.mls.sim_d2c_max + h.mls.sim_pulse_max) * h.mls.time_mag
+    tsim_end += (  timestep_tstep + 2*sim_c2d_max ) * h.mls.time_mag
     tsim_end += (2 * h.mls.sim_d2c_max + index1_slope_rel) * h.mls.time_mag
    
     tstep = h.mls.sim_segment_timestep_start   * h.mls.time_mag
@@ -1068,11 +1076,12 @@ def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float, 
   sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
 
   #change timestep
-  timestep = h.mls.simulation_timestep
-  slope    = index1_slope_rel
-  if timestep < slope * 0.0099 :
-    timestep=slope * 0.0099
-  
+  timestep_tstep = h.mls.simulation_timestep
+  slope          = index1_slope_rel
+  if timestep_tstep < slope * 0.0099 :
+    timestep_tstep=slope * 0.0099
+  timestep_tmax  = max(min(100 * h.mls.simulation_timestep, slope / 5), timestep_tstep)
+
   # create parameter
   param = Mtp(
     #--model         = model
@@ -1092,7 +1101,8 @@ def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float, 
     ,meas_energy  =0      # 0:No Meas for Energy/ 1:Meas Only Time/ 2:Meas all
     ,time_energy  =[0,0]  #[start,end]
     ,meas_o_max_min=1
-    ,timestep     =float("{:.5g}".format(timestep * h.mls.time_mag))
+    ,timestep     =float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
+    ,timestep_tmax=float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
     ,tsim_end     =tsim_end
     ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
@@ -1179,8 +1189,8 @@ def runSpicePassiveMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar
 
   index1_slopes_in=temp.index_1
   index2_unuse =temp.index_2
-  if mls.only_template_index1:
-    index1_slopes_in = [index1_slopes_in[i] for i in mls.only_template_index1 if i < len(index1_slopes_in)]
+  if mls.template_index1_only:
+    index1_slopes_in = [index1_slopes_in[i] for i in mls.template_index1_only if i < len(index1_slopes_in)]
 
   h_passive.template_kind  = kind
   h_passive.template       = temp
@@ -1254,16 +1264,17 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
   sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
 
   #change timestep
-  timestep = h.mls.simulation_timestep
-  slope    = index1_slope_in
-  if timestep < slope * 0.0099 :
-    timestep=slope * 0.0099
+  timestep_tstep = h.mls.simulation_timestep
+  slope          = index1_slope_in
+  if timestep_tstep < slope * 0.0099 :
+    timestep_tstep=slope * 0.0099
+  timestep_tmax  = max(min(100 * h.mls.simulation_timestep, slope / 5), timestep_tstep)
 
   #esatrt=_t_rel0/ eend=_t_rel1+a
-  #estart  = (5 * h.mls.simulation_timestep + h.mls.sim_d2c_max +h.mls.sim_pulse_max+ h.mls.sim_c2d_max)* h.mls.time_mag  
-  #estart  = (5 * timestep + h.mls.sim_d2c_max +h.mls.sim_pulse_max+ sim_c2d_max)* h.mls.time_mag
-  
-  estart  = (6 * timestep + h.mls.sim_d2c_max +h.mls.sim_pulse_max+ sim_c2d_max + index1_slope_in + h.mls.sim_prop_max)* h.mls.time_mag
+  #estart  = (5 * h.mls.simulation_timestep + h.mls.sim_d2c_max +h.mls.sim_pulse_max+ h.mls.sim_c2d_max)* h.mls.time_mag
+  #estart  = (5 * timestep_tstep + h.mls.sim_d2c_max +h.mls.sim_pulse_max+ sim_c2d_max)* h.mls.time_mag
+
+  estart  = (6 * timestep_tstep + h.mls.sim_d2c_max +h.mls.sim_pulse_max+ sim_c2d_max + index1_slope_in + h.mls.sim_prop_max)* h.mls.time_mag
 
   eend    = estart + (index1_slope_in)* h.mls.time_mag + 2e-9
   tsim_end= eend + 1e-9 
@@ -1285,9 +1296,10 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
      cap          =0.0
     ,clk_role     =h.clk_role
     ,meas_energy  =4
-    ,time_energy  =[estart,eend]  
+    ,time_energy  =[estart,eend]
     ,meas_o_max_min=0
-    ,timestep     =float("{:.5g}".format(timestep * h.mls.time_mag))
+    ,timestep     =float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
+    ,timestep_tmax=float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
     ,tsim_end     =tsim_end
     ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
@@ -1499,10 +1511,11 @@ def genFileLogic_MinPulse1x(targetHarness:Mcar, spicef:str, tpulse_rel:float, ts
   sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
 
   #change timestep
-  timestep = h.mls.simulation_timestep
-  
+  timestep_tstep = h.mls.simulation_timestep
+  timestep_tmax  = max(100 * h.mls.simulation_timestep, timestep_tstep)
+
   # create parameter
-  tslew = 5*timestep * h.mls.time_mag
+  tslew = 5*timestep_tstep * h.mls.time_mag
   
   param = Mtp(
     #--model         = model
@@ -1522,7 +1535,8 @@ def genFileLogic_MinPulse1x(targetHarness:Mcar, spicef:str, tpulse_rel:float, ts
     ,meas_energy  =0      # 0:No Meas for Energy/ 1:Meas Only Time/ 2:Meas all
     ,time_energy  =[0,0]  #[start,end]
     ,meas_o_max_min=0
-    ,timestep     =float("{:.5g}".format(timestep * h.mls.time_mag))
+    ,timestep     =float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
+    ,timestep_tmax=float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
     ,tsim_end     =tsim_end
     ,tdelay_init  =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
@@ -1672,12 +1686,13 @@ def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str):
   sim_c2d_max = h.mls.sim_c2d_min
 
   #change timestep
-  timestep = h.mls.simulation_timestep
+  timestep_tstep = h.mls.simulation_timestep
+  timestep_tmax  = max(100 * h.mls.simulation_timestep, timestep_tstep)
 
   #set pullres_role for outpt enable
   pullres_role="nouse"
 
-  # tsim_end = 7*timestep + (tdelay_init+tpulse_init)+(tdelay_in+tslew_in)+(tdelay_rel+tslew_rel+Alpha)
+  # tsim_end = 7*timestep_tstep + (tdelay_init+tpulse_init)+(tdelay_in+tslew_in)+(tdelay_rel+tslew_rel+Alpha)
   tdelay_init = 1   if h.mlc.isflop==0 else h.mls.sim_d2c_max
   tpulse_init = 1   if h.mlc.isflop==0 else h.mls.sim_pulse_max
   tdelay_in   = sim_c2d_max
@@ -1685,7 +1700,7 @@ def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str):
   tdelay_rel  = 10
   tslew_rel   = 10
 
-  estart      = (7*timestep+(tdelay_init + tpulse_init)+(tdelay_in + tslew_in)) * h.mls.time_mag + 10e-9
+  estart      = (7*timestep_tstep+(tdelay_init + tpulse_init)+(tdelay_in + tslew_in)) * h.mls.time_mag + 10e-9
   eend        = estart + (10e-9)
   tsim_end    = eend + (1e-9)
 
@@ -1708,7 +1723,8 @@ def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str):
     ,meas_energy  = meas_energy     # 0:No Meas for Energy/ 1:Meas Only Time/ 2:Meas all/ 3:Meas leakage
     ,time_energy  = [estart,eend]
     ,meas_o_max_min=0
-    ,timestep     = float("{:.5g}".format(timestep * h.mls.time_mag))
+    ,timestep     = float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
+    ,timestep_tmax= float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
     ,tsim_end     = float("{:.5g}".format(tsim_end))
     ,tdelay_init  = float("{:.5g}".format(tdelay_init * h.mls.time_mag))
     ,tpulse_init  = float("{:.5g}".format(tpulse_init * h.mls.time_mag))

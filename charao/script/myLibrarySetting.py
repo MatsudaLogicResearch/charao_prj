@@ -161,8 +161,8 @@ class MyLibrarySetting(BaseModel):
   
   #--- argv option
   significant_digits   : int       = 3
-  only_template_index1 : list[int] = Field(default_factory=list)
-  only_template_index2 : list[int] = Field(default_factory=list)
+  template_index1_only : list[int] = Field(default_factory=list)
+  template_index2_only : list[int] = Field(default_factory=list)
   
   #--- other variable
   #load_name       :list[str] = Field(default_factory=list);

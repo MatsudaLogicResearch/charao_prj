@@ -4,6 +4,39 @@
 
 ---
 
+## [0.9.8] 2026-04-13
+
+### Fixed
+- Fix `.MEASURE TRAN` `TD={_t_rel0/_t_clk3}` by adding `-2*_timestep` offset: prevents
+  `out of interval` failure of `energy_start` WHEN clause at slope=0.02ns, which previously
+  blocked ngspice autostop and extended SIM runtime up to 3838s per run. Max SIM time now
+  44s (about 87x faster) with zero MEASURE errors across full inv_1 run (600 .lis)
+- Remove ngspice `.lis` unit ambiguity on compare: `extract_lib_csv.py` now parses
+  `time/voltage/current/leakage/energy` units from .lib header and normalizes CSV output
+  to canonical units (ns / pF / V / mA / uW / pJ). `energy_unit` is derived from
+  `V × A × s` when not declared (standard Liberty behavior)
+
+### Changed
+- Rename CLI options `--only_template_index1` / `--only_template_index2` to
+  `--template_index1_only` / `--template_index2_only` for consistency with `--cells_only`
+  / `--measures_only`. Internal `MyLibrarySetting` field names also renamed
+- `sample/target/gf180/fd/mcuC7t20240817/config_lib.jsonc`: switch `leakage_power_unit`
+  from `pW` to `uW` and `energy_unit` from `fJ` to `pJ` to match original GF180 .lib
+  convention (makes CSV values directly comparable without unit scaling)
+- `extract_lib_csv.py`: CSV column names now carry parenthesized units
+  (`index1 (ns)`, `index2 (pF)`, `value (ns)`, `value (pJ)`, `leakage_power (uW)`);
+  single source of truth via `UNITS_IN_CSV` dict
+
+### Added
+- `charao/script/compare_lib_csv.py`: compare two CSV directories produced by
+  `extract_lib_csv.py`. Uses numpy.interp for 2D bilinear interpolation to evaluate
+  the new side on the original grid, and reports ratio/abs_diff statistics grouped
+  by `table_type` (timing) and `rise_fall` (power). Optional `--out_csv` writes
+  per-point comparison rows
+- `charao/script/extract_sim_time.py`: scan `work/*.sp.lis` and extract SIM time,
+  data rows, autostop status, and error count to `rslt/sim_time.csv`. Useful for
+  SIM speed regression and bottleneck analysis
+
 ## [0.9.7] 2026-04-12
 ### Fixed
 - Fix internal energy calculation for fall transition: remove conditional guard on e_load;
@@ -16,7 +49,7 @@
 
 ## [0.9.6] 2026-04-11
 ### Added
-- Add `--only_template_index1` / `--only_template_index2` options: limit simulation to specified index positions (0-based) for debug/fast-check use
+- Add `--template_index1_only` / `--template_index2_only` options: limit simulation to specified index positions (0-based) for debug/fast-check use (renamed from `--only_template_index1/2` for consistency with `--cells_only` / `--measures_only`)
 
 ## [0.9.5] 2026-04-11
 ### Added

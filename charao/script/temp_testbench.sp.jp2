@@ -60,6 +60,7 @@
 .param pullres  = {{param.pullres}}
 
 .param _timestep   = {{param.timestep}}
+.param _tmax       = {{param.timestep_tmax}}
 .param _tsim_end   = {{param.tsim_end}}
 
 .param _tdelay_init= {{param.tdelay_init}}
@@ -135,7 +136,7 @@ VOCAP VOUT WOUT DC 0
 ** tran
 *.tran {_timestep} {_tsim_end} UIC maxstep=1e-10
 *.tran {_timestep} {_tsim_end} 0 1e-11
-.tran {_timestep} {_tsim_end}
+.tran {_timestep} {_tsim_end} 0 {_tmax}
 
 
 ** DRIVE
@@ -217,42 +218,42 @@ VCLK VCLK 0 PWL({_timestep} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vc
 {%- if   param.arc_oirc[0] in ["rise","fall"] %}
 *** output change time
 .MEASURE TRAN chg_out
-+ WHEN v(VOUT)={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0}
++ WHEN v(VOUT)={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0 - 2*_timestep}
 {%- endif %}
 
 {%- if   (param.arc_oirc[0] in ["rise","fall"]) and (param.arc_oirc[2] in ["rise","fall"]) %}
 *** Prop delay 
 .MEASURE TRAN prop_in_out
-+ TRIG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_rel0}
-+ TARG v(VOUT) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0}
++ TRIG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_rel0 - 2*_timestep}
++ TARG v(VOUT) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0 - 2*_timestep}
 {%- endif %}
 
 {%- if  param.arc_oirc[0] in ["rise","fall"] %}
 *** Trans delay 
 .MEASURE TRAN trans_out
-+ TRIG v(VOUT) VAL={{param.tran_v0_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0}
-+ TARG v(VOUT) VAL={{param.tran_v1_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0}
++ TRIG v(VOUT) VAL={{param.tran_v0_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0 - 2*_timestep}
++ TARG v(VOUT) VAL={{param.tran_v1_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0 - 2*_timestep}
 {%- endif %}
 
 {%-if (param.arc_oirc[1] in ["rise","fall"]) and (param.arc_oirc[2] in ["rise","fall"])%}
 *** setup/recovery
 .MEASURE TRAN setup_in_rel
-+ TRIG v(VIN)  VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc[1]}}=1 TD={_t_clk3}
-+ TARG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_clk3}
++ TRIG v(VIN)  VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc[1]}}=1 TD={_t_clk3 - 2*_timestep}
++ TARG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_clk3 - 2*_timestep}
 
 *** hold/removal
 .MEASURE TRAN hold_rel_in
-+ TRIG v(VREL)  VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_clk3}
-+ TARG v(VIN)   VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc[1]}}=1 TD={_t_clk3}
++ TRIG v(VREL)  VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_clk3 - 2*_timestep}
++ TARG v(VIN)   VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc[1]}}=1 TD={_t_clk3 - 2*_timestep}
 {%- endif %}
 
 {%- if   param.meas_energy in [1,2] %}
 *** energy time
 .MEASURE TRAN energy_start
-+ WHEN V(VREL)={{param.ener_v0_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_rel0}
++ WHEN V(VREL)={{param.ener_v0_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_rel0 - 2*_timestep}
 
 .MEASURE TRAN energy_end
-+ WHEN V(VOUT)={{param.ener_v1_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0}
++ WHEN V(VOUT)={{param.ener_v1_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0 - 2*_timestep}
 {%- endif %}
 
 {%- if   param.meas_energy in [2,4] %}

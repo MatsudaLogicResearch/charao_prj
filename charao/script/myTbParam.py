@@ -50,6 +50,7 @@ class MyTbParam:
   meas_o_max_min:int       =0;
   
   timestep     :float      =1e-9;
+  timestep_tmax:float      =1e-9;
   tsim_end     :float      =1e-9;
   tdelay_init  :float      =1e-9;  #-- for VCLK
   tpulse_init  :float      =1e-9;  #-- for VCLK
