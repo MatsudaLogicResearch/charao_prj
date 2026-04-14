@@ -16,7 +16,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 ###############################################################################
-#[Info] Merge multiple Markdown files into a single file.
+#[Info] util_merge_md.py — Merge multiple Markdown files into a single file.
 ###############################################################################
 
 import re

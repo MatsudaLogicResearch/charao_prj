@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-extract_lib_csv.py — Liberty .lib から leakage.csv / power.csv / timing.csv を抽出
+util_extract_lib_csv.py — Liberty .lib から leakage.csv / power.csv / timing.csv を抽出
 
 【使い方】
 
 # ① GF180 参照 .lib（全コーナー）→ デフォルトパスへ出力
-python -m charao.script.extract_lib_csv
+python -m charao.script.util_extract_lib_csv
 
 # ② 任意の .lib ディレクトリ → 任意の出力先（コーナーごとにサブディレクトリ）
-python -m charao.script.extract_lib_csv --lib_dir <dir> --out_dir <dir>
+python -m charao.script.util_extract_lib_csv --lib_dir <dir> --out_dir <dir>
 
 # ③ charao 出力など単一 .lib → 指定ディレクトリへ直接出力（サブディレクトリなし）
-python -m charao.script.extract_lib_csv --lib <file.lib> --out <dir>
+python -m charao.script.util_extract_lib_csv --lib <file.lib> --out <dir>
 
 【単位の正規化】
   .lib ヘッダの time_unit / voltage_unit / current_unit / leakage_power_unit /
@@ -163,6 +163,24 @@ def _canonical_scales(units):
     return s
 
 
+def _normalize_when(s):
+    """Liberty `when` 式を正規化する。
+
+    Liberty では AND 演算子として空白と `&` のどちらも使えるため、`"A1 !A3"` と
+    `"A1&!A3"` は同じ意味。比較時に文字列一致で取りこぼさないよう、canonical な
+    `&` 区切りに統一する。演算子周辺の余分な空白も除去する。
+    """
+    if not s:
+        return ""
+    s = s.strip()
+    # 二項演算子 (& | ^ ( ) ) 周辺の空白のみを除去。`!` は単項で、前の implicit AND
+    # 空白と区別が必要なので除去対象に含めない（例：`"A1 !A2"` は `A1 & !A2`）
+    s = re.sub(r"\s*([&|^()])\s*", r"\1", s)
+    # 残った空白列を implicit AND (= &) として置換
+    s = re.sub(r"\s+", "&", s)
+    return s
+
+
 def _units_in_lib_str(units):
     """units dict を 'time=1ns, cap=1pF, ...' 形式の一行文字列に。"""
     order = [
@@ -268,7 +286,7 @@ class LibertyParser:
             line = self.advance()
             m = re.search(r'when\s*:\s*"([^"]*)"', line)
             if m:
-                when = m.group(1)
+                when = _normalize_when(m.group(1))
             m = re.search(r'value\s*:\s*"?([^";\s]+)"?\s*;', line)
             if m:
                 value = m.group(1)
@@ -287,6 +305,7 @@ class LibertyParser:
 
     def parse_internal_power(self, cell_name, pin_name):
         related_pin = None
+        when = ""
         while self.i < self.n:
             line = self.peek()
             m = re.match(r'(fall_power|rise_power)\s*\(\S+\)\s*\{', line)
@@ -296,7 +315,8 @@ class LibertyParser:
                 i1, i2, vals = self.parse_2d_table()
                 self._emit_table(i1, i2, vals,
                                  {"cell_name": cell_name, "pin": pin_name,
-                                  "related_pin": related_pin, "rise_fall": pt_type},
+                                  "related_pin": related_pin, "when": when,
+                                  "rise_fall": pt_type},
                                  self.power_rows, COL_POWER_VALUE,
                                  self.s["energy_scale"])
                 continue
@@ -304,11 +324,15 @@ class LibertyParser:
             m = re.search(r'related_pin\s*:\s*"([^"]*)"', line)
             if m:
                 related_pin = m.group(1)
+            m = re.search(r'when\s*:\s*"([^"]*)"', line)
+            if m:
+                when = _normalize_when(m.group(1))
             if "}" in line and "{" not in line:
                 break
 
     def parse_timing(self, cell_name, pin_name):
         related_pin = None
+        when = ""
         timing_tables = {"cell_rise", "cell_fall", "rise_transition", "fall_transition"}
         while self.i < self.n:
             line = self.peek()
@@ -319,7 +343,8 @@ class LibertyParser:
                 i1, i2, vals = self.parse_2d_table()
                 self._emit_table(i1, i2, vals,
                                  {"cell_name": cell_name, "pin": pin_name,
-                                  "related_pin": related_pin, "table_type": tt_type},
+                                  "related_pin": related_pin, "when": when,
+                                  "table_type": tt_type},
                                  self.timing_rows, COL_TIMING_VALUE,
                                  self.s["time_scale"])
                 continue
@@ -327,6 +352,9 @@ class LibertyParser:
             m = re.search(r'related_pin\s*:\s*"([^"]*)"', line)
             if m:
                 related_pin = m.group(1)
+            m = re.search(r'when\s*:\s*"([^"]*)"', line)
+            if m:
+                when = _normalize_when(m.group(1))
             if "}" in line and "{" not in line:
                 break
 
@@ -416,10 +444,10 @@ def extract_to_dir(lib_path, out_dir):
     write_csv(out_dir / "leakage.csv",
               ["cell_name", COL_LEAKAGE, "when"], leakage)
     write_csv(out_dir / "power.csv",
-              ["cell_name", "pin", "related_pin", "rise_fall",
+              ["cell_name", "pin", "related_pin", "when", "rise_fall",
                COL_INDEX1, COL_INDEX2, COL_POWER_VALUE], power)
     write_csv(out_dir / "timing.csv",
-              ["cell_name", "pin", "related_pin", "table_type",
+              ["cell_name", "pin", "related_pin", "when", "table_type",
                COL_INDEX1, COL_INDEX2, COL_TIMING_VALUE], timing)
 
 

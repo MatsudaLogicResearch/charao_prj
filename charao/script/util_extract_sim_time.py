@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-extract_sim_time.py — work/ 配下の ngspice .lis から SIM 実行時間を抽出して CSV 化
+util_extract_sim_time.py — work/ 配下の ngspice .lis から SIM 実行時間を抽出して CSV 化
 
 【使い方】
 
 # デフォルト：./work 配下の全 .lis を走査 → ./rslt/sim_time.csv
-python -m charao.script.extract_sim_time
+python -m charao.script.util_extract_sim_time
 
 # 任意の work ディレクトリ / 出力先を指定
-python -m charao.script.extract_sim_time --work <dir> --out <file>
+python -m charao.script.util_extract_sim_time --work <dir> --out <file>
 
 【入力ファイル名の前提】
   vt_<vdd>_<temp>_<cell>_<index_no>_<measure>_oir=<oirc>_arc=<arc>[_<load>_<slope>][_energy1|_energy2|_leakage].sp.lis

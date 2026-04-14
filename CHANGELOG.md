@@ -4,6 +4,31 @@
 
 ---
 
+## [0.9.9] 2026-04-14
+
+### Fixed
+- 入力 PWL ランプ時間の算出を orig `.lib` の `slew_derate_from_library` 規約に合わせて修正。
+  `charao_run.py` でテンプレート `index_1` を「物理 threshold 区間（slew_lower→slew_upper）の時間」
+  と解釈し、`index_1 / (logic_threshold_high - logic_threshold_low)` で全幅（0–100%）ランプ時間
+  に換算するようにした。新ヘルパー `_tslew_from_template()` を 8 箇所に適用
+  （組合せ delay/power、順序 setup/hold、three-state 系）。出力 transition は補正なしで
+  そのまま書き出す（ルール：物理 threshold 区間の時間、derate 補正は書き出し時に入れない）。
+
+### Added
+- `slew_derate_from_library` フィールドを `MyLibrarySetting` に追加（デフォルト 1.0）。
+  GF180 用 `config_lib.jsonc` には値 `0.5` を設定。`myExportLib.py` の `.lib` ヘッダ出力を
+  ハードコード `1` から config 参照に変更。
+
+### Changed
+- `util_compare_lib_csv.py` の集計表示を ratio ベースから diff ベースに刷新
+  （`diff avg / sigma / min / max`）。理由：ratio は orig 小値除算で暴れて本質を隠し、
+  系統的オフセット（定数バイアス）を見落としやすい。per-point CSV から `ratio` 列を削除、
+  `orig==0` のスキップも撤廃。
+- サマリファイル出力を追加：`--out_csv <path.csv>` 指定時、同じ内容を `<path.summary.txt>`
+  にも書き出す。対話での結果共有を容易にするため。
+
+---
+
 ## [0.9.8] 2026-04-13
 
 ### Fixed
@@ -11,7 +36,7 @@
   `out of interval` failure of `energy_start` WHEN clause at slope=0.02ns, which previously
   blocked ngspice autostop and extended SIM runtime up to 3838s per run. Max SIM time now
   44s (about 87x faster) with zero MEASURE errors across full inv_1 run (600 .lis)
-- Remove ngspice `.lis` unit ambiguity on compare: `extract_lib_csv.py` now parses
+- Remove ngspice `.lis` unit ambiguity on compare: `util_extract_lib_csv.py` now parses
   `time/voltage/current/leakage/energy` units from .lib header and normalizes CSV output
   to canonical units (ns / pF / V / mA / uW / pJ). `energy_unit` is derived from
   `V × A × s` when not declared (standard Liberty behavior)
@@ -23,17 +48,17 @@
 - `sample/target/gf180/fd/mcuC7t20240817/config_lib.jsonc`: switch `leakage_power_unit`
   from `pW` to `uW` and `energy_unit` from `fJ` to `pJ` to match original GF180 .lib
   convention (makes CSV values directly comparable without unit scaling)
-- `extract_lib_csv.py`: CSV column names now carry parenthesized units
+- `util_extract_lib_csv.py`: CSV column names now carry parenthesized units
   (`index1 (ns)`, `index2 (pF)`, `value (ns)`, `value (pJ)`, `leakage_power (uW)`);
   single source of truth via `UNITS_IN_CSV` dict
 
 ### Added
-- `charao/script/compare_lib_csv.py`: compare two CSV directories produced by
-  `extract_lib_csv.py`. Uses numpy.interp for 2D bilinear interpolation to evaluate
+- `charao/script/util_compare_lib_csv.py`: compare two CSV directories produced by
+  `util_extract_lib_csv.py`. Uses numpy.interp for 2D bilinear interpolation to evaluate
   the new side on the original grid, and reports ratio/abs_diff statistics grouped
   by `table_type` (timing) and `rise_fall` (power). Optional `--out_csv` writes
   per-point comparison rows
-- `charao/script/extract_sim_time.py`: scan `work/*.sp.lis` and extract SIM time,
+- `charao/script/util_extract_sim_time.py`: scan `work/*.sp.lis` and extract SIM time,
   data rows, autostop status, and error count to `rslt/sim_time.csv`. Useful for
   SIM speed regression and bottleneck analysis
 
@@ -44,7 +69,7 @@
 - Remove `rm -rf` after tar in compressFiles: rm is blocked on remote server
 
 ### Added
-- Add charao/script/extract_lib_csv.py: extract leakage/power/timing tables from Liberty .lib
+- Add charao/script/util_extract_lib_csv.py: extract leakage/power/timing tables from Liberty .lib
   to CSV for reference comparison (supports single file and multi-corner directory modes)
 
 ## [0.9.6] 2026-04-11

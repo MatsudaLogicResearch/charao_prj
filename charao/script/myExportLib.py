@@ -209,7 +209,7 @@ def exportLib(targetLib:Mls):
   outlines.append(f'  output_threshold_pct_fall : {targetLib.logic_high_to_low_threshold*100};')
   outlines.append(f'  output_threshold_pct_rise : {targetLib.logic_low_to_high_threshold*100};')
 
-  outlines.append(f'  slew_derate_from_library : 1;')
+  outlines.append(f'  slew_derate_from_library : {targetLib.slew_derate_from_library};')
   
   outlines.append(f'  slew_lower_threshold_pct_fall : {targetLib.logic_threshold_low*100};')
   outlines.append(f'  slew_lower_threshold_pct_rise : {targetLib.logic_threshold_low*100};')

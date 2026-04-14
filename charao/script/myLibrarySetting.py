@@ -100,6 +100,7 @@ class MyLibrarySetting(BaseModel):
   energy_meas_high_threshold  : float = 0.99 ;#
   hold_meas_low_threshold     : float = 0.01 ;#
   hold_meas_high_threshold    : float = 0.99 ;#
+  slew_derate_from_library    : float = 1.0  ;# .lib header value (stored = phys threshold-window time; STA: actual = stored * derate)
   
   #slope  : list[list[Any]]= Field(default_factory=list); # [[1, 2, 3, "slope1"],[2, 3, 4, "slope2"]]
   #load   : list[list[Any]]= Field(default_factory=list);

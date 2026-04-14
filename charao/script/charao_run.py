@@ -29,6 +29,16 @@ from .myExpectCell           import MyExpectCell            as Mec
 from .myTbParam              import MyTbParam               as Mtp
 from .myFunc import my_exit
 
+
+def _tslew_from_template(slew:float, mls:Mls) -> float:
+  """Convert template slew (physical threshold-window time) to SPICE PWL
+  full-rail (0-100%) ramp duration. Template index_1 represents the
+  slew_lower_threshold_pct -> slew_upper_threshold_pct transit time, so the
+  full-rail linear ramp duration is slew / (high - low). time_mag is then
+  applied to convert to SPICE seconds."""
+  span = mls.logic_threshold_high - mls.logic_threshold_low
+  return float("{:.5g}".format(slew / span * mls.time_mag))
+
 import numpy as np
 from typing import List
 from jinja2 import Environment, FileSystemLoader
@@ -361,7 +371,7 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float
     ,tdelay_in    = float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
     ,tslew_in     = float("{:.5g}".format(timestep_tstep      * h.mls.time_mag))
     ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_prop_max  * h.mls.time_mag))
-    ,tslew_rel    = float("{:.5g}".format(index1_slope        * h.mls.time_mag))
+    ,tslew_rel    = _tslew_from_template(index1_slope, h.mls)
     ,tpulse_rel   = tsim_end
     ,tsweep_rel   = 0.0
   );
@@ -506,7 +516,7 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
     ,tdelay_in    = float("{:.5g}".format(sim_c2d_max              * h.mls.time_mag))
     ,tslew_in     = float("{:.5g}".format(10*timestep_tstep        * h.mls.time_mag))
     ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_prop_max  * h.mls.time_mag))
-    ,tslew_rel    = float("{:.5g}".format(index1_slope        * h.mls.time_mag))
+    ,tslew_rel    = _tslew_from_template(index1_slope, h.mls)
     ,tpulse_rel   = tsim_end
     ,tsweep_rel   = 0.0
   );
@@ -834,9 +844,9 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float,
     ,tdelay_init  =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
     ,tdelay_in    =float("{:.5g}".format(sim_c2d_max        * h.mls.time_mag))
-    ,tslew_in     =float("{:.5g}".format(index2_slope_const * h.mls.time_mag))
+    ,tslew_in     =_tslew_from_template(index2_slope_const, h.mls)
     ,tdelay_rel   =float("{:.5g}".format(h.mls.sim_d2c_max  * h.mls.time_mag))
-    ,tslew_rel    =float("{:.5g}".format(index1_slope_rel   * h.mls.time_mag))
+    ,tslew_rel    =_tslew_from_template(index1_slope_rel, h.mls)
     ,tpulse_rel   =tsim_end
     ,tsweep_rel   =tsweep
   );
@@ -1107,9 +1117,9 @@ def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float, 
     ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
     ,tdelay_in    =float("{:.5g}".format(2*sim_c2d_max       * h.mls.time_mag))
-    ,tslew_in     =float("{:.5g}".format(index2_slope_const  * h.mls.time_mag))
+    ,tslew_in     =_tslew_from_template(index2_slope_const, h.mls)
     ,tdelay_rel   =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
-    ,tslew_rel    =float("{:.5g}".format(index1_slope_rel    * h.mls.time_mag))
+    ,tslew_rel    =_tslew_from_template(index1_slope_rel, h.mls)
     ,tpulse_rel   =tsim_end
     ,tsweep_rel   =tsweep
   );
@@ -1304,9 +1314,9 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
     ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
     ,tdelay_in    =float("{:.5g}".format(sim_c2d_max           * h.mls.time_mag))
-    ,tslew_in     =float("{:.5g}".format(index1_slope_in       * h.mls.time_mag))
+    ,tslew_in     =_tslew_from_template(index1_slope_in, h.mls)
     ,tdelay_rel   =float("{:.5g}".format(h.mls.sim_prop_max    * h.mls.time_mag))
-    ,tslew_rel    =float("{:.5g}".format(index1_slope_in       * h.mls.time_mag))
+    ,tslew_rel    =_tslew_from_template(index1_slope_in, h.mls)
     ,tpulse_rel   =tsim_end
     ,tsweep_rel   =0.0
   );
