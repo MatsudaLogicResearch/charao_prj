@@ -4,6 +4,24 @@
 
 ---
 
+## [0.9.10] 2026-04-15
+
+### Fixed
+- energy2 測定で最小 slew (slope=0.02 ns) 時に ngspice が `Timestep too small`
+  （`vrel#branch` / `vhigh#branch` / `vlow#branch`）で abort する問題を修正。
+  `charao/script/temp_testbench.sp.jp2` の `.option` 行に `gmin=1e-10 abstol=1e-11 rshunt=1e9`
+  を追加することで、`.tran` 終端着地時の ill-conditioned matrix による数値発散を回避。
+  `rshunt=1e9` が決定打。2026-04-14 の gf180 91セルフルランで発覚した spice エラー
+  （energy2 系の `Failed to launch spice`）を解消。
+
+### Changed
+- `sample/target/gf180/fd/mcuC7t20240817/config_lib.jsonc`:
+  `simulation_timestep` を 0.0001 → 0.0005、`sim_segment_timestep_min` を 0.001 → 0.0005
+  に変更（最小 slew の約 1/40 目安）。実測で 0.0005 は全セル通過、それ未満への細分化は
+  不要と判明。
+
+---
+
 ## [0.9.9] 2026-04-14
 
 ### Fixed

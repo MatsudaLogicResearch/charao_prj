@@ -15,7 +15,7 @@
 #}
 
 *title: delay meas.
-.option brief nopage nomod post=1 ingold=2 autostop
+.option brief nopage nomod post=1 ingold=2 autostop gmin=1e-10 abstol=1e-11 rshunt=1e9
 .options NOREFVALUE
 
 .inc '{{param.model}}'
