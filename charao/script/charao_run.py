@@ -310,11 +310,9 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float
   tsim_end=max(1e-6, 2*sim_c2d_max* h.mls.time_mag) 
   
   #change timestep
-  timestep_tstep = h.mls.simulation_timestep
   slope          = index1_slope
-  if timestep_tstep < slope * 0.0099 :
-    timestep_tstep=slope * 0.0099
-  timestep_tmax  = max(min(100 * h.mls.simulation_timestep, slope / 5), timestep_tstep)
+  timestep_tstep = min(slope * 0.0099, h.mls.simulation_timestep)
+  timestep_tmax  = 20 * timestep_tstep
 
   #set pullres_role for outpt enable
   pullres_role="nouse"
@@ -477,17 +475,18 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
   
   
   #change timestep
-  timestep_tstep = h.mls.simulation_timestep
+  # energy2 only: cap tmax/tstep ratio at 4 to avoid .tran endpoint convergence failure
+  # (for delay/energy1 the sim is much longer, ratio 20 keeps accumulated numerical error in check)
   slope          = index1_slope
-  if timestep_tstep < slope * 0.0099 :
-    timestep_tstep=slope * 0.0099
-  timestep_tmax  = max(min(100 * h.mls.simulation_timestep, slope / 5), timestep_tstep)
+  timestep_tstep = min(slope * 0.0099, h.mls.simulation_timestep)
+  _ratio_cap     = 4 if meas_energy == 2 else 20
+  timestep_tmax  = _ratio_cap * timestep_tstep
 
   #set pullres_role for outpt enable
   pullres_role="nouse"
   if h.timing_type == "three_state_enable":
     pullres_role = "down" if arc_oirc[0]=="r" else "up"   if arc_oirc[0]=="f" else "nouse"
-    
+
   param = Mtp(
     #model         = model
     #,netlist      = netlist
@@ -713,11 +712,9 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
   sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
 
   #change timestep
-  timestep_tstep = h.mls.simulation_timestep
   slope          = index1_slope_rel
-  if timestep_tstep < slope * 0.0099 :
-    timestep_tstep=slope * 0.0099
-  timestep_tmax  = max(min(100 * h.mls.simulation_timestep, slope / 5), timestep_tstep)
+  timestep_tstep = min(slope * 0.0099, h.mls.simulation_timestep)
+  timestep_tmax  = 20 * timestep_tstep
 
   timestep_min = h.mls.sim_segment_timestep_min
   if timestep_min < timestep_tstep:
@@ -813,11 +810,9 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float,
   sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
 
   #change timestep
-  timestep_tstep = h.mls.simulation_timestep
   slope          = index1_slope_rel
-  if timestep_tstep < slope * 0.0099 :
-    timestep_tstep=slope * 0.0099
-  timestep_tmax  = max(min(100 * h.mls.simulation_timestep, slope / 5), timestep_tstep)
+  timestep_tstep = min(slope * 0.0099, h.mls.simulation_timestep)
+  timestep_tmax  = 20 * timestep_tstep
 
   # create parameter
   param = Mtp(
@@ -983,11 +978,9 @@ def runSpiceHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_
   sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
   
   #change timestep
-  timestep_tstep = h.mls.simulation_timestep
   slope          = index1_slope_rel
-  if timestep_tstep < slope * 0.0099 :
-    timestep_tstep=slope * 0.0099
-  timestep_tmax  = max(min(100 * h.mls.simulation_timestep, slope / 5), timestep_tstep)
+  timestep_tstep = min(slope * 0.0099, h.mls.simulation_timestep)
+  timestep_tmax  = 20 * timestep_tstep
 
   timestep_min = h.mls.sim_segment_timestep_min
   if timestep_min < timestep_tstep:
@@ -1086,11 +1079,9 @@ def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float, 
   sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
 
   #change timestep
-  timestep_tstep = h.mls.simulation_timestep
   slope          = index1_slope_rel
-  if timestep_tstep < slope * 0.0099 :
-    timestep_tstep=slope * 0.0099
-  timestep_tmax  = max(min(100 * h.mls.simulation_timestep, slope / 5), timestep_tstep)
+  timestep_tstep = min(slope * 0.0099, h.mls.simulation_timestep)
+  timestep_tmax  = 20 * timestep_tstep
 
   # create parameter
   param = Mtp(
@@ -1274,11 +1265,9 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
   sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
 
   #change timestep
-  timestep_tstep = h.mls.simulation_timestep
   slope          = index1_slope_in
-  if timestep_tstep < slope * 0.0099 :
-    timestep_tstep=slope * 0.0099
-  timestep_tmax  = max(min(100 * h.mls.simulation_timestep, slope / 5), timestep_tstep)
+  timestep_tstep = min(slope * 0.0099, h.mls.simulation_timestep)
+  timestep_tmax  = 20 * timestep_tstep
 
   #esatrt=_t_rel0/ eend=_t_rel1+a
   #estart  = (5 * h.mls.simulation_timestep + h.mls.sim_d2c_max +h.mls.sim_pulse_max+ h.mls.sim_c2d_max)* h.mls.time_mag

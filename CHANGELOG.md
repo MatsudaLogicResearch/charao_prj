@@ -4,6 +4,27 @@
 
 ---
 
+## [0.9.11] 2026-04-15
+
+### Fixed
+- energy2 を含む全セルで ngspice の `Timestep too small` 収束失敗を解消。
+  `temp_testbench.sp.jp2` の `.option` に `gmin=1e-10 abstol=1e-11 rshunt=1e9 reltol=1e-2`
+  を追加し、ill-conditioned matrix を広く救済。`rshunt=1e9` が決定打。
+  2026-04-15 の gf180 91 セル × 2×2 コーナー検証で `Failed to launch spice` が 0 件。
+
+### Changed
+- `charao_run.py` の `.tran` タイムステップ算出ロジックを全面刷新：
+  - `timestep_tstep = min(slope * 0.0099, simulation_timestep)`（従来の floor から ceiling へ）
+  - `timestep_tmax = 20 * timestep_tstep`（delay / energy1 / setup / hold / passive）
+  - `timestep_tmax = 4 * timestep_tstep`（energy2 のみ、`.tran` 終端着地対策）
+  - 旧式の `slope/5` / `100×simulation_timestep` の min 制約は撤廃
+  - 全 7 箇所（delay / power / setup_trial / setup / hold_trial / hold / passive）に適用
+- `sample/target/gf180/fd/mcuC7t20240817/config_lib.jsonc`:
+  - `simulation_timestep` を 1.0（ns、上限キャップとして機能）
+  - `sim_segment_timestep_min` を 0.001（ns、setup/hold bisection 用、独立パラメータ）
+
+---
+
 ## [0.9.10] 2026-04-15
 
 ### Fixed
