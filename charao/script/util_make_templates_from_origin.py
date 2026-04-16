@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-util_make_templates.py — orig .lib から config_lib.jsonc の templates セクションを再生成
+util_make_templates_from_origin.py — orig .lib から config_lib.jsonc の templates セクションを再生成
 
 【目的】
 オリジナル .lib に出現する全 index_2 グリッドを「全 10 点が許容範囲（デフォルト ±5%）
@@ -12,23 +12,23 @@ templates セクションに書き出す。これにより charao の per-cell �
 【使い方】
 
 # orig CSV を入力（推奨・高速）
-python -m charao.script.util_make_templates \\
+python -m charao.script.util_make_templates_from_origin \\
     --orig_csv tmp/gf180_fd_mcuC7t20240817/tt_025C_5v00 \\
     --config sample/target/gf180/fd/mcuC7t20240817/config_lib.jsonc
 
 # orig .lib 直接
-python -m charao.script.util_make_templates \\
+python -m charao.script.util_make_templates_from_origin \\
     --orig_lib sample/src/.../gf180mcu_fd_sc_mcu7t5v0__tt_025C_5v00.lib \\
     --config sample/target/gf180/fd/mcuC7t20240817/config_lib.jsonc
 
 # 別ファイルへ出力（in-place しない）
-python -m charao.script.util_make_templates --output new_config.jsonc ...
+python -m charao.script.util_make_templates_from_origin --output new_config.jsonc ...
 
 # 書き換えずレポートのみ
-python -m charao.script.util_make_templates --dry_run ...
+python -m charao.script.util_make_templates_from_origin --dry_run ...
 
 # 許容を変える（デフォルト 0.05 = 5%）
-python -m charao.script.util_make_templates --tolerance 0.03 ...
+python -m charao.script.util_make_templates_from_origin --tolerance 0.03 ...
 
 【動作仕様】
 1. orig 側から (cell, pin, related_pin, when, table_type) ごとに index_2 リストを収集

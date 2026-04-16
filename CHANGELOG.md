@@ -4,6 +4,29 @@
 
 ---
 
+## [0.9.12] 2026-04-16
+
+### Fixed
+- internal_power 計算を min-rail 方式に変更（`min(|Q_vdd|, |Q_vss|) × Vdd`、libretto 互換）。
+  従来の `|Q_vdd| × Vdd - Q_out × Vdd` は PMOS I²R 損失を含み STA switching と二重計上になっていた。
+- `e_load` 計算を Liberty 仕様に修正（`× energy_meas_high_threshold_voltage` → `× vdd_voltage`）。
+- テストベンチの load cap (`C0`) 接続先を `VSS_DYN` → 理想 GND (`0`) に変更。
+  `I(VSS_DYN)` に cap 充放電電流が混入し `Q_vss` 測定が不正確だった問題を解消。
+- `.option` から `reltol=1e-2` を削除（ngspice デフォルト `1e-3` を使用）。
+
+### Added
+- `util_compare_lib_csv.py` に `--interpolate` オプション追加。
+  orig と charao で load グリッドが異なる場合に 2D bilinear 補間（線形外挿）で全点比較可能。
+- `util_make_templates_from_new.py` 新規追加。
+  Cin-fanout 方式で index_1/index_2 を生成し、orig .lib 不要で templates セクションを作成。
+
+### Changed
+- `util_make_templates.py` を `util_make_templates_from_origin.py` にリネーム。
+- `debug_run.sh`: compare に `--interpolate` 追加。
+  `MODE=local` で `python3 -m charao.script.charao` を使用（pip 版と分離）。
+
+---
+
 ## [0.9.11] 2026-04-15
 
 ### Fixed

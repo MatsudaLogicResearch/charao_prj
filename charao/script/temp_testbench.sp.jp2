@@ -15,7 +15,7 @@
 #}
 
 *title: delay meas.
-.option brief nopage nomod post=1 ingold=2 autostop gmin=1e-10 abstol=1e-11 rshunt=1e9 reltol=1e-2
+.option brief nopage nomod post=1 ingold=2 autostop gmin=1e-10 abstol=1e-11 rshunt=1e9
 .options NOREFVALUE
 
 .inc '{{param.model}}'
@@ -307,7 +307,7 @@ VCLK VCLK 0 PWL({_timestep} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vc
 
 ** INSTANCE
 XCELL VCLK VREL VIN VOUT VHIGH VLOW VHIGH_IO VLOW_IO VDD_DYN VSS_DYN VNW_DYN VPW_DYN VDDIO_DYN VSSIO_DYN DUT 
-C0 WOUT VSS_DYN 'cap'
+C0 WOUT 0 'cap'
 
 **** for three state
 {% if param.pullres_role != "nouse" %}

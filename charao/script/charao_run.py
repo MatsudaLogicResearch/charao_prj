@@ -540,7 +540,7 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
   res_list=["energy_start","energy_end"]
   res=dict()
   if(meas_energy == 2):
-    res_list += ["q_in_dyn","q_rel_dyn","q_clk_dyn","q_out_dyn","q_vdd_dyn","i_vdd_leak","i_in_leak","i_rel_leak","i_clk_leak"]
+    res_list += ["q_in_dyn","q_rel_dyn","q_clk_dyn","q_out_dyn","q_vdd_dyn","q_vss_dyn","i_vdd_leak","i_in_leak","i_rel_leak","i_clk_leak"]
     
   with open(spicelis,'r') as f:
     for inline in f:
@@ -591,24 +591,17 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
 
     cin = c_clk if h.target_relport == "c0" else c_rel
     
-    ## intl. energy calculation
-    ## intl. energy is the sum of short-circuit energy and drain-diffusion charge/discharge energy
-    ## larger Ql: intl. Q, load Q 
-    ## smaller Qs: intl. Q
-    ## Eintl = QsV
-    #--res_q = res_q_vdd_dyn if(abs(res_q_vdd_dyn) < abs(res_q_vss_dyn)) else res_q_vss_dyn
-    #--eintl=abs(res_q*targetLib.vdd_voltage*targetLib.energy_meas_high_threshold \
-    #--          - abs((res_energy_end - res_energy_start)*
-    #--          ((abs(res_i_vdd_leak) + abs(res_i_vss_leak))/2)*(targetLib.vdd_voltage*targetLib.energy_meas_high_threshold))))
-                
-
-    e_all  = -float(res["q_vdd_dyn"]) * h.mls.vdd_voltage
-
-    e_load = float(res["q_out_dyn"]) * h.mls.energy_meas_high_threshold_voltage  #-- Cload energy (signed: >0=rise, <0=fall)
+    ## intl. energy: min-rail method (libretto compatible)
+    ## min(|Q_vdd|, |Q_vss|) = DUT 内部を通り抜けた電流（短絡 + 内部 cap）
+    ## Rise: Q_vss が小（load は VDD→cap→GND で VSS を通らない）
+    ## Fall: Q_vdd が小（load は cap→NMOS→VSS で VDD を通らない）
+    q_vdd = abs(float(res["q_vdd_dyn"]))
+    q_vss = abs(float(res["q_vss_dyn"]))
+    q_min = min(q_vdd, q_vss)
 
     e_leak = pleak * energy_time
 
-    eintl = e_all - max(e_load, 0)  #-- internal energy = Evdd - Eload(rise) / Evdd only(fall: Eload<0 → exclude cap discharge energy)
+    eintl = q_min * h.mls.vdd_voltage
     if (e_leak > 0.0) and (eintl > e_leak):
       eintl = eintl - e_leak
 
@@ -1329,7 +1322,7 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
 
   #-- parse results
   res=dict()
-  res_list=["q_rel_dyn","q_in_dyn","q_clk_dyn","q_vdd_dyn","i_vdd_leak"]
+  res_list=["q_rel_dyn","q_in_dyn","q_clk_dyn","q_vdd_dyn","q_vss_dyn","i_vdd_leak"]
   with open(spicelis,'r') as f:
     
     for inline in f:
@@ -1367,14 +1360,16 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
   ## pleak
   pleak = abs(float(res["i_vdd_leak"])) * h.mls.vdd_voltage
 
-  ## intl
-  e_all  = -float(res["q_vdd_dyn"]) * h.mls.vdd_voltage
-  e_load = 0.0; #-- output is stable?
-  e_leak = pleak *energy_time
+  ## intl: min-rail method (output stable → Q_vdd ≈ Q_vss, both small)
+  q_vdd = abs(float(res["q_vdd_dyn"]))
+  q_vss = abs(float(res["q_vss_dyn"]))
+  q_min = min(q_vdd, q_vss)
 
-  eintl = e_all
-  if (e_leak >0.0) and (eintl > e_leak):
-    eintl=eintl - e_leak
+  e_leak = pleak * energy_time
+
+  eintl = q_min * h.mls.vdd_voltage
+  if (e_leak > 0.0) and (eintl > e_leak):
+    eintl = eintl - e_leak
   
   # result
   rslt={

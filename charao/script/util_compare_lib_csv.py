@@ -35,6 +35,8 @@ import math
 from collections import defaultdict
 from pathlib import Path
 
+from bisect import bisect_right
+
 from charao.script.util_extract_lib_csv import (
     COL_INDEX1, COL_INDEX2, COL_TIMING_VALUE, COL_POWER_VALUE,
 )
@@ -95,8 +97,85 @@ def _group(rows, group_keys, value_key, kind_key,
     return g
 
 
+# ── 2D bilinear 補間（線形外挿付き）─────────────────────────────────────
+
+def _build_table_2d(triples):
+    """(i1, i2, value) リストから (sorted_i1, sorted_i2, 2d_dict) を構築。
+    同一 (i1, i2) に複数値がある場合は平均をとる。"""
+    pts = defaultdict(list)
+    for i1, i2, v in triples:
+        pts[(i1, i2)].append(v)
+    i1_list = sorted({k[0] for k in pts})
+    i2_list = sorted({k[1] for k in pts})
+    table = {}
+    for (a, b), vs in pts.items():
+        table[(a, b)] = sum(vs) / len(vs)
+    return i1_list, i2_list, table
+
+
+def _interp1d_extrap(x, xp, fp):
+    """1D 線形補間 + 線形外挿。xp は昇順リスト、fp は同長リスト。"""
+    n = len(xp)
+    if n == 0:
+        return None
+    if n == 1:
+        return fp[0]
+    if x <= xp[0]:
+        slope = (fp[1] - fp[0]) / (xp[1] - xp[0]) if xp[1] != xp[0] else 0.0
+        return fp[0] + slope * (x - xp[0])
+    if x >= xp[-1]:
+        slope = (fp[-1] - fp[-2]) / (xp[-1] - xp[-2]) if xp[-1] != xp[-2] else 0.0
+        return fp[-1] + slope * (x - xp[-1])
+    idx = bisect_right(xp, x) - 1
+    idx = max(0, min(idx, n - 2))
+    dx = xp[idx + 1] - xp[idx]
+    if dx == 0:
+        return fp[idx]
+    t = (x - xp[idx]) / dx
+    return fp[idx] * (1 - t) + fp[idx + 1] * t
+
+
+def _interp2d(qi1, qi2, i1_list, i2_list, table):
+    """2D bilinear 補間 + 線形外挿。table は {(i1,i2): value} dict。
+    i1 方向で 2 本のスライスを i2 補間し、結果を i1 方向で補間。"""
+    n1 = len(i1_list)
+    n2 = len(i2_list)
+    if n1 < 1 or n2 < 1:
+        return None
+    if n1 == 1:
+        fp = [table.get((i1_list[0], b)) for b in i2_list]
+        if any(v is None for v in fp):
+            return None
+        return _interp1d_extrap(qi2, i2_list, fp)
+    if n2 == 1:
+        fp = [table.get((a, i2_list[0])) for a in i1_list]
+        if any(v is None for v in fp):
+            return None
+        return _interp1d_extrap(qi1, i1_list, fp)
+    # i1 方向のブラケット
+    if qi1 <= i1_list[0]:
+        j = 0
+    elif qi1 >= i1_list[-1]:
+        j = n1 - 2
+    else:
+        j = bisect_right(i1_list, qi1) - 1
+        j = max(0, min(j, n1 - 2))
+    # j と j+1 の 2 スライスを i2 方向で補間
+    fp_lo = [table.get((i1_list[j], b)) for b in i2_list]
+    fp_hi = [table.get((i1_list[j + 1], b)) for b in i2_list]
+    if any(v is None for v in fp_lo) or any(v is None for v in fp_hi):
+        return None
+    v_lo = _interp1d_extrap(qi2, i2_list, fp_lo)
+    v_hi = _interp1d_extrap(qi2, i2_list, fp_hi)
+    dx = i1_list[j + 1] - i1_list[j]
+    if dx == 0:
+        return v_lo
+    t = (qi1 - i1_list[j]) / dx
+    return v_lo * (1 - t) + v_hi * t
+
+
 def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
-                     drop_zero_new, drop_default_when):
+                     drop_zero_new, drop_default_when, interpolate=False):
     """(cell, pin, related_pin, when, kind, index1, index2) 単位で per-point 比較。
     各点の (orig, new, abs_diff) をリストで返す。
 
@@ -124,18 +203,33 @@ def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
             missing_groups += 1
             continue
         matched_groups += 1
-        n_by_idx = {(i1, i2): v for i1, i2, v in n_triples}
-        for i1, i2, vo in o_triples:
-            vn = n_by_idx.get((i1, i2))
-            if vn is None:
-                continue
-            matched_points += 1
-            per_point.append({
-                "cell_name": cell, "pin": pin, "related_pin": rpin,
-                "when": when, "kind": kind, COL_INDEX1: i1, COL_INDEX2: i2,
-                "value_orig": vo, "value_new": vn,
-                "abs_diff": vn - vo,
-            })
+
+        if interpolate:
+            i1_arr, i2_arr, table = _build_table_2d(n_triples)
+            for i1, i2, vo in o_triples:
+                vn = _interp2d(i1, i2, i1_arr, i2_arr, table)
+                if vn is None:
+                    continue
+                matched_points += 1
+                per_point.append({
+                    "cell_name": cell, "pin": pin, "related_pin": rpin,
+                    "when": when, "kind": kind, COL_INDEX1: i1, COL_INDEX2: i2,
+                    "value_orig": vo, "value_new": vn,
+                    "abs_diff": vn - vo,
+                })
+        else:
+            n_by_idx = {(i1, i2): v for i1, i2, v in n_triples}
+            for i1, i2, vo in o_triples:
+                vn = n_by_idx.get((i1, i2))
+                if vn is None:
+                    continue
+                matched_points += 1
+                per_point.append({
+                    "cell_name": cell, "pin": pin, "related_pin": rpin,
+                    "when": when, "kind": kind, COL_INDEX1: i1, COL_INDEX2: i2,
+                    "value_orig": vo, "value_new": vn,
+                    "abs_diff": vn - vo,
+                })
 
     _log(f"  matched groups : {matched_groups}")
     _log(f"  missing groups : {missing_groups} (new side not found)")
@@ -187,6 +281,10 @@ def main():
                          "INV などのように default しか持たないセルは常に保持される。"
                          "モダン STA（OpenSTA / PrimeTime / Tempus）では sensitization "
                          "完全網羅があれば default block は不要。")
+    ap.add_argument("--interpolate", action="store_true",
+                    help="新側テーブルを 2D bilinear 補間（線形外挿）して orig 側の全"
+                         " (index1, index2) 点で比較する。orig/new で load グリッドが"
+                         "異なる場合（charao テンプレートが orig と不一致のとき）に使用。")
     args = ap.parse_args()
 
     orig = Path(args.orig).resolve()
@@ -195,6 +293,8 @@ def main():
     _log(f"New  : {new}")
     if args.cell:
         _log(f"Cell : {args.cell}")
+    if args.interpolate:
+        _log(f"Mode : interpolate (2D bilinear + linear extrapolation)")
     _log("")
 
     rows_out = []
@@ -215,6 +315,7 @@ def main():
             o_rows, n_rows, kind_key, value_key, args.cell,
             drop_zero_new=(not args.keep_zero_new),
             drop_default_when=(not args.keep_default_when),
+            interpolate=args.interpolate,
         )
         _log("")
 
