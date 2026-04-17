@@ -32,6 +32,7 @@ python -m charao.script.util_compare_lib_csv --orig <orig_dir> --new <new_dir> -
 import argparse
 import csv
 import math
+import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -311,6 +312,21 @@ def main():
         _log(label)
         o_rows = _load_csv(op)
         n_rows = _load_csv(np_)
+
+        # --interpolate 時: 新側に 0.0 の値が含まれていたら部分ランと判断し中断
+        if args.interpolate and not args.keep_zero_new:
+            has_zero = any(
+                float(r.get(value_key, "1") or "1") == 0.0
+                for r in n_rows
+                if r.get(value_key) is not None
+            )
+            if has_zero:
+                _log(f"  [ERROR] --interpolate requires a full grid run, "
+                     f"but new side contains zero values (partial run detected).")
+                _log(f"  Re-run without --interpolate for partial comparison.")
+                print(f"[ERROR] {fn}: partial run detected. Remove --interpolate.")
+                sys.exit(1)
+
         rows_out += _compare_section(
             o_rows, n_rows, kind_key, value_key, args.cell,
             drop_zero_new=(not args.keep_zero_new),

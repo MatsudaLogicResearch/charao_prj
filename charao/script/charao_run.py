@@ -540,7 +540,8 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
   res_list=["energy_start","energy_end"]
   res=dict()
   if(meas_energy == 2):
-    res_list += ["q_in_dyn","q_rel_dyn","q_clk_dyn","q_out_dyn","q_vdd_dyn","q_vss_dyn","i_vdd_leak","i_in_leak","i_rel_leak","i_clk_leak"]
+    res_list += ["q_in_dyn","q_rel_dyn","q_clk_dyn","q_out_dyn","q_vdd_dyn","q_vss_dyn",
+                 "i_vdd_leak","i_vss_leak","i_vnw_leak","i_vpw_leak","i_in_leak","i_rel_leak","i_clk_leak"]
     
   with open(spicelis,'r') as f:
     for inline in f:
@@ -575,10 +576,15 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
     q_rel_dyn = res["q_rel_dyn"]
     q_clk_dyn = res["q_clk_dyn"]
     
-    ## Pleak = average of Pleak_vdd and Pleak_vss
-    ## P = I * V
-    #pleak= (((abs(res_i_vdd_leak])+abs(res_i_vss_leak))/2)*(targetLib.vdd_voltage))
-    pleak=abs(float(res["i_vdd_leak"])) * h.mls.vdd_voltage
+    ## Pleak = max(supply, absorb) * Vdd
+    ## supply = I_vdd + I_vnw (into DUT), absorb = I_vss + I_vpw (out of DUT)
+    i_vdd = -float(res["i_vdd_leak"])
+    i_vss =  float(res["i_vss_leak"])
+    i_vnw = -float(res["i_vnw_leak"])
+    i_vpw =  float(res["i_vpw_leak"])
+    p_supply = i_vdd * (h.mls.vdd_voltage - h.mls.vss_voltage) + i_vnw * (h.mls.nwell_voltage - h.mls.pwell_voltage)
+    p_absorb = i_vss * (h.mls.vdd_voltage - h.mls.vss_voltage) + i_vpw * (h.mls.nwell_voltage - h.mls.pwell_voltage)
+    pleak = max(p_supply, p_absorb)
     
     ## input energy(=relport energy)
     #ein = abs(float(res["q_in_dyn"])) * h.mls.vdd_voltage
@@ -591,19 +597,17 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
 
     cin = c_clk if h.target_relport == "c0" else c_rel
     
-    ## intl. energy: min-rail method (libretto compatible)
-    ## min(|Q_vdd|, |Q_vss|) = DUT 内部を通り抜けた電流（短絡 + 内部 cap）
-    ## Rise: Q_vss が小（load は VDD→cap→GND で VSS を通らない）
-    ## Fall: Q_vdd が小（load は cap→NMOS→VSS で VDD を通らない）
+    ## intl. energy: min-rail method
+    ## min(|Q_vdd|, |Q_vss|) = short-circuit charge
     q_vdd = abs(float(res["q_vdd_dyn"]))
     q_vss = abs(float(res["q_vss_dyn"]))
     q_min = min(q_vdd, q_vss)
 
     e_leak = pleak * energy_time
 
-    eintl = q_min * h.mls.vdd_voltage
-    if (e_leak > 0.0) and (eintl > e_leak):
-      eintl = eintl - e_leak
+    eintl = q_min * h.mls.vdd_voltage - e_leak
+    if eintl < 0.0:
+      eintl = 0.0
 
     #
     rslt["eintl"]=eintl
@@ -1322,7 +1326,8 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
 
   #-- parse results
   res=dict()
-  res_list=["q_rel_dyn","q_in_dyn","q_clk_dyn","q_vdd_dyn","q_vss_dyn","i_vdd_leak"]
+  res_list=["q_rel_dyn","q_in_dyn","q_clk_dyn","q_out_dyn","q_vdd_dyn","q_vss_dyn",
+            "i_vdd_leak","i_vss_leak","i_vnw_leak","i_vpw_leak"]
   with open(spicelis,'r') as f:
     
     for inline in f:
@@ -1357,19 +1362,25 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
 
   cin = c_clk if h.target_relport == "c0" else c_rel
 
-  ## pleak
-  pleak = abs(float(res["i_vdd_leak"])) * h.mls.vdd_voltage
+  ## Pleak = max(supply, absorb) * Vdd
+  i_vdd = -float(res["i_vdd_leak"])
+  i_vss =  float(res["i_vss_leak"])
+  i_vnw = -float(res["i_vnw_leak"])
+  i_vpw =  float(res["i_vpw_leak"])
+  p_supply = i_vdd * (h.mls.vdd_voltage - h.mls.vss_voltage) + i_vnw * (h.mls.nwell_voltage - h.mls.pwell_voltage)
+  p_absorb = i_vss * (h.mls.vdd_voltage - h.mls.vss_voltage) + i_vpw * (h.mls.nwell_voltage - h.mls.pwell_voltage)
+  pleak = max(p_supply, p_absorb)
 
-  ## intl: min-rail method (output stable → Q_vdd ≈ Q_vss, both small)
+  ## intl. energy: min-rail method
   q_vdd = abs(float(res["q_vdd_dyn"]))
   q_vss = abs(float(res["q_vss_dyn"]))
   q_min = min(q_vdd, q_vss)
 
   e_leak = pleak * energy_time
 
-  eintl = q_min * h.mls.vdd_voltage
-  if (e_leak > 0.0) and (eintl > e_leak):
-    eintl = eintl - e_leak
+  eintl = q_min * h.mls.vdd_voltage - e_leak
+  if eintl < 0.0:
+    eintl = 0.0
   
   # result
   rslt={
@@ -1681,7 +1692,6 @@ def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str):
 
   #change timestep
   timestep_tstep = h.mls.simulation_timestep
-  timestep_tmax  = max(100 * h.mls.simulation_timestep, timestep_tstep)
 
   #set pullres_role for outpt enable
   pullres_role="nouse"
@@ -1697,6 +1707,11 @@ def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str):
   estart      = (7*timestep_tstep+(tdelay_init + tpulse_init)+(tdelay_in + tslew_in)) * h.mls.time_mag + 10e-9
   eend        = estart + (10e-9)
   tsim_end    = eend + (1e-9)
+
+  # tmax: initial estimate, cap to tsim_end*0.1, floor to tstep
+  timestep_tmax  = max(100 * h.mls.simulation_timestep, timestep_tstep)
+  timestep_tmax  = min(timestep_tmax, tsim_end * 0.1)
+  timestep_tmax  = max(timestep_tmax, timestep_tstep)
 
   param = Mtp(
     #model         = model
@@ -1749,7 +1764,7 @@ def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str):
     spicelis = spicelis[:-3]+"mt0" 
 
   #-- parse results
-  res_list=["i_vdd_leak", "i_vnw_leak", "i_vddio_leak", "i_rel_leak"]
+  res_list=["i_vdd_leak", "i_vss_leak", "i_vnw_leak", "i_vpw_leak", "i_vddio_leak", "i_rel_leak"]
   res=dict()
     
   with open(spicelis,'r') as f:
@@ -1775,9 +1790,14 @@ def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str):
   # calculate result
   rslt=dict()
   
-  ## Pleak = I(VDD)*VDD + I(VNW)*VNW  (VNW carries PMOS body-drain junction leakage)
-  pleak = (abs(float(res["i_vdd_leak"])) * h.mls.vdd_voltage
-         + abs(float(res["i_vnw_leak"])) * h.mls.nwell_voltage)
+  ## Pleak = max(supply, absorb) * Vdd
+  i_vdd = -float(res["i_vdd_leak"])
+  i_vss =  float(res["i_vss_leak"])
+  i_vnw = -float(res["i_vnw_leak"])
+  i_vpw =  float(res["i_vpw_leak"])
+  p_supply = i_vdd * (h.mls.vdd_voltage - h.mls.vss_voltage) + i_vnw * (h.mls.nwell_voltage - h.mls.pwell_voltage)
+  p_absorb = i_vss * (h.mls.vdd_voltage - h.mls.vss_voltage) + i_vpw * (h.mls.nwell_voltage - h.mls.pwell_voltage)
+  pleak = max(p_supply, p_absorb)
 
   #if h.target_relport_val == "0":
   #if (i_rel_leak > 0.0) and (pleak > i_rel_leak):

@@ -4,6 +4,26 @@
 
 ---
 
+## [0.9.13] 2026-04-17
+
+### Fixed
+- `.option rshunt=1e9` をコメントアウト。5V/1GΩ=5nA の人工電流が leakage を 330 倍過大にしていた。
+- `.option gmin=1e-10` をコメントアウト。5V×0.1nS=0.5nA の人工電流が leakage に混入していた。
+- `.option abstol=1e-11` をコメントアウト（ngspice デフォルト使用）。
+- `.option autostop` を energy2/3/4 で無効化。leakage テストベンチで `.meas` が `out of interval` で失敗していた問題を解消。
+- leakage テストベンチの `timestep_tmax` を `tsim_end*0.1` で上限キャップ。
+
+### Changed
+- pleak 計算式を全端子（VDD/VSS/VNW/VPW）対応に変更。
+  `pleak = max(p_supply, p_absorb)`、`p_supply = i_vdd*(VDD-VSS) + i_vnw*(VNW-VPW)`。
+  符号付き（abs 不使用）でエネルギー回生を表現可能。
+- `i_vnw_leak`, `i_vpw_leak` の `.meas` を energy2/4 と leakage テストベンチに追加。
+
+### Added
+- `util_compare_lib_csv.py`: `--interpolate` 時の部分ラン検出ガード追加。
+- `debug_run.sh`: `COMPARE_INTERPOLATE` 環境変数追加（0: off、1: on）。
+- `debug_run.sh`: `grep -c` の `|| true` 修正（set -e 対策）。
+
 ## [0.9.12] 2026-04-16
 
 ### Fixed

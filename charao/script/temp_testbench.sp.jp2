@@ -15,7 +15,13 @@
 #}
 
 *title: delay meas.
-.option brief nopage nomod post=1 ingold=2 autostop gmin=1e-10 abstol=1e-11 rshunt=1e9
+.option brief nopage nomod post=1 ingold=2
+{%- if param.meas_energy not in [2,3,4] %}
+.option autostop
+{%- endif %}
+*.option abstol=1e-11
+*.option gmin=1e-10
+*.option rshunt=1e9
 .options NOREFVALUE
 
 .inc '{{param.model}}'
@@ -263,15 +269,17 @@ VCLK VCLK 0 PWL({_timestep} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vc
 .MEASURE TRAN q_clk_dyn INTEG I(VCLK)  FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 .MEASURE TRAN q_out_dyn INTEG I(VOCAP) FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 
-*** Energy (Total charge, Short-Circuit Charge) 
+*** Energy (Total charge, Short-Circuit Charge)
 .MEASURE TRAN q_vdd_dyn INTEG I(VDD_DYN)      FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 .MEASURE TRAN q_vss_dyn INTEG I(VSS_DYN)      FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 .MEASURE TRAN q_vddio_dyn INTEG I(VDDIO_DYN) FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 .MEASURE TRAN q_vssio_dyn INTEG I(VSSIO_DYN) FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 
-*** Leakage current 
+*** Leakage current
 .MEASURE TRAN i_vdd_leak   AVG I(VDD_DYN)    FROM={_t_in0 - 101*_timestep} TO={_t_in0 - 1*_timestep}
 .MEASURE TRAN i_vss_leak   AVG I(VSS_DYN)    FROM={_t_in0 - 101*_timestep} TO={_t_in0 - 1*_timestep}
+.MEASURE TRAN i_vnw_leak   AVG I(VNW_DYN)    FROM={_t_in0 - 101*_timestep} TO={_t_in0 - 1*_timestep}
+.MEASURE TRAN i_vpw_leak   AVG I(VPW_DYN)    FROM={_t_in0 - 101*_timestep} TO={_t_in0 - 1*_timestep}
 .MEASURE TRAN i_vddio_leak AVG I(VDDIO_DYN) FROM={_t_in0 - 101*_timestep} TO={_t_in0 - 1*_timestep}
 .MEASURE TRAN i_vssio_leak AVG I(VSSIO_DYN) FROM={_t_in0 - 101*_timestep} TO={_t_in0 - 1*_timestep}
 
@@ -283,7 +291,9 @@ VCLK VCLK 0 PWL({_timestep} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vc
 {%- elif   param.meas_energy == 3 %}
 * Gate leak current
 .MEASURE TRAN i_vdd_leak   AVG I(VDD_DYN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+.MEASURE TRAN i_vss_leak   AVG I(VSS_DYN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 .MEASURE TRAN i_vnw_leak   AVG I(VNW_DYN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+.MEASURE TRAN i_vpw_leak   AVG I(VPW_DYN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 .MEASURE TRAN i_vddio_leak AVG I(VDDIO_DYN) FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 .MEASURE TRAN i_rel_leak   AVG I(VREL)      FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 
@@ -306,7 +316,7 @@ VCLK VCLK 0 PWL({_timestep} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vc
 **.endc 
 
 ** INSTANCE
-XCELL VCLK VREL VIN VOUT VHIGH VLOW VHIGH_IO VLOW_IO VDD_DYN VSS_DYN VNW_DYN VPW_DYN VDDIO_DYN VSSIO_DYN DUT 
+XCELL VCLK VREL VIN VOUT VHIGH VLOW VHIGH_IO VLOW_IO VDD_DYN VSS_DYN VNW_DYN VPW_DYN VDDIO_DYN VSSIO_DYN DUT
 C0 WOUT 0 'cap'
 
 **** for three state
