@@ -471,7 +471,16 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
   sim_c2d_max = max(sim_c2d_max_per_unit * index2_load, h.mls.sim_c2d_min)
   sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
 
-  tsim_end=eend + 1e-9 if meas_energy == 2 else max(1e-6, 2*sim_c2d_max* h.mls.time_mag)
+  if meas_energy == 2:
+    # Cover VREL rise completion: combinational cells with slow input slew
+    # may have VOUT crossing 99% (eend) before VREL midpoint, so eend+1ns
+    # alone can cut off prop_in_out / setup_in_rel / hold_rel_in measures.
+    # estart ≈ _t_rel0 (VREL crosses ~1% Vdd, near rise start),
+    # so estart + tslew_rel ≈ _t_rel1 (VREL completion).
+    tslew_rel_s = _tslew_from_template(index1_slope, h.mls)
+    tsim_end = max(eend, estart + tslew_rel_s) + 1e-9
+  else:
+    tsim_end = max(1e-6, 2*sim_c2d_max* h.mls.time_mag)
   
   
   #change timestep

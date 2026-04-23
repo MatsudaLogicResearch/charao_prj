@@ -30,7 +30,8 @@ class MyExpectCell:
   meas_type   : str = "delay"          ; #measure_type( )
   tmg_sense   : str = "pos"            ; #timing_sense=pos,neg,non
   tmg_when    : str = ""               ; #when condition in .lib/.v (optional)
-  specify     : str = ""               ; #specify code in .v (optional). 
+  specify     : str = ""               ; #specify code in .v (optional). ";;" marks verilog ifnone.
+  timing_default : bool = False        ; #emit when-less Liberty default block (independent of specify ";;")
 
   def __post_init__(self):
 

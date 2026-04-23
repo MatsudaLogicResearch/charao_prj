@@ -12,6 +12,7 @@
 - `.option abstol=1e-11` をコメントアウト（ngspice デフォルト使用）。
 - `.option autostop` を energy2/3/4 で無効化。leakage テストベンチで `.meas` が `out of interval` で失敗していた問題を解消。
 - leakage テストベンチの `timestep_tmax` を `tsim_end*0.1` で上限キャップ。
+- `charao_run.py:474` energy2 の `tsim_end` を `eend + 1ns` → `max(eend, estart + tslew_rel) + 1ns` に変更（2026-04-23）。組合せセル + 遅 slope で VREL midpoint が VOUT 完了 (`energy_end`) より後に来るケース（xor3_1 / inv_1 等で再現）の `prop_in_out` / `setup_in_rel` / `hold_rel_in` measure 失敗を解消。VREL 完了時刻 (`_t_rel1 ≈ estart + tslew_rel`) を sim 区間に包含。
 
 ### Changed
 - pleak 計算式を全端子（VDD/VSS/VNW/VPW）対応に変更。
@@ -23,6 +24,15 @@
 - `util_compare_lib_csv.py`: `--interpolate` 時の部分ラン検出ガード追加。
 - `debug_run.sh`: `COMPARE_INTERPOLATE` 環境変数追加（0: off、1: on）。
 - `debug_run.sh`: `grep -c` の `|| true` 修正（set -e 対策）。
+- `myExpectCell.py`: `timing_default: bool = False` field 追加（2026-04-23）。Liberty default block 生成の on/off を verilog `ifnone` マーカー（`;;`）から独立制御。
+- `myExportLib.py`: timing/power block 出力時、group 内に `timing_default=True` のエントリがあれば **when なし default block を自動生成**。STA/synthesis ツール互換性向上。
+- `mylogic_base.py`: AND2/3/4, OR2/3/4, NAND2/3/4, NOR2/3/4 の delay entries 72 件に `tmg_when`（active sensitization）と `timing_default=True` を追加。orig との power arc match 向上（single-when missing 21,600 → 14,760、-32%）。
+
+### Changed
+- `mylogic_base.py` / `mylogic_user.py`: `specify=";;"` マーカーの再配置（Verilog LRM 準拠）。
+  - **削除**（全 state 網羅セル、`ifnone` は redundant）：XOR2/XNOR2/MUX2/XOR3 の `;;` 15 件 → `;` へ戻す。
+  - **追加**（補集合ありセル、`ifnone` で state cover）：AND/OR/NAND/NOR の fall entries 36 件に `;;` 付与。
+  - 併せて全対象セルの最後のエントリに `timing_default=True` を付与（Liberty default block 生成）。
 
 ## [0.9.12] 2026-04-16
 

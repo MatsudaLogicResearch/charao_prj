@@ -458,6 +458,25 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       ##
       outlines.append(f'      }}') ## timing end
 
+      # Add default (when-less) timing block if any entry in this group sets timing_default=True
+      # (Liberty default block for STA/synthesis compatibility; independent of verilog ifnone)
+      if timing_when and any(h.mec.timing_default for h in group_list):
+        outlines.append(f'      timing () {{')
+        outlines.append(f'        related_pin : "{targetCell.replace_by_portmap(target_relport)}";')
+        outlines.append(f'        timing_sense : "{h1.timing_sense}";')
+        outlines.append(f'        timing_type : "{h1.timing_type}";')
+        for h in group_list:
+          t=h.template
+          outlines.append(f'        {h.direction_prop} ({t.kind}_template_{t.grid}) {{')
+          for lut_line in h.lut["prop"]:
+            outlines.append(f'          {lut_line}')
+          outlines.append(f'        }}')
+          outlines.append(f'        {h.direction_tran} ({t.kind}_template_{t.grid}) {{')
+          for lut_line in h.lut["trans"]:
+            outlines.append(f'          {lut_line}')
+          outlines.append(f'        }}')
+        outlines.append(f'      }}') ## default timing end
+
     ##-------------------------------------------------------------------------
     ## energy(power)
     sorted_harnessList=sorted(h_list_e, key=lambda x: (x.target_relport, x.timing_type, x.timing_when))
@@ -508,7 +527,23 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
           outlines.append(f'          {lut_line}')
         outlines.append(f'        }}')
         
-      outlines.append(f'      }}') ## port end        
+      outlines.append(f'      }}') ## port end
+
+      # Add default (when-less) internal_power block if any entry in this group sets timing_default=True
+      if h1.timing_when != "" and any(h.mec.timing_default for h in group_list):
+        outlines.append(f'      internal_power () {{')
+        if targetCell.mls.vdd2_name or targetCell.mls.vddio_name:
+          voltage = "IO_VOLTAGE" if (port in targetCell.io_voltage) else "CORE2_VOLTAGE" if (port in targetCell.vdd2_voltage) else "CORE_VOLTAGE"
+          outlines.append(f'        power_level : "{voltage}";')
+        outlines.append(f'        related_pin : "{targetCell.replace_by_portmap(target_relport)}";')
+        for h in group_list:
+          t = h.template
+          outlines.append(f'        {h.direction_power} ({t.kind}_energy_template_{t.grid}) {{')
+          for lut_line in h.lut["eintl"]:
+            outlines.append(f'          {lut_line}')
+          outlines.append(f'        }}')
+        outlines.append(f'      }}') ## default port end
+
     outlines.append(f'    }}') ## out pin end
 
   ## end of outport/biport
