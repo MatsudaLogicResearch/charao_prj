@@ -95,10 +95,10 @@ def get_logic_dict():
     "AND2":{"logic_type":"comb",
             "functions":{"o0":"i0&i1"},
             "expect":                                                     
-            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["0","1"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i0 => o0) = (0,0);"),
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["1","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i1 => o0) = (0,0);"),
+            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["0","1"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="i1", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="i1", specify="(i0 => o0) = (0,0);;", timing_default=True),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["1","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="i0", specify=""),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="i0", specify="(i1 => o0) = (0,0);;", timing_default=True),
              #--- leakage
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["d"],"i":["0","0"]},mondrv_oir=["0","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1", specify=""),
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["d"],"i":["0","1"]},mondrv_oir=["0","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&i1", specify=""),
@@ -109,14 +109,14 @@ def get_logic_dict():
     "AND3":{"logic_type":"comb",
             "functions":{"o0":"i0&i1&i2"},
             "expect":
-            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["0","1","1"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["1","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i0 => o0) = (0,0);"),
+            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["0","1","1"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="i1&i2", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["1","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="i1&i2", specify="(i0 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["1","0","1"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["1","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i1 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["1","0","1"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="i0&i2", specify=""),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["1","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="i0&i2", specify="(i1 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["1","1","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["1","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i2 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["1","1","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="i0&i1", specify=""),
+             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["1","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="i0&i1", specify="(i2 => o0) = (0,0);;", timing_default=True),
              #--- leakage
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["d"],"i":["0","0","0"]},mondrv_oir=["0","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&!i2", specify=""),
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["d"],"i":["0","0","1"]},mondrv_oir=["0","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&i2", specify=""),
@@ -131,17 +131,17 @@ def get_logic_dict():
     "AND4":{"logic_type":"comb",
             "functions":{"o0":"i0&i1&i2&i3"},
             "expect":
-            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["0","1","1","1"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["1","1","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i0 => o0) = (0,0);"),
+            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["0","1","1","1"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="i1&i2&i3", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["1","1","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="i1&i2&i3", specify="(i0 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["1","0","1","1"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["1","1","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i1 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["1","0","1","1"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="i0&i2&i3", specify=""),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["1","1","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="i0&i2&i3", specify="(i1 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["1","1","0","1"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["1","1","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i2 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["1","1","0","1"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="i0&i1&i3", specify=""),
+             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["1","1","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="i0&i1&i3", specify="(i2 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i3","i3"],ival={"o":["0"],"i":["1","1","1","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i3","i3"],ival={"o":["1"],"i":["1","1","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i3 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i3","i3"],ival={"o":["0"],"i":["1","1","1","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="i0&i1&i2", specify=""),
+             MyExpectCell(pin_oir=["o0","i3","i3"],ival={"o":["1"],"i":["1","1","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="i0&i1&i2", specify="(i3 => o0) = (0,0);;", timing_default=True),
              #--- leakage
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["d"],"i":["0","0","0","0"]},mondrv_oir=["0","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&!i2&!i3", specify=""),
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["d"],"i":["0","0","0","1"]},mondrv_oir=["0","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&!i2&i3", specify=""),
@@ -165,11 +165,11 @@ def get_logic_dict():
     "OR2":{"logic_type":"comb",
            "functions":{"o0":"i0|i1"},
            "expect":
-            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["1","0"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i0 => o0) = (0,0);"),
+            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="!i1", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["1","0"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="!i1", specify="(i0 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["0","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i1 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="!i0", specify=""),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["0","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="!i0", specify="(i1 => o0) = (0,0);;", timing_default=True),
              #--- leakage
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["d"],"i":["0","0"]},mondrv_oir=["0","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1", specify=""),
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["u"],"i":["0","1"]},mondrv_oir=["1","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&i1", specify=""),
@@ -180,14 +180,14 @@ def get_logic_dict():
     "OR3":{"logic_type":"comb",
            "functions":{"o0":"i0|i1|i2"},
            "expect":                                                     
-            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["0","0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["1","0","0"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i0 => o0) = (0,0);"),
+            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["0","0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="!i1&!i2", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["1","0","0"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="!i1&!i2", specify="(i0 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["0","0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["0","1","0"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i1 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["0","0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="!i0&!i2", specify=""),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["0","1","0"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="!i0&!i2", specify="(i1 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["0","0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["0","0","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i2 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["0","0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="!i0&!i1", specify=""),
+             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["0","0","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="!i0&!i1", specify="(i2 => o0) = (0,0);;", timing_default=True),
              #--- leakage
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["d"],"i":["0","0","0"]},mondrv_oir=["0","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&!i2", specify=""),
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["u"],"i":["0","0","1"]},mondrv_oir=["1","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&i2", specify=""),
@@ -202,17 +202,17 @@ def get_logic_dict():
     "OR4":{"logic_type":"comb",
            "functions":{"o0":"i0|i1|i2|i3"},
            "expect":
-            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["0","0","0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["1","0","0","0"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i0 => o0) = (0,0);"),
+            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["0","0","0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="!i1&!i2&!i3", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["1","0","0","0"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="!i1&!i2&!i3", specify="(i0 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["0","0","0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["0","1","0","0"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i1 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["0","0","0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="!i0&!i2&!i3", specify=""),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["0","1","0","0"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="!i0&!i2&!i3", specify="(i1 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["0","0","0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["0","0","1","0"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i2 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["0","0","0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="!i0&!i1&!i3", specify=""),
+             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["0","0","1","0"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="!i0&!i1&!i3", specify="(i2 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i3","i3"],ival={"o":["0"],"i":["0","0","0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i3","i3"],ival={"o":["1"],"i":["0","0","0","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="", specify="(i3 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i3","i3"],ival={"o":["0"],"i":["0","0","0","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="!i0&!i1&!i2", specify=""),
+             MyExpectCell(pin_oir=["o0","i3","i3"],ival={"o":["1"],"i":["0","0","0","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="!i0&!i1&!i2", specify="(i3 => o0) = (0,0);;", timing_default=True),
              #--- leakage
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["d"],"i":["0","0","0","0"]},mondrv_oir=["0","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&!i2&!i3", specify=""),
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["u"],"i":["0","0","0","1"]},mondrv_oir=["1","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&!i2&i3", specify=""),
@@ -236,11 +236,11 @@ def get_logic_dict():
     "NAND2":{"logic_type":"comb",
              "functions":{"o0":"!(i0&i1)"},
              "expect":                                                     
-            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["0","1"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i0 => o0) = (0,0);"),
+            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["0","1"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="i1", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="i1", specify="(i0 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["1","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i1 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["1","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="i0", specify=""),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="i0", specify="(i1 => o0) = (0,0);;", timing_default=True),
              #--- leakage
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["u"],"i":["0","0"]},mondrv_oir=["1","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1", specify=""),
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["u"],"i":["0","1"]},mondrv_oir=["1","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&i1", specify=""),
@@ -251,14 +251,14 @@ def get_logic_dict():
     "NAND3":{"logic_type":"comb",
              "functions":{"o0":"!(i0&i1&i2)"},
              "expect":                                                     
-            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["0","1","1"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["1","1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i0 => o0) = (0,0);"),
+            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["0","1","1"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="i1&i2", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["1","1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="i1&i2", specify="(i0 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["1","0","1"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["1","1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i1 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["1","0","1"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="i0&i2", specify=""),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["1","1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="i0&i2", specify="(i1 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["1","1","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["1","1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i2 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["1","1","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="i0&i1", specify=""),
+             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["1","1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="i0&i1", specify="(i2 => o0) = (0,0);;", timing_default=True),
              #--- leakage
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["u"],"i":["0","0","0"]},mondrv_oir=["1","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&!i2", specify=""),
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["u"],"i":["0","0","1"]},mondrv_oir=["1","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&i2", specify=""),
@@ -273,17 +273,17 @@ def get_logic_dict():
     "NAND4":{"logic_type":"comb",
              "functions":{"o0":"!(i0&i1&i2&i3)"},
              "expect":                                                     
-            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["0","1","1","1"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["1","1","1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i0 => o0) = (0,0);"),
+            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["0","1","1","1"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="i1&i2&i3", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["1","1","1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="i1&i2&i3", specify="(i0 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["1","0","1","1"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["1","1","1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i1 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["1","0","1","1"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="i0&i2&i3", specify=""),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["1","1","1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="i0&i2&i3", specify="(i1 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["1","1","0","1"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["1","1","1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i2 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["1","1","0","1"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="i0&i1&i3", specify=""),
+             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["1","1","1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="i0&i1&i3", specify="(i2 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i3","i3"],ival={"o":["1"],"i":["1","1","1","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i3","i3"],ival={"o":["0"],"i":["1","1","1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i3 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i3","i3"],ival={"o":["1"],"i":["1","1","1","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="i0&i1&i2", specify=""),
+             MyExpectCell(pin_oir=["o0","i3","i3"],ival={"o":["0"],"i":["1","1","1","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="i0&i1&i2", specify="(i3 => o0) = (0,0);;", timing_default=True),
              #--- leakage
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["u"],"i":["0","0","0","0"]},mondrv_oir=["1","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&!i2&!i3", specify=""),
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["u"],"i":["0","0","0","1"]},mondrv_oir=["1","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&!i2&i3", specify=""),
@@ -307,11 +307,11 @@ def get_logic_dict():
     "NOR2":{"logic_type":"comb",
             "functions":{"o0":"!(i0|i1)"},
             "expect":
-            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["1","0"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i0 => o0) = (0,0);"),
+            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="!i1", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["1","0"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="!i1", specify="(i0 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["0","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i1 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="!i0", specify=""),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["0","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="!i0", specify="(i1 => o0) = (0,0);;", timing_default=True),
              #--- leakage
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["u"],"i":["0","0"]},mondrv_oir=["1","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1", specify=""),
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["d"],"i":["0","1"]},mondrv_oir=["0","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&i1", specify=""),
@@ -322,14 +322,14 @@ def get_logic_dict():
     "NOR3":{"logic_type":"comb",
             "functions":{"o0":"!(i0|i1|i2)"},
             "expect":                                                     
-            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["0","0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["1","0","0"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i0 => o0) = (0,0);"),
+            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["0","0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="!i1&!i2", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["1","0","0"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="!i1&!i2", specify="(i0 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["0","0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["0","1","0"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i1 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["0","0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="!i0&!i2", specify=""),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["0","1","0"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="!i0&!i2", specify="(i1 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["0","0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["0","0","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i2 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["0","0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="!i0&!i1", specify=""),
+             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["0","0","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="!i0&!i1", specify="(i2 => o0) = (0,0);;", timing_default=True),
              #--- leakage
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["u"],"i":["0","0","0"]},mondrv_oir=["1","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&!i2", specify=""),
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["d"],"i":["0","0","1"]},mondrv_oir=["0","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&i2", specify=""),
@@ -344,17 +344,17 @@ def get_logic_dict():
     "NOR4":{"logic_type":"comb",
             "functions":{"o0":"!(i0|i1|i2|i3)"},
             "expect":                                                     
-            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["0","0","0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["1","0","0","0"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i0 => o0) = (0,0);"),
+            [MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["0","0","0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="!i1&!i2&!i3", specify=""),
+             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["1","0","0","0"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="!i1&!i2&!i3", specify="(i0 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["0","0","0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["0","1","0","0"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i1 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["0","0","0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="!i0&!i2&!i3", specify=""),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["0","1","0","0"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="!i0&!i2&!i3", specify="(i1 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["0","0","0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["0","0","1","0"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i2 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["0","0","0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="!i0&!i1&!i3", specify=""),
+             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["0","0","1","0"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="!i0&!i1&!i3", specify="(i2 => o0) = (0,0);;", timing_default=True),
 
-             MyExpectCell(pin_oir=["o0","i3","i3"],ival={"o":["1"],"i":["0","0","0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i3","i3"],ival={"o":["0"],"i":["0","0","0","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="", specify="(i3 => o0) = (0,0);"),
+             MyExpectCell(pin_oir=["o0","i3","i3"],ival={"o":["1"],"i":["0","0","0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="!i0&!i1&!i2", specify=""),
+             MyExpectCell(pin_oir=["o0","i3","i3"],ival={"o":["0"],"i":["0","0","0","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="!i0&!i1&!i2", specify="(i3 => o0) = (0,0);;", timing_default=True),
              #--- leakag1
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["u"],"i":["0","0","0","0"]},mondrv_oir=["1","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&!i2&!i3", specify=""),
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["d"],"i":["0","0","0","1"]},mondrv_oir=["0","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&!i2&i3", specify=""),
@@ -386,10 +386,10 @@ def get_logic_dict():
              MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["0","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="!i0", specify="(i1 => o0) = (0,0);"),
 
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["0","1"]},mondrv_oir=["0","1","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="i1", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["1","1"]},mondrv_oir=["1","0","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="i1", specify="(i0 => o0) = (0,0);;"),
+             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["1","1"]},mondrv_oir=["1","0","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="i1", specify="(i0 => o0) = (0,0);", timing_default=True),
 
              MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["1","0"]},mondrv_oir=["0","1","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="i0", specify=""),
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["1","1"]},mondrv_oir=["1","0","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="i0", specify="(i1 => o0) = (0,0);;"),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["1","1"]},mondrv_oir=["1","0","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="i0", specify="(i1 => o0) = (0,0);", timing_default=True),
              #--- leakage
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["d"],"i":["0","0"]},mondrv_oir=["0","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1", specify=""),
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["u"],"i":["0","1"]},mondrv_oir=["1","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&i1", specify=""),
@@ -408,10 +408,10 @@ def get_logic_dict():
              MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["0","1"]},mondrv_oir=["1","0","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="!i0", specify="(i1 => o0) = (0,0);"),
 
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["0"],"i":["0","1"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="i1", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="i1", specify="(i0 => o0) = (0,0);;"),
+             MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="i1", specify="(i0 => o0) = (0,0);", timing_default=True),
 
              MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["1","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="i0", specify=""),
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="i0", specify="(i1 => o0) = (0,0);;"),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="i0", specify="(i1 => o0) = (0,0);", timing_default=True),
              #--- leakage
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["u"],"i":["0","0"]},mondrv_oir=["1","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1", specify=""),
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["d"],"i":["0","1"]},mondrv_oir=["0","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&i1", specify=""),
@@ -427,13 +427,13 @@ def get_logic_dict():
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["1"],"i":["1","0","0"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="!i2", specify="(i0 => o0) = (0,0);"),
 
              MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["0"],"i":["0","0","1"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="i2", specify=""),
-             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["0","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="i2", specify="(i1 => o0) = (0,0);;"),
+             MyExpectCell(pin_oir=["o0","i1","i1"],ival={"o":["1"],"i":["0","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="i2", specify="(i1 => o0) = (0,0);", timing_default=True),
 
              MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["0","1","0"]},mondrv_oir=["1","1","1"],meas_type="delay",tmg_sense="pos",arc_oir=["r","r","r"],tmg_when="!i0&i1", specify=""),
              MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["0","1","1"]},mondrv_oir=["0","0","0"],meas_type="delay",tmg_sense="pos",arc_oir=["f","f","f"],tmg_when="!i0&i1", specify="(i2 => o0) = (0,0);"),
 
              MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["1"],"i":["1","0","0"]},mondrv_oir=["0","0","1"],meas_type="delay",tmg_sense="neg",arc_oir=["f","r","r"],tmg_when="i0&!i1", specify=""),
-             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["1","0","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="i0&!i1", specify="(i2 => o0) = (0,0);;"),
+             MyExpectCell(pin_oir=["o0","i2","i2"],ival={"o":["0"],"i":["1","0","1"]},mondrv_oir=["1","1","0"],meas_type="delay",tmg_sense="neg",arc_oir=["r","f","f"],tmg_when="i0&!i1", specify="(i2 => o0) = (0,0);", timing_default=True),
              #--- leakage
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["d"],"i":["0","0","0"]},mondrv_oir=["0","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&!i2", specify=""),
              MyExpectCell(pin_oir=["o0","i0","i0"],ival={"o":["d"],"i":["0","0","1"]},mondrv_oir=["0","0","0"],meas_type="leakage",tmg_sense="non",arc_oir=["s","s","s"],tmg_when="!i0&!i1&i2", specify=""),
