@@ -4,6 +4,32 @@
 
 ---
 
+## [0.9.14] 2026-04-26
+
+### Added
+- **複合セル mylogic 拡張（K4 既知 14 種別 + XOR3/XNOR3 計 16 セル、ISS-00064）**：1118 entries 実装。
+  - AOI21/22/211/221/222、OAI21/22/211/221/222/31/32/33、MUX4、XOR3、XNOR3
+  - 試走 0 failures、`tmg_when` same-group 省略（v2 形式）で 4 入力以上の AOI/OAI で timing matched 0→856 に大幅改善。
+- `tmp/gen_logic_entries.py`：5 入力以上の複合ゲート entries 自動生成スクリプト（git 管理外、テンポラリ運用）。
+  - truth table から active sensitization を抽出、`groups` フィールドで same-group 入力を `tmg_when` から省略。
+- `sample/target/gf180/fd/mcuC7t20240817/std_comb.jsonc` に 14 セル直接登録（複合ゲートを `ports_dict` で orig SPICE subckt に mapping）。
+
+### Changed
+- **`mylogic_base.py` を 4 ファイルに分割**：
+  - `mylogic_comb_base.py`（INV/BUF/AND/OR/NAND/NOR/XOR2/XNOR2/MUX2/XOR3/XNOR3 + lr_mux primitive）
+  - `mylogic_comb_complex.py`（AOI/OAI/MUX4 系 14 種別）
+  - `mylogic_seq.py`（DFF + lr_dff primitive）
+  - `mylogic_io.py`（IO セル：P_VDD/P_VSS/P_ANA1/P_IP_*/P_IX_*）
+- `charao.py`：4 module を merge する仕組みを追加（重複 logic 名は ERR、primitive は連結）。
+
+### Removed
+- `std_comb_debug.jsonc` 運用を廃止（プロトタイプ検証も本流 `std_comb.jsonc` に直接登録、`--cells_only` で対象を絞って試走）。
+- `mylogic_base.py`（4 分割により役割完了）。
+
+### Known Issues
+- 複合ゲートの power matched は orig の全 state 展開慣習との差で完全 matched 不可 → ISS-00065（timing/internal_power 分離）で長期解決。
+- 残対応：tristate（ISS-00066）/ clkbuf（ISS-00067）/ adders（ISS-00068）/ delay（ISS-00069）/ 順序（ISS-00070）/ filler（ISS-00071）。
+
 ## [0.9.13] 2026-04-17
 
 ### Fixed

@@ -72,11 +72,26 @@ def main():
   #=====================================================
   # Logic entries/ primitive code
 
-  #--(Base defined)
-  mylogic_base = importlib.import_module("charao.script.mylogic_base")
-
-  logic_dict     = mylogic_base.get_logic_dict()
-  code_primitive = mylogic_base.get_code_primitive()
+  #--(Base defined: 4 modules — comb_base / comb_complex / seq / io)
+  modules = [
+    "charao.script.mylogic_comb_base",
+    "charao.script.mylogic_comb_complex",
+    "charao.script.mylogic_seq",
+    "charao.script.mylogic_io",
+  ]
+  logic_dict = {}
+  code_primitive_parts = []
+  for mod_name in modules:
+    mod = importlib.import_module(mod_name)
+    for k, v in mod.get_logic_dict().items():
+      if k in logic_dict.keys():
+        print(f" [ERR]: logic '{k}' is duplicated in {mod_name} (already defined elsewhere). Aborting.")
+        my_exit()
+      logic_dict[k] = v
+    p = mod.get_code_primitive()
+    if p:
+      code_primitive_parts.append(p)
+  code_primitive = "".join(code_primitive_parts)
 
   #--(User defined)
   mylogic_user = None
