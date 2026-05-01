@@ -180,6 +180,11 @@
    "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dlyd_4","logic":"DEL","area":87.8080,
    "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
 
+  // ---- ANTENNA ----------------------------------------------------
+  {"template_kgn":[["leakage","0x0","d00"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__antenna","logic":"ANTENNA","area":4.3904,
+   "ports_dict":{"I":"i0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
   // ---- NAND -------------------------------------------------------
   {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d014"],["power","10x10","d014"]],
    "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nand2_1","logic":"NAND2","area":10.9760,
@@ -544,6 +549,26 @@
   {"template_kgn":[["leakage","0x0","d00"]],
    "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__tiel","logic":"TIE0","area":8.7808,
    "ports_dict":{"ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- ADDH/ADDF ------（ISS-00068 trial、2026-05-01）
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d014"],["power","10x10","d014"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__addh_1","logic":"ADDH","area":39.5136,
+   "ports_dict":{"A":"i0","B":"i1","CO":"o1","S":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d025"],["power","10x10","d025"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__addh_2","logic":"ADDH","area":48.2944,
+   "ports_dict":{"A":"i0","B":"i1","CO":"o1","S":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d035"],["power","10x10","d035"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__addh_4","logic":"ADDH","area":87.8080,
+   "ports_dict":{"A":"i0","B":"i1","CO":"o1","S":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d025"],["power","10x10","d025"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__addf_1","logic":"ADDF","area":72.4416,
+   "ports_dict":{"A":"i0","B":"i1","CI":"i2","CO":"o1","S":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d035"],["power","10x10","d035"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__addf_2","logic":"ADDF","area":79.0272,
+   "ports_dict":{"A":"i0","B":"i1","CI":"i2","CO":"o1","S":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d040"],["power","10x10","d040"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__addf_4","logic":"ADDF","area":96.5888,
+   "ports_dict":{"A":"i0","B":"i1","CI":"i2","CO":"o1","S":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
 
 ]
 }
