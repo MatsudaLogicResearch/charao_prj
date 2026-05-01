@@ -9,3 +9,4 @@
 
 .inc '../../../sample/src/gf180mcuC/libs.tech/ngspice/design.ngspice'
 .lib '../../../sample/src/gf180mcuC/libs.tech/ngspice/sm141064.ngspice' typical
+.lib '../../../sample/src/gf180mcuC/libs.tech/ngspice/sm141064.ngspice' diode_typical
