@@ -331,10 +331,10 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
     ##-------------------------------------------------
     #h_list = [h for h in harnessList if (h.template_kind in ["power"])]
     #h_list = [h for h in harnessList if (h.template_kind.startswith("power") and (h.timing_type.startswith("three_state"))]
-    h_list = [h for h in harnessList if (h.template_kind.startswith("power"))]
+    h_list = [h for h in harnessList if (h.template_kind.startswith(("power_tout","power_c","power_i")))]
     sorted_h=sorted(h_list, key=lambda x: (x.target_outport, x.timing_when, x.target_relport, x.timing_type, x.direction_tran))
 
-    
+
     if sorted_h:
       outlines.append(f'### DYNAMIC ENERGY')
       outlines.append(f'| Input Pin | When | Output pin | Input Pin Slew({targetLib.time_unit}) | Out Load({targetLib.capacitance_unit}) | Energy({targetLib.energy_unit})|')

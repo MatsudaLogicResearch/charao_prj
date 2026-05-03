@@ -27,7 +27,8 @@ class MyExpectCell:
   ival        : dict[str,list[str]]=field(default_factory=lambda:{"o":[],"i":[],"b":[],"c":[],"r":[],"s":[]});#initial value  {"o":["0","1",,],"i":["0","1",,],"b":["0""1",,],"c":["0","1",,],"r":["0","1",,],"s":["0","1",,]]
   mondrv_oir  : list[str]      =field(default_factory=list); #new value.     {"0", "0", "1"} for outport, inport, relatedport
   rval        : dict[str,list[str]]=field(default_factory=dict); #result value {"o":["0","1",,],"i":["0","1",,],"b":["0""1",,],"c":["0","1",,],"r":["0","1",,],"s":["0","1",,]]
-  meas_type   : str = "delay"          ; #measure_type( )
+  meas_types  : list[str] = field(default_factory=list)  ; #plural measure types, mandatory external input
+  meas_type   : str = field(default="", init=False)      ; #internal use only, set by runExpectation in loop
   tmg_sense   : str = "pos"            ; #timing_sense=pos,neg,non
   tmg_when    : str = ""               ; #when condition in .lib/.v (optional)
   specify     : str = ""               ; #specify code in .v (optional). ";;" marks verilog ifnone.
@@ -61,7 +62,13 @@ class MyExpectCell:
     self.rval=tval.copy()
     #print(f"ival1 ={self.ival}")
     #print(f"rval ={self.rval}\n")
-      
+
+  def set_meas_type(self, meas_type: str):
+    """Set internal meas_type. Called by runExpectation per meas_types loop iteration."""
+    if meas_type not in self.meas_types:
+      raise ValueError(f"meas_type={meas_type!r} not in meas_types={self.meas_types}")
+    self.meas_type = meas_type
+
 #---#-----
 #---#--- ";;" in specify block means ifnon statement. 
 #---logic_dict={

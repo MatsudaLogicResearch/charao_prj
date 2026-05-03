@@ -197,7 +197,7 @@ class MyConditionsAndResults(BaseModel):
                               "passive"]:
       self.measure_type = self.mec.meas_type
     elif self.mec.meas_type in ["delay","delay_c2c", "delay_i2c", "delay_c2i", "delay_i2i",
-                                "power","power_c2c", "power_i2c", "power_c2i", "power_i2i"]:
+                                "power_tout","power_tin","power_c2c", "power_i2c", "power_c2i", "power_i2i"]:
       self.measure_type = self.mec.meas_type
     elif self.mec.meas_type in ["three_state_enable_c2i","three_state_disable_c2i"]:
       self.measure_type = self.mec.meas_type
@@ -428,7 +428,7 @@ class MyConditionsAndResults(BaseModel):
     ## get index
     #if value_name in ["eintl", "ein"]:
     if value_name in ["eintl"]:
-      if not self.template_kind in ["power","passive", "power_c2c", "power_i2c", "power_c2i", "power_i2i"]:
+      if not self.template_kind in ["power_tout","power_tin","passive", "power_c2c", "power_i2c", "power_c2i", "power_i2i"]:
         print(f"[Error] value_name={value_name}/template_kind={self.template_kind} are missmatch.")
         my_exit()
     else:

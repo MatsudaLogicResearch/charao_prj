@@ -226,7 +226,8 @@ def exportLib(targetLib:Mls):
   outlines.extend(targetLib.template_lines["delay_c2i"])
   outlines.extend(targetLib.template_lines["delay_i2c"])
   outlines.extend(targetLib.template_lines["delay_i2i"])
-  outlines.extend(targetLib.template_lines["power"])
+  outlines.extend(targetLib.template_lines["power_tout"])
+  outlines.extend(targetLib.template_lines["power_tin"])
   outlines.extend(targetLib.template_lines["power_c2c"])
   outlines.extend(targetLib.template_lines["power_c2i"])
   outlines.extend(targetLib.template_lines["power_i2c"])
@@ -388,16 +389,16 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
 
     ##-------------------------------------------------------------------------
     ## check timing/power infomation
-    h_list_pre = [h for h in harnessList if h.template_kind.startswith(("delay","power")) and (h.target_outport==port)]
+    h_list_pre = [h for h in harnessList if h.template_kind.startswith(("delay","power_tout","power_c","power_i")) and (h.target_outport==port)]
     h_list     = sorted(h_list_pre, key=lambda x: (x.target_relport, x.timing_type, x.timing_when, x.direction_prop));
-    
+
     if len(h_list) < 1:
       print(f"[INFO]: no harness result exist for target={port}.")
       outlines.append(f'    }}') ## input pin end
       continue
 
     h_list_t = [h for h in h_list if (h.template_kind.startswith("delay"))]
-    h_list_e = [h for h in h_list if (h.template_kind.startswith("power"))]
+    h_list_e = [h for h in h_list if (h.template_kind.startswith(("power_tout","power_c","power_i")))]
       
     ##-------------------------------------------------------------------------
     ## timing(delay)
@@ -594,7 +595,7 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       
     ##-------------------------------------------------------------------------
     ## check timing/power infomation
-    h_list = [h for h in harnessList if (h.template_kind in ["const","passive"]) and (h.target_inport == port)]
+    h_list = [h for h in harnessList if (h.template_kind in ["const","passive","power_tin"]) and (h.target_inport == port)]
     h_list_in = sorted(h_list, key=lambda x: (x.target_relport, x.timing_type, x.timing_when, x.constraint));
       
     if len(h_list_in) < 1:
@@ -602,8 +603,9 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       outlines.append(f'    }}') ## input pin end
       continue
       
-    h_list_in_c = [h for h in h_list_in if (h.template_kind== "const")]
-    h_list_in_p = [h for h in h_list_in if (h.template_kind== "passive")]
+    h_list_in_c  = [h for h in h_list_in if (h.template_kind== "const")]
+    h_list_in_p  = [h for h in h_list_in if (h.template_kind== "passive")]
+    h_list_in_pt = [h for h in h_list_in if (h.template_kind== "power_tin")]
       
     ##-------------------------------------------------------------------------
     ## timing(const)
@@ -699,8 +701,41 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
           outlines.append(f'          {lut_line}')
         outlines.append(f'        }}')
 
-      
-      outlines.append(f'      }}') ## port end        
+
+      outlines.append(f'      }}') ## port end
+
+    ##-------------------------------------------------------------------------
+    ## power_tin (input pin internal_power, output stable state)
+    ## Use passive_power (input direction) for fall_power/rise_power table name,
+    ## since direction_power="stable" when output is stable (arc_oir[0]=="s").
+    sorted_pt = sorted(h_list_in_pt, key=lambda x: (x.timing_when, x.passive_power))
+    for timing_when, group in groupby(sorted_pt, key=lambda x: x.timing_when):
+      group_list = list(group)
+      print(f"  [INFO] group(power_tin): target={port}, timing_when={timing_when} -> {len(group_list)}")
+
+      outlines.append(f'      internal_power () {{')
+
+      ## power_level (if needed)
+      if targetCell.mls.vdd2_name or targetCell.mls.vddio_name:
+        voltage = "IO_VOLTAGE" if (port in targetCell.io_voltage) else "CORE2_VOLTAGE" if (port in targetCell.vdd2_voltage) else "CORE_VOLTAGE"
+        outlines.append(f'        power_level : "{voltage}";')
+
+      ## related_pin: omitted (Liberty default: related=input pin)
+
+      ## when
+      if timing_when != "":
+        outlines.append(f'        when  : "{targetCell.replace_by_portmap(timing_when).replace("&"," ")}";')
+
+      ## rise / fall (input direction)
+      for h in group_list:
+        t = h.template
+        outlines.append(f'        {h.passive_power} ({t.kind}_energy_template_{t.grid}) {{')
+        for lut_line in h.lut["eintl"]:
+          outlines.append(f'          {lut_line}')
+        outlines.append(f'        }}')
+
+      outlines.append(f'      }}') ## power_tin internal_power end
+
     outlines.append(f'    }}') ## in pin end
 
   outlines.append(f'  }}') ## cell end

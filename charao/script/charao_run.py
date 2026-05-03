@@ -65,71 +65,83 @@ def runExpectation(targetLib:Mls, targetCell:Mlc, expectationdictList:List[Mec])
 
   size=len(expectationdictList)
   for ii in range(size):
-    expectationdict = expectationdictList[ii]
-    
-    ## spice simulation
-    measure_type=expectationdict.meas_type
+    exp_tmp = expectationdictList[ii]
 
-    #--- skip for debug
-    if (targetLib.measures_only) and (measure_type not in targetLib.measures_only):
-      continue;
-    
-    #--- do simulation
-    if   measure_type in ["delay","preset","clear","rising_edge","falling_edge"]:
-      rslt_Harness = runSpiceDelayPowerMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
-      
-    elif measure_type in ["setup_rising","setup_falling","recovery_rising", "recovery_falling"]:
-      rslt_Harness = runSpiceSetupMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
-      
-    elif measure_type in ["hold_rising","hold_falling","removal_rising","removal_falling"]:
-      rslt_Harness = runSpiceHoldMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
-      
-    elif measure_type in ["passive"]:
-      rslt_Harness = runSpicePassiveMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
-      
-    elif measure_type in ["min_pulse_width_low","min_pulse_width_high"]:
-      rslt_Harness = runSpiceMinPulseMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
-      
-    elif   measure_type in ["delay_i2i","delay_i2c","delay_c2i","delay_c2c"]: #-- for IO cell
-      rslt_Harness = runSpiceDelayPowerMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
-      
-    elif   measure_type in ["three_state_enable_c2i","three_state_disable_c2i"]: #-- for IO cell
-      rslt_Harness = runSpiceDelayPowerMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
-      
-    elif measure_type in ["leakage"]:
-      rslt_Harness = runSpiceLeakageMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
-      
-    else:
-      print(f"[Error] not support measure_type={measure_type}.")
+    ## meas_types is mandatory (legacy meas_type external input is removed)
+    meas_types_list = list(exp_tmp.meas_types)
+    if not meas_types_list:
+      print(f"[Error] meas_types is empty for entry {ii}.")
       my_exit()
-      
-    ## add result
-    #harnessList.append(tmp_Harness)
-    harnessList.extend(rslt_Harness)
+
+    for mt in meas_types_list:
+      #--- skip for debug
+      if (targetLib.measures_only) and (mt not in targetLib.measures_only):
+        continue
+
+      ## deep copy and set meas_type per loop iteration via setter
+      expectationdict = copy.deepcopy(exp_tmp)
+      expectationdict.set_meas_type(mt)
+
+      #--- do simulation
+      if   mt in ["delay","preset","clear","rising_edge","falling_edge"]:
+        rslt_Harness = runSpiceDelayMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+
+      elif mt in ["power_tout","power_c2c","power_i2c","power_c2i","power_i2i"]:
+        rslt_Harness = runSpicePowerToutMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+
+      elif mt in ["power_tin"]:
+        rslt_Harness = runSpicePowerTinMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+
+      elif mt in ["setup_rising","setup_falling","recovery_rising", "recovery_falling"]:
+        rslt_Harness = runSpiceSetupMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+
+      elif mt in ["hold_rising","hold_falling","removal_rising","removal_falling"]:
+        rslt_Harness = runSpiceHoldMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+
+      elif mt in ["passive"]:
+        rslt_Harness = runSpicePassiveMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+
+      elif mt in ["min_pulse_width_low","min_pulse_width_high"]:
+        rslt_Harness = runSpiceMinPulseMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+
+      elif mt in ["delay_i2i","delay_i2c","delay_c2i","delay_c2c"]: #-- for IO cell
+        rslt_Harness = runSpiceDelayMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+
+      elif mt in ["three_state_enable_c2i","three_state_disable_c2i"]: #-- for IO cell
+        rslt_Harness = runSpiceDelayMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+
+      elif mt in ["leakage"]:
+        rslt_Harness = runSpiceLeakageMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+
+      else:
+        print(f"[Error] not support measure_type={mt}.")
+        my_exit()
+
+      ## add result
+      harnessList.extend(rslt_Harness)
 
 
   ## average cin of each harness
-  #targetCell.set_cin_avg(harnessList=harnessList) 
-  targetCell.set_cin_max(harnessList=harnessList) 
+  #targetCell.set_cin_avg(harnessList=harnessList)
+  targetCell.set_cin_max(harnessList=harnessList)
 
   ## max pleak in each input condition
-  #targetCell.set_pleak_icrs(harnessList=harnessList) 
-  ## average pleak of each harness & cell 
-  targetCell.set_max_pleak(harnessList=harnessList) 
+  #targetCell.set_pleak_icrs(harnessList=harnessList)
+  ## average pleak of each harness & cell
+  targetCell.set_max_pleak(harnessList=harnessList)
 
   ##
   return harnessList
 
 #--------------------------------------------------------------------------------------------------
-def runSpiceDelayPowerMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
+def runSpiceDelayMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
   ## spice file name
   spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
   spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
   spicef = spicef0 + spicef1
-  
+
   # Limit number of threads
-  # define semaphore 
   poolg_sema = threading.BoundedSemaphore(mls.num_thread)
   print("Num threads for simulation:"+str(mls.num_thread))
 
@@ -140,20 +152,18 @@ def runSpiceDelayPowerMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[M
 
   h_delay = Mcar(mls=mls, mlc=mlc, mec=mec)
   h_delay.set_update()
-  
+
   #------ get slopes/loads
-  #kind="delay"
-  #kind=h_delay.measure_type
   if h_delay.measure_type in ["rising_edge","falling_edge","clear","preset"]:
     kind="delay"
   else:
     kind=h_delay.measure_type.replace("three_state_enable","delay").replace("three_state_disable","delay")
-  
+
   temp=mlc.template[kind]
   if not temp:
     print(f"[Error] not defined template={kind} in cell_xx.jsonc .")
     my_exit()
-  
+
   index1_slopes=temp.index_1
   index2_loads =temp.index_2
   if mls.template_index1_only:
@@ -167,15 +177,14 @@ def runSpiceDelayPowerMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[M
   if len(index2_loads)<1:
     print(f"[Error] load size is 0 for template.")
     my_exit()
-    
+
   if len(index1_slopes)<1:
     print(f"[Error] slope size is 0 for template.")
     my_exit()
-    
+
   #------ search delay(trans)
   for index2_load in index2_loads:
     for index1_slope in index1_slopes:
-      ##--- result is written in h_delay.dict_list2 with _lock
       thread = threading.Thread(target=runSpiceDelaySingle,
                                 kwargs={"poolg_sema"   :poolg_sema,
                                         "targetHarness":h_delay,
@@ -183,17 +192,17 @@ def runSpiceDelayPowerMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[M
                                         "index1_slope" :index1_slope,
                                         "index2_load"  :index2_load},
                                 name="%d" % thread_id)
-      
+
       threadlist.append(thread)
       thread_id += 1
 
   for thread in threadlist:
-    thread.start() 
+    thread.start()
 
   for thread in threadlist:
-    thread.join() 
+    thread.join()
 
-    
+
   h_delay.set_lut(value_name="prop")
   h_delay.set_lut(value_name="trans")
 
@@ -201,6 +210,20 @@ def runSpiceDelayPowerMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[M
   mlc.update_max_load4out(port_name=h_delay.target_outport, new_value=max(index2_loads))
   mlc.update_max_trans4in(port_name=h_delay.target_relport, new_value=max(index1_slopes))
 
+  return [h_delay]
+
+
+#--------------------------------------------------------------------------------------------------
+def runSpicePowerToutMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
+
+  ## spice file name
+  spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
+  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef = spicef0 + spicef1
+
+  # Limit number of threads
+  poolg_sema = threading.BoundedSemaphore(mls.num_thread)
+  print("Num threads for simulation:"+str(mls.num_thread))
 
   ###################################################################
   #-- for power
@@ -213,18 +236,18 @@ def runSpiceDelayPowerMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[M
   if not h_power.measure_type.startswith("three_state_disable"):
 
     #------ get slopes/loads
-    #kind="power"
-    if h_delay.measure_type in ["rising_edge","falling_edge","clear","preset"]:
-      kind="power"
+    if h_power.measure_type in ["rising_edge","falling_edge","clear","preset"]:
+      kind="power_tout"
+    elif h_power.measure_type == "power_tout":
+      kind="power_tout"
     else:
       kind=h_power.measure_type.replace("delay","power").replace("three_state_enable","power")
 
-    
     temp=mlc.template[kind]
     if not temp:
       print(f"[Error] not defined template={kind} in cell_xx.jsonc .")
       my_exit()
-  
+
     index1_slopes=temp.index_1
     index2_loads =temp.index_2
     if mls.template_index1_only:
@@ -234,46 +257,107 @@ def runSpiceDelayPowerMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[M
 
     h_power.template_kind  = kind
     h_power.template       = temp
-    
+
     if len(index2_loads)<1:
       print(f"[Error] load size is 0 for template.")
       my_exit()
-      
+
     if len(index1_slopes)<1:
       print(f"[Error] slope size is 0 for template.")
       my_exit()
-      
+
     #------ energy
     for index2_load in index2_loads:
       for index1_slope in index1_slopes:
-        thread = threading.Thread(target=runSpicePowerSingle,
+        thread = threading.Thread(target=runSpicePowerToutSingle,
                                   kwargs={"poolg_sema"   :poolg_sema,
                                           "targetHarness":h_power,
                                           "spicef"       :spicef,
                                           "index1_slope" :index1_slope,
                                           "index2_load"  :index2_load},
                                   name="%d" % thread_id)
-        
+
         threadlist.append(thread)
         thread_id += 1
-  
+
     for thread in threadlist:
-      thread.start() 
-  
+      thread.start()
+
     for thread in threadlist:
-      thread.join() 
-  
-      
+      thread.join()
+
+
     h_power.set_lut(value_name="eintl")
-    #h_power.set_lut(value_name="ein")
-  
+
+    #------ update max_load/max_trans
+    mlc.update_max_load4out(port_name=h_power.target_outport, new_value=max(index2_loads))
+    mlc.update_max_trans4in(port_name=h_power.target_relport, new_value=max(index1_slopes))
+
+  return [h_power]
+
+
+#--------------------------------------------------------------------------------------------------
+def runSpicePowerTinMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
+  ## input pin internal_power: 1D template (input slope only, output load = 0pF)
+
+  ## spice file name
+  spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
+  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef = spicef0 + spicef1
+
+  # Limit number of threads
+  poolg_sema = threading.BoundedSemaphore(mls.num_thread)
+  print("Num threads for simulation:"+str(mls.num_thread))
+
   ###################################################################
-  #------ update max_load/max_trans
-  mlc.update_max_load4out(port_name=h_delay.target_outport, new_value=max(index2_loads))
-  mlc.update_max_trans4in(port_name=h_delay.target_relport, new_value=max(index1_slopes))
-  
-  return [h_delay, h_power]
-  
+  #-- for input pin internal_power
+  thread_id = 0
+  threadlist = list()
+
+  h_power = Mcar(mls=mls, mlc=mlc, mec=mec)
+  h_power.set_update()
+
+  kind = "power_tin"
+  temp = mlc.template[kind]
+  if not temp:
+    print(f"[Error] not defined template={kind} in cell_xx.jsonc .")
+    my_exit()
+
+  index1_slopes = temp.index_1
+  if mls.template_index1_only:
+    index1_slopes = [index1_slopes[i] for i in mls.template_index1_only if i < len(index1_slopes)]
+
+  h_power.template_kind = kind
+  h_power.template      = temp
+
+  if len(index1_slopes) < 1:
+    print(f"[Error] slope size is 0 for template.")
+    my_exit()
+
+  # 1D loop: index_1 only (no index_2)
+  for index1_slope in index1_slopes:
+    thread = threading.Thread(target=runSpicePowerTinSingle,
+                              kwargs={"poolg_sema"   :poolg_sema,
+                                      "targetHarness":h_power,
+                                      "spicef"       :spicef,
+                                      "index1_slope" :index1_slope},
+                              name="%d" % thread_id)
+
+    threadlist.append(thread)
+    thread_id += 1
+
+  for thread in threadlist:
+    thread.start()
+
+  for thread in threadlist:
+    thread.join()
+
+
+  h_power.set_lut(value_name="eintl")
+
+  return [h_power]
+
+
 #--------------------------------------------------------------------------------------------------
 def runSpiceDelaySingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope:float, index2_load:float):
                       
@@ -424,38 +508,64 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float
 
 
 #--------------------------------------------------------------------------------------------------
-def runSpicePowerSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope:float, index2_load:float):
-                      
+def runSpicePowerToutSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope:float, index2_load:float):
+  ## output pin internal_power: 2-trial (meas_energy=1 -> estart/eend, then meas_energy=2 -> energy)
+
   with poolg_sema:
     spicefoe1 = str(spicef)+"_"+str(index2_load)+"_"+str(index1_slope)+"_energy1.sp"
     spicefoe2 = str(spicef)+"_"+str(index2_load)+"_"+str(index1_slope)+"_energy2.sp"
- 
+
     ## 1st trial, extract energy_start and energy_end
-    rslt1= genFileLogic_PowerTrial1x(targetHarness=targetHarness, spicef=spicefoe1, meas_energy=1, index1_slope=index1_slope, index2_load=index2_load, estart=0.0, eend=0.0)
-                             
+    rslt1= genFileLogic_PowerToutTrial1x(targetHarness=targetHarness, spicef=spicefoe1, meas_energy=1, index1_slope=index1_slope, index2_load=index2_load, estart=0.0, eend=0.0)
+
 
     ## 2nd trial, extract energy
     estart = rslt1["estart"]
     eend   = rslt1["eend"]
-    rslt2= genFileLogic_PowerTrial1x(targetHarness=targetHarness, spicef=spicefoe2, meas_energy=2, index1_slope=index1_slope, index2_load=index2_load, estart=estart, eend=eend)
+    rslt2= genFileLogic_PowerToutTrial1x(targetHarness=targetHarness, spicef=spicefoe2, meas_energy=2, index1_slope=index1_slope, index2_load=index2_load, estart=estart, eend=eend)
 
     #
     print(f'  [INFO] pleak={rslt2["pleak"]}, load={index2_load}, slope={index1_slope}')
-    
+
     ## -- result in targetHarness
     with targetHarness._lock:
       targetHarness.dict_list2["eintl"][index1_slope][index2_load] = rslt2["eintl"]
-      
+
       #targetHarness.dict_list2["ein"  ][index1_slope][index2_load] = rslt2["ein"  ]
       #targetHarness.dict_list2["pleak"][index1_slope][index2_load] = rslt2["pleak"]
-      
+
       targetHarness.dict_list2["cin"  ][index1_slope][index2_load] = rslt2["cin"  ]
+
+
+#--------------------------------------------------------------------------------------------------
+def runSpicePowerTinSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope:float):
+  ## input pin internal_power: 1D template (no output load).
+  ## meas_energy=5: estart/eend fixed by input transition window, no .meas tran for energy_start/end.
+
+  with poolg_sema:
+    spicefoe2 = str(spicef)+"_"+str(index1_slope)+"_energy2.sp"
+
+    h = targetHarness
+
+    ## fixed estart/eend by input transition window
+    tslew_rel_s = _tslew_from_template(index1_slope, h.mls)
+    tdelay_rel  = h.mls.sim_prop_max * h.mls.time_mag
+    estart = tdelay_rel
+    eend   = tdelay_rel + tslew_rel_s + 1e-9
+
+    rslt2= genFileLogic_PowerTinTrial1x(targetHarness=targetHarness, spicef=spicefoe2, index1_slope=index1_slope, estart=estart, eend=eend)
+
+    print(f'  [INFO] pleak={rslt2["pleak"]}, slope={index1_slope}')
+
+    with targetHarness._lock:
+      targetHarness.dict_list2["eintl"][index1_slope][0.0] = rslt2["eintl"]
+      targetHarness.dict_list2["cin"  ][index1_slope][0.0] = rslt2["cin"  ]
 
     
     
   
 #--------------------------------------------------------------------------------------------------
-def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, index1_slope:float, index2_load:float, estart:float, eend:float):
+def genFileLogic_PowerToutTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, index1_slope:float, index2_load:float, estart:float, eend:float):
 
   # rename
   h=targetHarness
@@ -628,6 +738,132 @@ def genFileLogic_PowerTrial1x(targetHarness:Mcar, spicef:str, meas_energy:int, i
   #
   return (rslt)
 
+
+
+#--------------------------------------------------------------------------------------------------
+def genFileLogic_PowerTinTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float, estart:float, eend:float):
+  ## input pin internal_power: meas_energy=5 fixed.
+  ## - output load = 0pF (no capacitive load)
+  ## - tsim_end fixed by input transition window
+  ## - estart/eend assigned directly (no .meas tran for energy_start/end)
+  ## - q_*/i_* measurements: same as meas_energy=2
+
+  h = targetHarness
+  index2_load = 0.0
+  meas_energy = 5
+
+  arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
+  arc_oirc = h.mec.arc_oir + [arc_c0]
+
+  sim_c2d_max_per_unit = h.mls.sim_c2d_max_per_unit
+  if h.mlc.isio:
+    sim_c2d_max_per_unit = sim_c2d_max_per_unit * 0.1
+  sim_c2d_max = max(sim_c2d_max_per_unit * index2_load, h.mls.sim_c2d_min)
+  sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
+
+  ## tsim_end = eend + 1ns (input transition complete + margin)
+  tsim_end = eend + 1e-9
+
+  slope          = index1_slope
+  timestep_tstep = min(slope * 0.0099, h.mls.simulation_timestep)
+  _ratio_cap     = 4
+  timestep_tmax  = _ratio_cap * timestep_tstep
+
+  pullres_role = "nouse"
+
+  param = Mtp(
+     cap          = float("{:.5g}".format(index2_load * h.mls.capacitance_mag))
+    ,clk_role     = h.clk_role
+    ,pullres_role = pullres_role
+    ,meas_energy  = meas_energy
+    ,time_energy  = [estart, eend]
+    ,meas_o_max_min = 0
+    ,timestep     = float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
+    ,timestep_tmax= float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
+    ,tsim_end     = tsim_end
+    ,tdelay_init  = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(h.mls.sim_d2c_max * h.mls.time_mag))
+    ,tpulse_init  = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
+    ,tdelay_in    = float("{:.5g}".format(sim_c2d_max * h.mls.time_mag))
+    ,tslew_in     = float("{:.5g}".format(10 * timestep_tstep * h.mls.time_mag))
+    ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_prop_max * h.mls.time_mag))
+    ,tslew_rel    = _tslew_from_template(index1_slope, h.mls)
+    ,tpulse_rel   = tsim_end
+    ,tsweep_rel   = 0.0
+  )
+
+  param.set_common_value(harness=h, arc_oirc=arc_oirc)
+
+  ## generate testbench
+  rendered = tb_template.render(param=param)
+  with open(spicef, 'w') as f:
+    f.write(rendered)
+  print(f"  [INFO] generate tb={spicef}")
+
+  ## execute spice
+  spicelis = h.mls.exec_spice(spicef=spicef)
+
+  if(re.search("Xyce", h.mls.simulator)):
+    spicelis = spicelis[:-3]+"mt0"
+
+  ## parse results (no energy_start/end for meas_energy=5)
+  res_list = ["q_in_dyn","q_rel_dyn","q_clk_dyn","q_out_dyn","q_vdd_dyn","q_vss_dyn",
+              "i_vdd_leak","i_vss_leak","i_vnw_leak","i_vpw_leak","i_in_leak","i_rel_leak","i_clk_leak"]
+  res = dict()
+
+  with open(spicelis, 'r') as f:
+    for inline in f:
+      if(re.search("hspice", h.mls.simulator)):
+        inline = re.sub(r'\=', ' ', inline)
+      for key in res_list:
+        if((re.search(key, inline, re.IGNORECASE)) and not (re.search("failed", inline)) and not (re.search("Error", inline))):
+          sparray = re.split(" +", inline)
+          res[key] = "{:e}".format(float(sparray[2].strip()))
+
+  ## check measure existence
+  non_value_list = set(res_list) - set(res.keys())
+  if non_value_list:
+    for k in non_value_list:
+      h.mls.print_msg(f"Value res_{k} is not defined!!")
+      h.mls.print_msg(f"Check simulation result in work directory. rslt={spicelis}")
+    sys.exit()
+
+  ## calculate result
+  rslt = dict()
+  rslt["estart"] = estart
+  rslt["eend"]   = eend
+  energy_time    = eend - estart
+
+  q_in_dyn  = res["q_in_dyn"]
+  q_rel_dyn = res["q_rel_dyn"]
+  q_clk_dyn = res["q_clk_dyn"]
+
+  i_vdd = -float(res["i_vdd_leak"])
+  i_vss =  float(res["i_vss_leak"])
+  i_vnw = -float(res["i_vnw_leak"])
+  i_vpw =  float(res["i_vpw_leak"])
+  p_supply = i_vdd * (h.mls.vdd_voltage - h.mls.vss_voltage) + i_vnw * (h.mls.nwell_voltage - h.mls.pwell_voltage)
+  p_absorb = i_vss * (h.mls.vdd_voltage - h.mls.vss_voltage) + i_vpw * (h.mls.nwell_voltage - h.mls.pwell_voltage)
+  pleak = max(p_supply, p_absorb)
+
+  c_in  = abs(float(q_in_dyn))  / h.mls.vdd_voltage
+  c_rel = abs(float(q_rel_dyn)) / h.mls.vdd_voltage
+  c_clk = abs(float(q_clk_dyn)) / h.mls.vdd_voltage
+  cin = c_clk if h.target_relport == "c0" else c_rel
+
+  q_vdd = abs(float(res["q_vdd_dyn"]))
+  q_vss = abs(float(res["q_vss_dyn"]))
+  q_min = min(q_vdd, q_vss)
+
+  e_leak = pleak * energy_time
+  eintl = q_min * h.mls.vdd_voltage - e_leak
+  if eintl < 0.0:
+    eintl = 0.0
+
+  rslt["eintl"] = eintl
+  rslt["pleak"] = pleak
+  rslt["cin"]   = cin
+
+  return rslt
 
 
 #--------------------------------------------------------------------------------------------------

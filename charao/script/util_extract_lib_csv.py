@@ -245,6 +245,21 @@ class LibertyParser:
         ni2 = len(index2)
         ts = self.s["time_scale"]
         cs = self.s["cap_scale"]
+        if ni2 == 0:
+            ## 1D table (e.g. power_tin: input slope only, no output load)
+            for ri, i1 in enumerate(index1):
+                if ri < len(values_flat):
+                    row = dict(template)
+                    try:
+                        row[COL_INDEX1] = float(i1) * ts
+                        row[COL_INDEX2] = 0.0
+                        row[value_key]  = float(values_flat[ri]) * value_scale
+                    except ValueError:
+                        row[COL_INDEX1] = i1
+                        row[COL_INDEX2] = 0.0
+                        row[value_key]  = values_flat[ri]
+                    dest.append(row)
+            return
         for ri, i1 in enumerate(index1):
             for ci, i2 in enumerate(index2):
                 idx = ri * ni2 + ci
