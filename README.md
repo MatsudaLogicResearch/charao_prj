@@ -174,6 +174,10 @@ To show full lrPymRPC output (pip install logs etc.) on success, set `lrpymrpc_v
 
 > Note: `test_log/` is recreated at the start of each test session.
 
+## Documentation
+
+- [Internal Power Specification](docs/SPEC_internal_power.md): output pin / input pin separation (`power_tout` / `power_tin`), mylogic entry rules, and verification guidelines (introduced in `0.9.14a01`).
+
 ## Known issues (future works)
 4. Multiple voltage for IOs and level shifters
 5. Logic parser to find mismatch between logic definition and netlist.

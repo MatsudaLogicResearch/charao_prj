@@ -300,9 +300,13 @@ def main():
 
     rows_out = []
 
-    for fn, kind_key, value_key, label in [
-        ("timing.csv", "table_type", COL_TIMING_VALUE, "=== timing ==="),
-        ("power.csv",  "rise_fall",  COL_POWER_VALUE,  "=== power ==="),
+    ## power.csv を direction (input pin / output pin) で分けて比較
+    ## - output pin: active arc, related_pin != "" (charao power_tout / IO power_c2c etc.)
+    ## - input pin : stable state, related_pin == "" (charao power_tin)
+    for fn, kind_key, value_key, label, pin_filter in [
+        ("timing.csv", "table_type", COL_TIMING_VALUE, "=== timing ===", None),
+        ("power.csv",  "rise_fall",  COL_POWER_VALUE,  "=== power (output pin, active arc) ===", "output"),
+        ("power.csv",  "rise_fall",  COL_POWER_VALUE,  "=== power (input pin, stable state) ===", "input"),
     ]:
         op = orig / fn
         np_ = new / fn
@@ -312,6 +316,14 @@ def main():
         _log(label)
         o_rows = _load_csv(op)
         n_rows = _load_csv(np_)
+
+        ## direction filter (only for power.csv)
+        if pin_filter == "output":
+            o_rows = [r for r in o_rows if r.get("related_pin", "") != ""]
+            n_rows = [r for r in n_rows if r.get("related_pin", "") != ""]
+        elif pin_filter == "input":
+            o_rows = [r for r in o_rows if r.get("related_pin", "") == ""]
+            n_rows = [r for r in n_rows if r.get("related_pin", "") == ""]
 
         # --interpolate 時: 新側に 0.0 の値が含まれていたら部分ランと判断し中断
         if args.interpolate and not args.keep_zero_new:

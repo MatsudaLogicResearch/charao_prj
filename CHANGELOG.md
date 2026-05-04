@@ -4,6 +4,28 @@
 
 ---
 
+## [0.9.14a02] 2026-05-04
+
+Alpha pre-release toward `1.0.0`. Adds the developer-facing internal_power specification document and a direction-split power compare utility.
+
+### Added
+- `docs/SPEC_internal_power.md`: developer-facing specification of charao `internal_power` handling: Liberty conventions, `meas_types` schema, mylogic entry rules for `power_tin`, sim path (`meas_energy=5`), CSV extraction (1D-aware), and verification guidelines. Linked from `README.md`.
+
+### Changed
+- `util_compare_lib_csv.py`: split `power.csv` compare by pin direction:
+  - `=== power (output pin, active arc) ===`: rows with `related_pin != ""` (charao `power_tout` and IO `power_c2c` etc.).
+  - `=== power (input pin, stable state) ===`: rows with `related_pin == ""` (charao `power_tin`).
+  - Each section reports its own `matched groups` / `missing groups` / `matched points`.
+
+### Verified
+- AOI21_1 with `--keep_zero_new --cell gf180mcu_fd_sc_mcu7t5v0__aoi21_1` (INDEX 0/9):
+  - timing: 12 matched / 8 missing (charao emits default block in addition to active arcs; orig has active arcs only).
+  - power (output pin, active arc): **10 / 0 missing**.
+  - power (input pin, stable state): **14 / 0 missing** (matches orig vendor exactly: A1x3 + A2x3 + Bx1 stable states x 2 directions).
+- INV_1: power (input pin, stable state): 0 / 0 (no `power_tin` needed and orig has none).
+
+---
+
 ## [0.9.14a01] 2026-05-04
 
 This is an alpha pre-release toward `1.0.0`. Intermediate alphas (`0.9.14a01`, `0.9.14a02`, ...) are pushed on `feature/1.0.0` branch for diff visibility. Final release will be tagged `1.0.0` and merged to `main`.
