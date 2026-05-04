@@ -4,6 +4,50 @@
 
 ---
 
+## [0.9.14a01] 2026-05-04
+
+This is an alpha pre-release toward `1.0.0`. Intermediate alphas (`0.9.14a01`, `0.9.14a02`, ...) are pushed on `feature/1.0.0` branch for diff visibility. Final release will be tagged `1.0.0` and merged to `main`.
+
+### Added
+- **Phase A2: `internal_power` separation by pin direction (power_tout / power_tin)**:
+  - `meas_types` field becomes mandatory in MyExpectCell (`list[str]`, external input). `meas_type` is now internal-only (`init=False`, set per loop iteration in `runExpectation` via `set_meas_type()` setter).
+  - Rename template `kind=power` to `kind=power_tout` (output pin, 2D: slope x load).
+  - Add new template `kind=power_tin` (input pin, 1D: slope only, no output load).
+  - Split `runSpicePowerMultiThread` into `runSpicePowerToutMultiThread` / `runSpicePowerTinMultiThread`.
+  - Split `runSpicePowerSingle` and `genFileLogic_PowerTrial1x` into Tout / Tin variants.
+  - `runSpicePowerTinSingle` uses `meas_energy=5` (new): autostop disabled, `energy_start`/`energy_end` `.MEASURE TRAN` skipped, `tsim_end` fixed to input transition window, `estart`/`eend` assigned directly from arguments (no SPICE measurement).
+  - tb_template: add `meas_energy=5` branches.
+  - `util_extract_lib_csv` extended for 1D tables (input pin internal_power CSV extraction).
+  - `myExportLib.py`: emit `internal_power () { when:"..."; fall_power(...) rise_power(...) }` inside input pin blocks (related_pin omitted = Liberty default of input pin).
+- **mylogic power_tin entries (2,030 total) auto-generated**:
+  - comb_base: AND/OR/NAND/NOR 2/3/4-input + MUX2 (11 logics, 324 entries).
+  - comb_complex: AOI21/22/211/221/222, OAI21/22/31/32/33/211/221/222, MUX4 (14 logics, 1,706 entries).
+  - Generators: `tmp/insert_power_tin.py`, `tmp/insert_complex.py` (git-untracked, temporary).
+- **ADDH/ADDF (ISS-00068, multi-output adders)**: 6 cells (addh_1/2/4 + addf_1/2/4) ported into `mylogic_comb_complex.py`, registered in `std_comb.jsonc`.
+- **ANTENNA cell**: registered in `std_comb.jsonc`, `.model_gf180_TT.sp` includes `diode_typical` model.
+- `debug_run.sh`: auto-activate venv at top (for claude-code invocation).
+
+### Changed
+- `myExportLib.py` / `myExportDoc.py`: replace `startswith("power")` with explicit enumeration (`power_tout`, `power_c`, `power_i`, `power_tin`) to avoid mixing input/output pin power.
+- `std_comb.jsonc`: add `["power_tin","10x0","d000"]` template_kgn only to cells that need input pin internal_power (AND/OR/NAND/NOR, MUX, AOI/OAI families - 81 cells). Cells without input pin internal_power in orig vendor (INV/BUF/clkinv/clkbuf/DLY/TIE/ANTENNA/XOR/XNOR/ADDH/ADDF - 62 cells) are excluded.
+
+### Fixed
+- Bug: `mylogic_comb_complex.py` had 716 entries with `meas_types=["delay"]` only; corrected to `["delay","power_tout"]` (active arc was missing power_tout sim trigger except in AOI21).
+- ADDH `ports_dict` key order must match SPICE subckt port order (`A B CO S`, not `A B S CO`); fixed to avoid `Pin Name missmatch` error.
+
+### Removed
+- ISS-00071 (filler/endcap/fillcap cells): closed as out-of-scope (not handled by STA/synthesis, charao does not target these).
+
+### Verified
+- INV / AND2_1 / AOI21_1: input pin internal_power `when` expressions match orig vendor exactly (AOI21_1 has 7 stable states: A1x3 + A2x3 + Bx1).
+- comb_base 25 + comb_complex 14 cells (INDEX 0/9): SPICE failures 0, baseline regression OK.
+
+### Known Issues
+- Verilog output: `\`timescale` is inconsistent across modules (IEEE 1800-2017 violation; only addf_1 has it). Will be addressed in a later alpha.
+- Full-grid compare against orig vendor (INDEX full grid) is not yet executed; planned before `1.0.0` final release.
+
+---
+
 ## [0.9.14] 2026-04-26
 
 ### Added
