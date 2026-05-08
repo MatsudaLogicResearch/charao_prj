@@ -270,9 +270,12 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
       
         for g in group_list:
           index1_pos=len(g.template.index_1)//2
-          index2_pos=len(g.template.index_2)//2
           index1_val=g.template.index_1[index1_pos]
-          index2_val=g.template.index_2[index2_pos]
+          if len(g.template.index_2) > 0:
+            index2_pos=len(g.template.index_2)//2
+            index2_val=g.template.index_2[index2_pos]
+          else:
+            index2_val=0.0   # 1D template (delay_disable): load-independent
           
           rel_dir="LH" if g.mec.arc_oir[2]=='r' else "HL"
           tran =direction_tran.replace("_transition","")
@@ -306,9 +309,12 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
       
         for g in group_list:
           index1_pos=len(g.template.index_1)//2
-          index2_pos=len(g.template.index_2)//2
           index1_val=g.template.index_1[index1_pos]
-          index2_val=g.template.index_2[index2_pos]
+          if len(g.template.index_2) > 0:
+            index2_pos=len(g.template.index_2)//2
+            index2_val=g.template.index_2[index2_pos]
+          else:
+            index2_val=0.0   # 1D template (delay_disable): load-independent
           
           rel_dir="LH" if g.mec.arc_oir[2]=='r' else "HL"
           tran =direction_tran.replace("_transition","")
@@ -346,9 +352,12 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
       
         for g in group_list:
           index1_pos=len(g.template.index_1)//2
-          index2_pos=len(g.template.index_2)//2
           index1_val=g.template.index_1[index1_pos]
-          index2_val=g.template.index_2[index2_pos]
+          if len(g.template.index_2) > 0:
+            index2_pos=len(g.template.index_2)//2
+            index2_val=g.template.index_2[index2_pos]
+          else:
+            index2_val=0.0   # 1D template (delay_disable): load-independent
           
           rel_dir="LH" if g.mec.arc_oir[2]=='r' else "HL"
           pwr_dir =direction_power.replace("_power","")

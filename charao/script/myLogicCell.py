@@ -77,6 +77,7 @@ class MyLogicCell(BaseModel):
     "leakage":None,
     "const"  :None,
     "delay"  :None,
+    "delay_disable"  :None,
     "delay_c2c"  :None,
     "delay_i2c"  :None,
     "delay_c2i"  :None,

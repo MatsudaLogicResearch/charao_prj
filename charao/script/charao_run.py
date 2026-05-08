@@ -107,7 +107,7 @@ def runExpectation(targetLib:Mls, targetCell:Mlc, expectationdictList:List[Mec])
       elif mt in ["delay_i2i","delay_i2c","delay_c2i","delay_c2c"]: #-- for IO cell
         rslt_Harness = runSpiceDelayMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
 
-      elif mt in ["three_state_enable_c2i","three_state_disable_c2i"]: #-- for IO cell
+      elif mt.startswith("three_state_"): #-- IO cell (_c2i suffix) or std cell (no suffix)
         rslt_Harness = runSpiceDelayMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
 
       elif mt in ["leakage"]:
@@ -157,7 +157,7 @@ def runSpiceDelayMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
   if h_delay.measure_type in ["rising_edge","falling_edge","clear","preset"]:
     kind="delay"
   else:
-    kind=h_delay.measure_type.replace("three_state_enable","delay").replace("three_state_disable","delay")
+    kind=h_delay.measure_type.replace("three_state_enable","delay").replace("three_state_disable","delay_disable")
 
   temp=mlc.template[kind]
   if not temp:
@@ -175,8 +175,11 @@ def runSpiceDelayMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
   h_delay.template       = temp
 
   if len(index2_loads)<1:
-    print(f"[Error] load size is 0 for template.")
-    my_exit()
+    if kind == "delay_disable":
+      index2_loads = [0.0]   # 1D template (10x0) uses a single load=0; output disable arc is load-independent
+    else:
+      print(f"[Error] load size is 0 for template.")
+      my_exit()
 
   if len(index1_slopes)<1:
     print(f"[Error] slope size is 0 for template.")
@@ -547,11 +550,25 @@ def runSpicePowerTinSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_sl
 
     h = targetHarness
 
-    ## fixed estart/eend by input transition window
-    tslew_rel_s = _tslew_from_template(index1_slope, h.mls)
-    tdelay_rel  = h.mls.sim_prop_max * h.mls.time_mag
-    estart = tdelay_rel
-    eend   = tdelay_rel + tslew_rel_s + 1e-9
+    ## fixed estart/eend by input transition window (VREL biport stim).
+    ## Note: in template, _tdelay_rel is delay from _t_in1, so absolute _t_rel0
+    ##       = _t_in1 + _tdelay_rel + _tsweep_rel. Compute absolute here so
+    ##       estart/eend point to the actual VREL transition window.
+    slope          = index1_slope
+    timestep_tstep = min(slope * 0.0099, h.mls.simulation_timestep)
+    ts             = timestep_tstep      * h.mls.time_mag
+    tdelay_init    = h.mls.sim_d2c_max   * h.mls.time_mag
+    tpulse_init    = h.mls.sim_pulse_max * h.mls.time_mag
+    tdelay_in      = h.mls.sim_c2d_min   * h.mls.time_mag   # index2_load=0 -> sim_c2d_min
+    tslew_in       = 10 * ts                                # match genFileLogic_PowerTinTrial1x
+    tdelay_rel     = h.mls.sim_prop_max  * h.mls.time_mag
+    tsweep_rel     = 0.0
+    tslew_rel_s    = _tslew_from_template(index1_slope, h.mls)
+
+    t_in1  = 5*ts + tdelay_init + tpulse_init + tdelay_in + tslew_in
+    t_rel0 = t_in1 + tdelay_rel + tsweep_rel
+    estart = t_rel0
+    eend   = t_rel0 + tslew_rel_s + 1e-9
 
     rslt2= genFileLogic_PowerTinTrial1x(targetHarness=targetHarness, spicef=spicefoe2, index1_slope=index1_slope, estart=estart, eend=eend)
 

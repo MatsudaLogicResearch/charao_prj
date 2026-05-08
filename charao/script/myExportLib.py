@@ -337,34 +337,18 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
     outlines.append(f'    }}')
   
 
-  ## outport / ioport ############################################################
-  for port in [p for p in (targetCell.outports + targetCell.biports ) if p is not None]:
-    
+  ## outport ############################################################
+  for port in [p for p in targetCell.outports if p is not None]:
+
     ##-------------------------------------------------------------------------
     ## pin infomation
     outlines.append(f'    pin ({targetCell.replace_by_portmap(port)}){{') ## pin start
 
-    if port.startswith("b"):
-      outlines.append(f'      direction : "inout";')
-      #-- for output
-      if port in targetCell.functions.keys():  #--- inout port with output
-        outlines.append(f'      function : "{targetCell.replace_by_portmap(targetCell.functions[port])}";')
+    outlines.append(f'      direction : "output";')
+    outlines.append(f'      function : "{targetCell.replace_by_portmap(targetCell.functions[port])}";')
 
-      if port in targetCell.max_load4out.keys():
-        outlines.append(f'      max_capacitance : "{f2s_ceil(f=targetCell.max_load4out[port],sigdigs=sigdigs)}";')
-        
-      #-- for input
-      max_transition = targetCell.max_trans4in[port] if (port in targetCell.max_trans4in.keys()) else 3.0
-      outlines.append(f'      max_transition : {f2s_ceil(f=max_transition, sigdigs=sigdigs)};')
-      max_capacitance = targetCell.cins[port] if ( port in targetCell.cins.keys()) else 3.0
-      outlines.append(f'      capacitance : "{f2s_ceil(f=max_capacitance, sigdigs=sigdigs)}";')
-        
-    else: ##"o"
-      outlines.append(f'      direction : "output";')
-      outlines.append(f'      function : "{targetCell.replace_by_portmap(targetCell.functions[port])}";')
-      
-      if port in targetCell.max_load4out.keys():
-        outlines.append(f'      max_capacitance : "{f2s_ceil(f=targetCell.max_load4out[port],sigdigs=sigdigs)}";') 
+    if port in targetCell.max_load4out.keys():
+      outlines.append(f'      max_capacitance : "{f2s_ceil(f=targetCell.max_load4out[port],sigdigs=sigdigs)}";')
 
     ###  pad infomation
     if port in targetCell.pad_infos.keys():
@@ -375,17 +359,19 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
     ###  signal level
     if targetCell.mls.vdd2_name or targetCell.mls.vddio_name:
       voltage = "IO_VOLTAGE" if (port in targetCell.io_voltage) else "CORE2_VOLTAGE" if (port in targetCell.vdd2_voltage) else "CORE_VOLTAGE"
-
-      if port.startswith("b"):
-        outlines.append(f'      input_signal_level : {voltage};')
-        outlines.append(f'      output_signal_level : {voltage};')
-      else:
-        outlines.append(f'      output_signal_level : {voltage};')
+      outlines.append(f'      output_signal_level : {voltage};')
       
-    ###  
+    ###
     outlines.append(f'      related_power_pin : "{targetLib.vdd_name}";')
     outlines.append(f'      related_ground_pin : "{targetLib.vss_name}";')
     #outlines.append(f'      output_voltage : default_{targetLib.vdd_name}_{targetLib.vss_name}_output;')
+
+    ## three_state / driver_type attribute (from logic_dict, e.g. BUFZ tri-state)
+    logic_def = targetLib.logic_dict.get(targetCell.logic, {})
+    if "driver_type" in logic_def:
+      outlines.append(f'      driver_type : {logic_def["driver_type"]};')
+    if "three_state" in logic_def:
+      outlines.append(f'      three_state : "{targetCell.replace_by_portmap(logic_def["three_state"])}";')
 
     ##-------------------------------------------------------------------------
     ## check timing/power infomation
@@ -547,8 +533,87 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
 
     outlines.append(f'    }}') ## out pin end
 
-  ## end of outport/biport
+  ## end of outport
   #with open(targetLib.tmp_file, 'a') as f:
+  with open(targetLib.dotlib_name, 'a') as f:
+    s = "\n".join(outlines) + "\n"
+    f.write(s)
+
+
+  ## biport (inout) ############################################################
+  outlines = []
+  for port in [p for p in targetCell.biports if p is not None]:
+
+    ##-------------------------------------------------------------------------
+    ## pin infomation
+    outlines.append(f'    pin ({targetCell.replace_by_portmap(port)}){{') ## pin start
+    outlines.append(f'      direction : "inout";')
+
+    if port in targetCell.functions.keys():  #--- inout port with output
+      outlines.append(f'      function : "{targetCell.replace_by_portmap(targetCell.functions[port])}";')
+
+    ## three_state / driver_type attribute (from logic_dict, e.g. HOLD bus keeper)
+    logic_def = targetLib.logic_dict.get(targetCell.logic, {})
+    if "driver_type" in logic_def:
+      outlines.append(f'      driver_type : {logic_def["driver_type"]};')
+    if "three_state" in logic_def:
+      outlines.append(f'      three_state : "{targetCell.replace_by_portmap(logic_def["three_state"])}";')
+
+    if port in targetCell.max_load4out.keys():
+      outlines.append(f'      max_capacitance : "{f2s_ceil(f=targetCell.max_load4out[port],sigdigs=sigdigs)}";')
+
+    max_transition = targetCell.max_trans4in[port] if (port in targetCell.max_trans4in.keys()) else 3.0
+    outlines.append(f'      max_transition : {f2s_ceil(f=max_transition, sigdigs=sigdigs)};')
+    max_capacitance = targetCell.cins[port] if (port in targetCell.cins.keys()) else 3.0
+    outlines.append(f'      capacitance : "{f2s_ceil(f=max_capacitance, sigdigs=sigdigs)}";')
+
+    ###  pad infomation
+    if port in targetCell.pad_infos.keys():
+      for k,v in targetCell.pad_infos[port].items():
+        if v:
+          outlines.append(f'      {k} : {targetCell.replace_by_portmap(v)};')
+
+    ###  signal level
+    if targetCell.mls.vdd2_name or targetCell.mls.vddio_name:
+      voltage = "IO_VOLTAGE" if (port in targetCell.io_voltage) else "CORE2_VOLTAGE" if (port in targetCell.vdd2_voltage) else "CORE_VOLTAGE"
+      outlines.append(f'      input_signal_level : {voltage};')
+      outlines.append(f'      output_signal_level : {voltage};')
+
+    outlines.append(f'      related_power_pin : "{targetLib.vdd_name}";')
+    outlines.append(f'      related_ground_pin : "{targetLib.vss_name}";')
+
+    ##-------------------------------------------------------------------------
+    ## power_tin (biport internal_power, related_pin omitted = same biport).
+    ## Used for bus-keeper / inout cells (e.g. HOLD).
+    h_list_bp = [h for h in harnessList if h.template_kind == "power_tin" and h.target_outport == port]
+    sorted_bp = sorted(h_list_bp, key=lambda x: (x.timing_when, x.passive_power))
+    for timing_when, group in groupby(sorted_bp, key=lambda x: x.timing_when):
+      group_list = list(group)
+      print(f"  [INFO] group(power_tin biport): target={port}, timing_when={timing_when} -> {len(group_list)}")
+
+      outlines.append(f'      internal_power () {{')
+
+      if targetCell.mls.vdd2_name or targetCell.mls.vddio_name:
+        voltage = "IO_VOLTAGE" if (port in targetCell.io_voltage) else "CORE2_VOLTAGE" if (port in targetCell.vdd2_voltage) else "CORE_VOLTAGE"
+        outlines.append(f'        power_level : "{voltage}";')
+
+      ## related_pin omitted (Liberty default = same biport)
+
+      if timing_when != "":
+        outlines.append(f'        when  : "{targetCell.replace_by_portmap(timing_when).replace("&"," ")}";')
+
+      for h in group_list:
+        t = h.template
+        outlines.append(f'        {h.passive_power} ({t.kind}_energy_template_{t.grid}) {{')
+        for lut_line in h.lut["eintl"]:
+          outlines.append(f'          {lut_line}')
+        outlines.append(f'        }}')
+
+      outlines.append(f'      }}') ## power_tin biport internal_power end
+
+    outlines.append(f'    }}') ## biport pin end
+
+  ## end of biport
   with open(targetLib.dotlib_name, 'a') as f:
     s = "\n".join(outlines) + "\n"
     f.write(s)

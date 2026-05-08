@@ -199,7 +199,7 @@ class MyConditionsAndResults(BaseModel):
     elif self.mec.meas_type in ["delay","delay_c2c", "delay_i2c", "delay_c2i", "delay_i2i",
                                 "power_tout","power_tin","power_c2c", "power_i2c", "power_c2i", "power_i2i"]:
       self.measure_type = self.mec.meas_type
-    elif self.mec.meas_type in ["three_state_enable_c2i","three_state_disable_c2i"]:
+    elif self.mec.meas_type.startswith("three_state_"):
       self.measure_type = self.mec.meas_type
     elif self.mec.meas_type in ["leakage"]:
       self.measure_type = self.mec.meas_type
@@ -432,7 +432,7 @@ class MyConditionsAndResults(BaseModel):
         print(f"[Error] value_name={value_name}/template_kind={self.template_kind} are missmatch.")
         my_exit()
     else:
-      if not self.template_kind in ["delay","const", "delay_c2c", "delay_i2c", "delay_c2i", "delay_i2i"]:
+      if not self.template_kind in ["delay","delay_disable","const", "delay_c2c", "delay_i2c", "delay_c2i", "delay_i2i"]:
         print(f"[Error] value_name={value_name}/template_kind={self.template_kind} are missmatch.")
         my_exit()
 

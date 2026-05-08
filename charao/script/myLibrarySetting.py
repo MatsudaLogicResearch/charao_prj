@@ -142,8 +142,10 @@ class MyLibrarySetting(BaseModel):
   sim_time_const_threshold   : float = 0.001
   sim_time_end_extent        : int   = 10    ;#
   sim_tsim_end4hold          : float = 50.0
-  sim_pullres_enable         : float = 100
-  sim_pullres_disable        : float = 0.1
+  sim_pullres_std_enable     : float = 100000   # std cell driver (~kΩ) override level
+  sim_pullres_std_disable    : float = 0.1      # std cell disable force-drive
+  sim_pullres_io_enable      : float = 100      # io cell strong driver level
+  sim_pullres_io_disable     : float = 1        # io cell disable force-drive
   
   compress_result :str = "true" 
   supress_msg      :str = "false"
@@ -179,6 +181,7 @@ class MyLibrarySetting(BaseModel):
   template_lines  : dict[str,list[str]] = Field(default_factory=lambda:{
     "const"  :[],
     "delay"  :[],
+    "delay_disable"  :[],
     "delay_c2c"  :[],
     "delay_c2i"  :[],
     "delay_i2c"  :[],
@@ -349,6 +352,7 @@ class MyLibrarySetting(BaseModel):
     #-- lu_table_template for kind/grid
     var_1_dict={"const"  :"related_pin_transition",
                 "delay"  :"input_net_transition",
+                "delay_disable"  :"input_net_transition",
                 "delay_c2c"  :"input_net_transition",
                 "delay_i2c"  :"input_net_transition",
                 "delay_c2i"  :"input_net_transition",
@@ -365,6 +369,7 @@ class MyLibrarySetting(BaseModel):
 
     var_2_dict={"const"  :"constrained_pin_transition",
                 "delay"  :"total_output_net_capacitance",
+                "delay_disable"  :"not_supported",
                 "delay_c2c"  :"total_output_net_capacitance",
                 "delay_c2i"  :"total_output_net_capacitance",
                 "delay_i2c"  :"total_output_net_capacitance",
@@ -422,7 +427,7 @@ class MyLibrarySetting(BaseModel):
       
       #-- create table header
       #if kind in ["const","delay","mpw"]:
-      if kind in ["const","delay","mpw","delay_c2c","delay_i2c","delay_c2i","delay_i2i"]:
+      if kind in ["const","delay","delay_disable","mpw","delay_c2c","delay_i2c","delay_c2i","delay_i2i"]:
         self.template_lines[kind].append(f'  lu_table_template ({kind}_template_{grid}) {{')
       else:
         self.template_lines[kind].append(f'  power_lut_template ({kind}_energy_template_{grid}) {{')

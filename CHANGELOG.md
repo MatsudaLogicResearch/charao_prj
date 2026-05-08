@@ -4,6 +4,40 @@
 
 ---
 
+## [0.9.14a03] 2026-05-08
+
+Alpha pre-release toward `1.0.0`. Adds full tri-state / bus-keeper cell support: HOLD bus keeper (ISS-00069) and BUFZ / INVZ tri-state buffer/inverter all 14 cells (ISS-00066) with three_state_enable / three_state_disable timing arcs.
+
+### Added
+- `docs/SPEC_three_state.md`: developer-facing specification for tri-state / bus-keeper cell characterization. Covers Liberty output structure (biport vs output direction), `mylogic_*.py` logic_dict and cell-entry `oe_infos` rules, MyExpectCell patterns for active / enable / disable arcs, charao internal flow (dispatch / tb / pullres), and a step-by-step porting guide for new PDKs.
+- `charao/script/mylogic_comb_tristate.py`: HOLD / BUFZ / INVZ logic definitions including three_state_enable / three_state_disable arc MyExpectCells.
+- `delay_disable` template kind: 1D (10x0, slope only, load-independent) template for `three_state_disable` arc. Added across `myItem.py`, `myLogicCell.py`, `myLibrarySetting.py`, `myConditionsAndResults.py`, `charao_run.py`, `myExportDoc.py`, plus `delay_disable_10x0_d00` entry in `config_lib.jsonc`.
+- `sample/target/gf180/fd/mcuC7t20240817/std_comb.jsonc`: 14 cell entries (`bufz_1/2/3/4/8/12/16`, `invz_1/2/3/4/8/12/16`) with `oe_infos` (NI_N / NI_P internal gate signals) and HOLD entry.
+- `sim_pullres_std_enable` / `sim_pullres_std_disable` / `sim_pullres_io_enable` / `sim_pullres_io_disable` (`myLibrarySetting.py`): cell-type-aware pullres for three_state arcs (defaults: 100k / 0.1 / 100 / 1).
+
+### Changed
+- `charao/script/charao_run.py`:
+  - `runSpicePowerTinSingle`: estart/eend now computed as absolute time (`_t_in1 + _tdelay_rel`) so the VREL transition window is covered for biport input pins (HOLD).
+  - three_state dispatch generalized to `startswith("three_state_")` (no `_c2i` suffix required).
+  - 1D template fallback: `delay_disable` accepts empty `index_2` and uses `[0.0]` as a single load corner.
+- `charao/script/myConditionsAndResults.py`: dispatch generalized; `set_lut` accepts `delay_disable` kind.
+- `charao/script/myExportLib.py`:
+  - biport block emits `three_state` via `replace_by_portmap` so cell-side condition expressions (e.g. `(!i1)`) resolve to portmap'd port names (`(!EN)`).
+  - output pin block now emits `driver_type` and `three_state` attributes from `logic_dict`.
+- `charao/script/myExportDoc.py`: handles 1D template (empty `index_2`) when emitting three_state markdown tables.
+- `charao/script/myTbParam.py`: `pullres` selection now branches on `h.mlc.isio` to pick std vs io variants.
+- `charao/script/myLogicCell.py`, `myLibrarySetting.py`, `myItem.py`: `delay_disable` added to literal lists, dicts, and template-line scaffolding.
+- `sample/target/TRIP62/LR/STDIO_24R03/config_lib.jsonc`: replaced legacy `sim_pullres_enable` / `sim_pullres_disable` with the new four-key form (std/io × enable/disable).
+
+### Verified
+- HOLD: full INDEX, all corners, 0 spice failures. Liberty `pin(Z)` matches orig structurally (direction:inout / function:Z / driver_type:bus_hold / three_state:"1" / internal_power power_tin 1D fall+rise).
+- BUFZ_1 / INVZ_1 INDEX 0,9 + full INDEX:
+  - 3 timing arcs all emitted with correct sense / type / template (combinational 2D, three_state_enable 2D, three_state_disable 1D).
+  - timing matched 440 points; diff avg ≈ -0.09 ns (existing systematic offset, not specific to tri-state).
+- BUFZ/INVZ all 14 cells: full INDEX run with 0 spice failures (compare run scheduled separately).
+
+---
+
 ## [0.9.14a02] 2026-05-04
 
 Alpha pre-release toward `1.0.0`. Adds the developer-facing internal_power specification document and a direction-split power compare utility.

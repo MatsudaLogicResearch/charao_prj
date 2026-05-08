@@ -113,7 +113,9 @@ class MyTbParam:
 
     #--
     if   h.timing_type == "three_state_enable":
-      self.pullres = float("{:.5g}".format(h.mls.sim_pullres_enable  * h.mls.resistance_mag))
+      v = h.mls.sim_pullres_io_enable if h.mlc.isio else h.mls.sim_pullres_std_enable
+      self.pullres = float("{:.5g}".format(v * h.mls.resistance_mag))
     elif h.timing_type == "three_state_disable":
-      self.pullres = float("{:.5g}".format(h.mls.sim_pullres_disable * h.mls.resistance_mag))
+      v = h.mls.sim_pullres_io_disable if h.mlc.isio else h.mls.sim_pullres_std_disable
+      self.pullres = float("{:.5g}".format(v * h.mls.resistance_mag))
     
