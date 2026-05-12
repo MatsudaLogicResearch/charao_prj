@@ -4,6 +4,34 @@
 
 ---
 
+## [0.9.14a04] 2026-05-11
+
+Alpha pre-release toward `1.0.0`. Closes ISS-00073 by adding the BUFZ / INVZ A3-scope `internal_power`: pin(Z) related:EN (no when), pin(EN) when:"!I"/"I", and pin(I) when:"!EN". Output structure now matches orig liberty fully for tri-state buffer/inverter cells.
+
+### Added
+- `charao/script/mylogic_comb_tristate.py`:
+  - BUFZ / INVZ three_state_enable arc に `power_tout` を併記 — `internal_power(related:"EN")` を orig 構造のまま出力。
+  - pin(EN) when:"!I" / when:"I" の `power_tin` MyExpectCell 4 entries (rise/fall × 2 conditions)。
+  - pin(I) when:"!EN" の `power_tin` MyExpectCell 2 entries (rise/fall)。
+- `sample/target/gf180/fd/mcuC7t20240817/std_comb.jsonc`: BUFZ/INVZ 全 14 セルの `template_kgn` に `["power_tin","10x0","d000"]` を追加。
+
+### Changed
+- `sample/target/gf180/fd/mcuC7t20240817/config_lib.jsonc`: `sim_pullres_std_disable` を 100000 (= std_enable と同値) に override。 std セルの三相態 disable arc では internal driver と pullres が直接競合しないため、 enable と同じ pullres 値で十分。
+
+### Verified
+- BUFZ_1 full INDEX:
+  - timing matched 4 groups / 440 pt (diff avg ≈ -0.09 ns、 既存系統誤差レベル)。
+  - power (output, active arc) matched **4 groups / 400 pt** (新規 related:"EN" の 200 pt 追加)。
+  - power (input, stable state) matched **4 groups / 40 pt** (新規 ISS-00073 範囲、 orig との match を確立)。
+- 14 セル INDEX 0/9 一斉実行: 0 spice failures。 timing matched 56 groups / 6160 pt、 power output 56 groups / 5600 pt、 power input 28 groups / 280 pt。
+- 14 セル full INDEX: scheduled separately (post-tag verification)。
+
+### Remaining diff avg notes
+- diff avg は既存の charao 系統誤差レベル (ISS-00075) と同オーダー (~ -0.1〜-0.2)。
+- 個別に大きいズレ点 (pin EN slope=0.02 fall: charao 0.03 vs orig 0.17、 pin I rise: charao 正 vs orig 負) は ISS-00075 で深堀り対象。
+
+---
+
 ## [0.9.14a03] 2026-05-08
 
 Alpha pre-release toward `1.0.0`. Adds full tri-state / bus-keeper cell support: HOLD bus keeper (ISS-00069) and BUFZ / INVZ tri-state buffer/inverter all 14 cells (ISS-00066) with three_state_enable / three_state_disable timing arcs.

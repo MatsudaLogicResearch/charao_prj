@@ -59,10 +59,10 @@ def get_logic_dict():
                #--- three_state_enable arc (EN rise -> Z to active value, no when, fall/rise pair)
                # I=1: ext drive 0 -> internal 1 (Z rise)
                MyExpectCell(pin_oir=["o0","i0","i1"], ival={"o":["0"],"i":["1","0"]}, mondrv_oir=["1","1","1"]
-                           ,meas_types=["three_state_enable"], tmg_sense="pos", arc_oir=["r","s","r"], tmg_when="", specify=""),
+                           ,meas_types=["three_state_enable","power_tout"], tmg_sense="pos", arc_oir=["r","s","r"], tmg_when="", specify=""),
                # I=0: ext drive 1 -> internal 0 (Z fall)
                MyExpectCell(pin_oir=["o0","i0","i1"], ival={"o":["1"],"i":["0","0"]}, mondrv_oir=["0","0","1"]
-                           ,meas_types=["three_state_enable"], tmg_sense="pos", arc_oir=["f","s","r"], tmg_when="", specify=""),
+                           ,meas_types=["three_state_enable","power_tout"], tmg_sense="pos", arc_oir=["f","s","r"], tmg_when="", specify=""),
                #--- three_state_disable arc (EN fall -> Z to Hi-Z, oe_infos SW for initial pull)
                # I=0: DUT was driving Z=0; EN fall releases; ext pull-up -> Z rise
                MyExpectCell(pin_oir=["o0","i0","i1"], ival={"o":["0"],"i":["0","1"]}, mondrv_oir=["1","0","0"]
@@ -70,6 +70,21 @@ def get_logic_dict():
                # I=1: DUT was driving Z=1; EN fall releases; ext pull-down -> Z fall
                MyExpectCell(pin_oir=["o0","i0","i1"], ival={"o":["1"],"i":["1","1"]}, mondrv_oir=["0","1","0"]
                            ,meas_types=["three_state_disable"], tmg_sense="neg", arc_oir=["f","s","f"], tmg_when="", specify=""),
+               #--- power_tin pin(EN) when:"!I" (i0=0): EN rise/fall, I=0 stable
+               MyExpectCell(pin_oir=["o0","i1","i1"], ival={"o":["0"],"i":["0","0"]}, mondrv_oir=["0","1","1"]
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oir=["s","r","r"], tmg_when="!i0", specify=""),
+               MyExpectCell(pin_oir=["o0","i1","i1"], ival={"o":["0"],"i":["0","1"]}, mondrv_oir=["0","0","0"]
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oir=["s","f","f"], tmg_when="!i0", specify=""),
+               #--- power_tin pin(EN) when:"I" (i0=1): EN rise/fall, I=1 stable
+               MyExpectCell(pin_oir=["o0","i1","i1"], ival={"o":["1"],"i":["1","0"]}, mondrv_oir=["1","1","1"]
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oir=["s","r","r"], tmg_when="i0", specify=""),
+               MyExpectCell(pin_oir=["o0","i1","i1"], ival={"o":["1"],"i":["1","1"]}, mondrv_oir=["1","0","0"]
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oir=["s","f","f"], tmg_when="i0", specify=""),
+               #--- power_tin pin(I) when:"!EN" (i1=0, output Hi-Z): I rise/fall in disabled state
+               MyExpectCell(pin_oir=["o0","i0","i0"], ival={"o":["b"],"i":["0","0"]}, mondrv_oir=["b","1","1"]
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oir=["s","r","r"], tmg_when="!i1", specify=""),
+               MyExpectCell(pin_oir=["o0","i0","i0"], ival={"o":["b"],"i":["1","0"]}, mondrv_oir=["b","0","0"]
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oir=["s","f","f"], tmg_when="!i1", specify=""),
                #--- leakage (4 conditions: !EN&!I / !EN&I / EN&!I / EN&I)
                MyExpectCell(pin_oir=["o0","i0","i0"], ival={"o":["d"],"i":["0","0"]}, mondrv_oir=["0","0","0"]
                            ,meas_types=["leakage"], tmg_sense="non", arc_oir=["s","s","s"], tmg_when="!i0&!i1", specify=""),
@@ -102,10 +117,10 @@ def get_logic_dict():
                #--- three_state_enable arc (EN rise -> ZN to active value, sense=pos)
                # I=1: ZN=0 (ext drive 1 -> internal 0, ZN fall)
                MyExpectCell(pin_oir=["o0","i0","i1"], ival={"o":["1"],"i":["1","0"]}, mondrv_oir=["0","1","1"]
-                           ,meas_types=["three_state_enable"], tmg_sense="pos", arc_oir=["f","s","r"], tmg_when="", specify=""),
+                           ,meas_types=["three_state_enable","power_tout"], tmg_sense="pos", arc_oir=["f","s","r"], tmg_when="", specify=""),
                # I=0: ZN=1 (ext drive 0 -> internal 1, ZN rise)
                MyExpectCell(pin_oir=["o0","i0","i1"], ival={"o":["0"],"i":["0","0"]}, mondrv_oir=["1","0","1"]
-                           ,meas_types=["three_state_enable"], tmg_sense="pos", arc_oir=["r","s","r"], tmg_when="", specify=""),
+                           ,meas_types=["three_state_enable","power_tout"], tmg_sense="pos", arc_oir=["r","s","r"], tmg_when="", specify=""),
                #--- three_state_disable arc (EN fall -> ZN to Hi-Z, sense=neg)
                # I=1: ZN was 0 -> ext pull-up -> ZN rise
                MyExpectCell(pin_oir=["o0","i0","i1"], ival={"o":["0"],"i":["1","1"]}, mondrv_oir=["1","1","0"]

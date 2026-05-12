@@ -231,6 +231,8 @@
   ,"sim_segment_timestep_min"   : 0.001
   ,"sim_time_const_threshold"   : 0.01
   ,"sim_tsim_end4hold"          : 35.0
+  ,"sim_pullres_std_enable"     : 100000
+  ,"sim_pullres_std_disable"    : 100000
 
   ,"compress_result"      : "False"
   ,"supress_message"      : "false"
