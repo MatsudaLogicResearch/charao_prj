@@ -451,9 +451,9 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float
     ,timestep     = float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
     ,timestep_tmax= float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
     ,tsim_end     = tsim_end
-    ,tdelay_init  = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
-    ,tpulse_init  = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
-    ,tdelay_in    = float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
+    ,tdelay_init  = 1e-9 if h.measure_type.startswith(("delay","three","power")) else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
+    ,tpulse_init  = 1e-9 if h.measure_type.startswith(("delay","three","power")) else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
+    ,tdelay_in    = 1e-9 if h.measure_type.startswith(("delay","three","power")) else float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
     ,tslew_in     = float("{:.5g}".format(timestep_tstep      * h.mls.time_mag))
     ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_prop_max  * h.mls.time_mag))
     ,tslew_rel    = _tslew_from_template(index1_slope, h.mls)
@@ -557,9 +557,11 @@ def runSpicePowerTinSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_sl
     slope          = index1_slope
     timestep_tstep = min(slope * 0.0099, h.mls.simulation_timestep)
     ts             = timestep_tstep      * h.mls.time_mag
-    tdelay_init    = h.mls.sim_d2c_max   * h.mls.time_mag
-    tpulse_init    = h.mls.sim_pulse_max * h.mls.time_mag
-    tdelay_in      = h.mls.sim_c2d_min   * h.mls.time_mag   # index2_load=0 -> sim_c2d_min
+    # ISS-00076: sim 時間最適化により comb/tristate/power は init 期間を 1ns 固定。
+    #            template 側 (genFileLogic_PowerTinTrial1x) と同じ値で _t_in1 を絶対時刻計算する必要あり。
+    tdelay_init    = 1e-9
+    tpulse_init    = 1e-9
+    tdelay_in      = 1e-9
     tslew_in       = 10 * ts                                # match genFileLogic_PowerTinTrial1x
     tdelay_rel     = h.mls.sim_prop_max  * h.mls.time_mag
     tsweep_rel     = 0.0
@@ -645,10 +647,9 @@ def genFileLogic_PowerToutTrial1x(targetHarness:Mcar, spicef:str, meas_energy:in
     ,timestep     = float("{:.5g}".format(timestep_tstep  * h.mls.time_mag))
     ,timestep_tmax= float("{:.5g}".format(timestep_tmax   * h.mls.time_mag))
     ,tsim_end     = tsim_end
-    ,tdelay_init  = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
-    ,tpulse_init  = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
-    #,tdelay_in    = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
-    ,tdelay_in    = float("{:.5g}".format(sim_c2d_max              * h.mls.time_mag))
+    ,tdelay_init  = 1e-9 if h.measure_type.startswith(("delay","three","power")) else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
+    ,tpulse_init  = 1e-9 if h.measure_type.startswith(("delay","three","power")) else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
+    ,tdelay_in    = 1e-9 if h.measure_type.startswith(("delay","three","power")) else float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
     ,tslew_in     = float("{:.5g}".format(10*timestep_tstep        * h.mls.time_mag))
     ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_prop_max  * h.mls.time_mag))
     ,tslew_rel    = _tslew_from_template(index1_slope, h.mls)
@@ -798,9 +799,9 @@ def genFileLogic_PowerTinTrial1x(targetHarness:Mcar, spicef:str, index1_slope:fl
     ,timestep     = float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
     ,timestep_tmax= float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
     ,tsim_end     = tsim_end
-    ,tdelay_init  = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(h.mls.sim_d2c_max * h.mls.time_mag))
-    ,tpulse_init  = 1e-9 if h.measure_type.startswith(("delay","three")) else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
-    ,tdelay_in    = float("{:.5g}".format(sim_c2d_max * h.mls.time_mag))
+    ,tdelay_init  = 1e-9 if h.measure_type.startswith(("delay","three","power")) else float("{:.5g}".format(h.mls.sim_d2c_max * h.mls.time_mag))
+    ,tpulse_init  = 1e-9 if h.measure_type.startswith(("delay","three","power")) else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
+    ,tdelay_in    = 1e-9 if h.measure_type.startswith(("delay","three","power")) else float("{:.5g}".format(sim_c2d_max * h.mls.time_mag))
     ,tslew_in     = float("{:.5g}".format(10 * timestep_tstep * h.mls.time_mag))
     ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_prop_max * h.mls.time_mag))
     ,tslew_rel    = _tslew_from_template(index1_slope, h.mls)

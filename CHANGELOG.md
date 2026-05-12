@@ -4,6 +4,34 @@
 
 ---
 
+## [0.9.14a05] 2026-05-12
+
+Alpha pre-release toward `1.0.0`. Closes ISS-00076 (sim time optimization for comb/tristate/power). BUFZ_1 full INDEX で **約 25 倍高速化** (1h 51min → 4min 20s) を確認。
+
+### Added
+- `charao/script/temp_testbench.sp.jp2`: WOUT pre-charge SW を VOUT セクションに追加 (0.1ns~0.9ns active、 Ron=0.1Ω、 τ=10ps×80 で 99% 充電)。 商用ツール (SiliconSmart 等) の voltage pre-charge + SW 切替手法を ngspice に移植したもの。
+
+### Changed
+- `charao/script/charao_run.py`:
+  - `genFileLogic_DelayTrial1x` (line 454-456) / `genFileLogic_PowerToutTrial1x` (line 648-651) / `genFileLogic_PowerTinTrial1x` (line 801-803): `tdelay_init` / `tpulse_init` / `tdelay_in` を `startswith(("delay","three","power"))` で 1ns 固定 (seq 系 setup/hold/min_pulse_width 等は実時間が意味あるため除外)。
+  - `runSpicePowerTinSingle` (line 560-562): absolute 時刻計算用の `tdelay_init` / `tpulse_init` / `tdelay_in` も 1ns 固定 (template 側と整合)。
+
+### Verified
+- BUFZ_1 full INDEX (after):
+  - 所要時間: **4 min 20 sec (= 約 25 倍速化、 before 1h 51min)**.
+  - timing matched 4 groups / 440 pt, diff avg -0.0991 ns (before -0.0919、 同等).
+  - power (output, active arc) matched 4 groups / 400 pt, diff avg -0.17 (before -0.17、 同等).
+  - power (input, stable state) matched 4 groups / 40 pt (before と同等).
+  - 0 spice failures、 構造的 regression なし.
+- pre-charge SW: WOUT を 0.1ns~0.9ns で `_vss_vout` (or `_vdd_vout`) に強制駆動、 0.9ns 後 SW OFF (Roff=1GΩ) で release。 DC OP も pre-charge 状態で settle するため bias 不整合なし。
+- 14 セル full INDEX (post-tag): scheduled separately、 約 1h 程度に短縮予想 (before 27h)。
+
+### Not changed
+- seq 系 (`setup`/`hold`/`recovery`/`removal`/`min_pulse_width_*`/`rising_edge`/`falling_edge`/`clear`/`preset`) は `tdelay_init` 等を従来通り `sim_d2c_max` (= 6 ns 等) に維持。
+- `sim_end` は autostop で実質関係ないため修正なし。
+
+---
+
 ## [0.9.14a04] 2026-05-11
 
 Alpha pre-release toward `1.0.0`. Closes ISS-00073 by adding the BUFZ / INVZ A3-scope `internal_power`: pin(Z) related:EN (no when), pin(EN) when:"!I"/"I", and pin(I) when:"!EN". Output structure now matches orig liberty fully for tri-state buffer/inverter cells.

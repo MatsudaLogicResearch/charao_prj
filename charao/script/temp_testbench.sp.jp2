@@ -154,6 +154,21 @@ VOCAP VOUT WOUT DC 0
  .IC V(WOUT)={_vss_vout}
 {% endif %}
 
+**** WOUT pre-charge SW (ISS-00076: 0.1ns~0.9ns active, force initial V before _t_init0)
+{% if param.val0_oirc[0] in ["u","1"] %}
+.model SW_PRECHARGE SW(Ron=0.1 Roff=1G Vt=2.5 Vh=0.3)
+VFORCE_VAL VFORCE_VAL 0 DC {_vdd_vout}
+VPC_CTRL   VPC_CTRL   0 PWL(0 0 0.099n 0 0.1n 5 0.9n 5 0.901n 0)
+SPRECHARGE WOUT VFORCE_VAL VPC_CTRL 0 SW_PRECHARGE
+.IC V(WOUT)={_vdd_vout}
+{% elif param.val0_oirc[0] in ["d","0"] %}
+.model SW_PRECHARGE SW(Ron=0.1 Roff=1G Vt=2.5 Vh=0.3)
+VFORCE_VAL VFORCE_VAL 0 DC {_vss_vout}
+VPC_CTRL   VPC_CTRL   0 PWL(0 0 0.099n 0 0.1n 5 0.9n 5 0.901n 0)
+SPRECHARGE WOUT VFORCE_VAL VPC_CTRL 0 SW_PRECHARGE
+.IC V(WOUT)={_vss_vout}
+{% endif %}
+
 
 **** VIN
 {% if   param.arc_oirc[1] == "rise" %}
