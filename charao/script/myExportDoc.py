@@ -277,7 +277,7 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
           else:
             index2_val=0.0   # 1D template (delay_disable): load-independent
           
-          rel_dir="LH" if g.mec.arc_oir[2]=='r' else "HL"
+          rel_dir="LH" if g.mec.arc_oirc[2]=='r' else "HL"
           tran =direction_tran.replace("_transition","")
       
           rel_pin=f'{targetCell.replace_by_portmap(relport)}({rel_dir})'
@@ -316,7 +316,7 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
           else:
             index2_val=0.0   # 1D template (delay_disable): load-independent
           
-          rel_dir="LH" if g.mec.arc_oir[2]=='r' else "HL"
+          rel_dir="LH" if g.mec.arc_oirc[2]=='r' else "HL"
           tran =direction_tran.replace("_transition","")
       
           #timing_type=g.timing_type
@@ -359,7 +359,7 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
           else:
             index2_val=0.0   # 1D template (delay_disable): load-independent
           
-          rel_dir="LH" if g.mec.arc_oir[2]=='r' else "HL"
+          rel_dir="LH" if g.mec.arc_oirc[2]=='r' else "HL"
           pwr_dir =direction_power.replace("_power","")
       
           rel_pin=f'{targetCell.replace_by_portmap(relport)}({rel_dir})'
@@ -383,7 +383,7 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
       outlines.append(f'| Input Pin | When | Input Pin Slew({targetLib.time_unit}) | Energy({targetLib.energy_unit})|')
       outlines.append(f'|----|----|----|----|')
 
-      for (inport, arc_in, timing_when),group in groupby(sorted_h, key=lambda x:(x.target_inport, x.mec.arc_oir[1], x.timing_when)):
+      for (inport, arc_in, timing_when),group in groupby(sorted_h, key=lambda x:(x.target_inport, x.mec.arc_oirc[1], x.timing_when)):
         group_list=list(group);
         size=len(group_list)
       

@@ -138,7 +138,7 @@ def runSpiceDelayMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
   ## spice file name
   spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oirc) + "_arc=" + ''.join(mec.arc_oirc)
   spicef = spicef0 + spicef1
 
   # Limit number of threads
@@ -221,7 +221,7 @@ def runSpicePowerToutMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mc
 
   ## spice file name
   spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oirc) + "_arc=" + ''.join(mec.arc_oirc)
   spicef = spicef0 + spicef1
 
   # Limit number of threads
@@ -305,7 +305,7 @@ def runSpicePowerTinMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mca
 
   ## spice file name
   spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oirc) + "_arc=" + ''.join(mec.arc_oirc)
   spicef = spicef0 + spicef1
 
   # Limit number of threads
@@ -383,8 +383,7 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float
   h=targetHarness
 
   # create parameter
-  arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
-  arc_oirc=h.mec.arc_oir+[arc_c0]
+  arc_oirc = h.mec.arc_oirc
 
   #sim_c2d_max
   sim_c2d_max_per_unit = h.mls.sim_c2d_max_per_unit
@@ -407,7 +406,7 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float
   if h.timing_type == "three_state_enable":
     pullres_role = "down" if arc_oirc[0]=="r" else "up"   if arc_oirc[0]=="f" else "nouse"
   elif h.timing_type == "three_state_disable":
-    outport=h.mec.pin_oir[0]
+    outport=h.mec.pin_oirc[0]
     if outport not in h.mlc.oe_infos.keys():
       print(f"[ERROR] no oe_infos exist for {outport} in cell_xx.jsonc.");
       my_exit()
@@ -590,8 +589,7 @@ def genFileLogic_PowerToutTrial1x(targetHarness:Mcar, spicef:str, meas_energy:in
   h=targetHarness
 
   # create parameter
-  arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
-  arc_oirc=h.mec.arc_oir+[arc_c0]
+  arc_oirc = h.mec.arc_oirc
 
   #sim_c2d_max
   sim_c2d_max_per_unit = h.mls.sim_c2d_max_per_unit
@@ -770,8 +768,7 @@ def genFileLogic_PowerTinTrial1x(targetHarness:Mcar, spicef:str, index1_slope:fl
   index2_load = 0.0
   meas_energy = 5
 
-  arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
-  arc_oirc = h.mec.arc_oir + [arc_c0]
+  arc_oirc = h.mec.arc_oirc
 
   sim_c2d_max_per_unit = h.mls.sim_c2d_max_per_unit
   if h.mlc.isio:
@@ -889,7 +886,7 @@ def runSpiceSetupMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
   ## spice file name
   spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oirc) + "_arc=" + ''.join(mec.arc_oirc)
   spicef = spicef0 + spicef1
   
   # Limit number of threads
@@ -1062,8 +1059,7 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float,
   h=targetHarness
 
   # create parameter
-  arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
-  arc_oirc=h.mec.arc_oir + [arc_c0]
+  arc_oirc = h.mec.arc_oirc
 
   #sim_c2d_max
   sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min) 
@@ -1159,7 +1155,7 @@ def runSpiceHoldMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
   ## spice file name
   spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oirc) + "_arc=" + ''.join(mec.arc_oirc)
   spicef = spicef0 + spicef1
   
   # Limit number of threads
@@ -1331,8 +1327,7 @@ def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float, 
   h=targetHarness
 
   # create parameter
-  arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
-  arc_oirc=h.mec.arc_oir + [arc_c0]
+  arc_oirc = h.mec.arc_oirc
   
   #sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
   sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min) 
@@ -1425,7 +1420,7 @@ def runSpicePassiveMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar
 
   ## spice file name
   spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 =  f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef1 =  f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oirc) + "_arc=" + ''.join(mec.arc_oirc)
   spicef = spicef0 + spicef1
   
   # Limit number of threads
@@ -1516,9 +1511,8 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
   h=targetHarness
 
   # create parameter
-  #arc_oirc=h.mec.arc_oir + ["n"]
-  arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
-  arc_oirc=h.mec.arc_oir + [arc_c0]
+  #arc_oirc=h.mec.arc_oirc + ["n"]
+  arc_oirc = h.mec.arc_oirc
   
   #sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
   sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min) 
@@ -1660,7 +1654,7 @@ def runSpiceMinPulseMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mca
 
   ## spice file name
   spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 =  f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef1 =  f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oirc) + "_arc=" + ''.join(mec.arc_oirc)
   spicef = spicef0 + spicef1
   
   # Limit number of threads
@@ -1771,8 +1765,7 @@ def genFileLogic_MinPulse1x(targetHarness:Mcar, spicef:str, tpulse_rel:float, ts
   h=targetHarness
 
   # create parameter
-  arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
-  arc_oirc=h.mec.arc_oir + [arc_c0]
+  arc_oirc = h.mec.arc_oirc
 
   #sim_c2d_max = h.mls.sim_c2d_max_per_unit * 0.1
   sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min) 
@@ -1866,7 +1859,7 @@ def runSpiceLeakageMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar
 
   ## spice file name
   spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oir) + "_arc=" + ''.join(mec.arc_oir)
+  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oirc) + "_arc=" + ''.join(mec.arc_oirc)
   spicef = spicef0 + spicef1
   
   # Limit number of threads
@@ -1945,8 +1938,7 @@ def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str):
   h=targetHarness
 
   # create parameter
-  arc_c0 = h.mec.arc_oir[2] if (h.mec.pin_oir[2]=="c0") else h.mec.arc_oir[1] if (h.mec.pin_oir[1]=="c0") else "r" if (h.target_clkport_val=="0") else "f"
-  arc_oirc=h.mec.arc_oir+[arc_c0]
+  arc_oirc = h.mec.arc_oirc
 
   meas_energy=3
   

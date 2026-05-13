@@ -34,7 +34,12 @@ python -m charao.script.util_extract_lib_csv --lib <file.lib> --out <dir>
 【出力 CSV（列名に括弧付き単位）】
   leakage.csv : cell_name, leakage_power (uW), when
   power.csv   : cell_name, pin, related_pin, rise_fall, index1 (ns), index2 (pF), value (pJ)
-  timing.csv  : cell_name, pin, related_pin, table_type, index1 (ns), index2 (pF), value (ns)
+  timing.csv  : cell_name, pin, related_pin, when, timing_type, table_type,
+                index1 (ns), index2 (pF), value (ns)
+                * timing_type は Liberty の arc 種別（rising_edge / setup_rising 等、 comb は空文字列）
+                * table_type はその中の table 種別（cell_rise / fall_constraint 等）
+                * 1D table  : index2 = "NaN"
+                * scalar    : index1 = index2 = "NaN"
 
 【比較方針】
   charao 出力 .lib との比較は本スクリプトで両者を CSV 化し、CSV 同士で比較すること。
@@ -246,17 +251,21 @@ class LibertyParser:
         ts = self.s["time_scale"]
         cs = self.s["cap_scale"]
         if ni2 == 0:
-            ## 1D table (e.g. power_tin: input slope only, no output load)
+            ## 1D table (e.g. power_tin: input slope only) or scalar (index1=["NaN"])
             for ri, i1 in enumerate(index1):
                 if ri < len(values_flat):
                     row = dict(template)
+                    if i1 == "NaN":
+                        row[COL_INDEX1] = "NaN"
+                    else:
+                        try:
+                            row[COL_INDEX1] = float(i1) * ts
+                        except ValueError:
+                            row[COL_INDEX1] = i1
+                    row[COL_INDEX2] = "NaN"
                     try:
-                        row[COL_INDEX1] = float(i1) * ts
-                        row[COL_INDEX2] = 0.0
                         row[value_key]  = float(values_flat[ri]) * value_scale
                     except ValueError:
-                        row[COL_INDEX1] = i1
-                        row[COL_INDEX2] = 0.0
                         row[value_key]  = values_flat[ri]
                     dest.append(row)
             return
@@ -278,7 +287,12 @@ class LibertyParser:
     # ── ブロックパーサー ──────────────────────────────────────────���───────
 
     def parse_2d_table(self):
-        """index_1 / index_2 / values ブロックを解析。(index1, index2, values_flat) を返す。"""
+        """index_1 / index_2 / values ブロックを解析。(index1, index2, values_flat) を返す。
+
+        - 2D table: index1=[...], index2=[...]
+        - 1D table: index1=[...], index2=[]            -> index2 列は "NaN"
+        - scalar:   index1=[], index2=[], values=[v]   -> index1=["NaN"] に正規化
+        """
         index1 = []
         index2 = []
         values_flat = []
@@ -292,6 +306,8 @@ class LibertyParser:
                 values_flat = self.collect_values(line)
             elif "}" in line and "{" not in line:
                 break
+        if not index1 and not index2 and values_flat:
+            index1 = ["NaN"]
         return index1, index2, values_flat
 
     def parse_leakage_power(self, cell_name):
@@ -348,7 +364,9 @@ class LibertyParser:
     def parse_timing(self, cell_name, pin_name):
         related_pin = None
         when = ""
-        timing_tables = {"cell_rise", "cell_fall", "rise_transition", "fall_transition"}
+        timing_type = ""
+        timing_tables = {"cell_rise", "cell_fall", "rise_transition", "fall_transition",
+                         "rise_constraint", "fall_constraint"}
         while self.i < self.n:
             line = self.peek()
             m = re.match(r'(\w+)\s*\(\S+\)\s*\{', line)
@@ -359,6 +377,7 @@ class LibertyParser:
                 self._emit_table(i1, i2, vals,
                                  {"cell_name": cell_name, "pin": pin_name,
                                   "related_pin": related_pin, "when": when,
+                                  "timing_type": timing_type,
                                   "table_type": tt_type},
                                  self.timing_rows, COL_TIMING_VALUE,
                                  self.s["time_scale"])
@@ -370,6 +389,9 @@ class LibertyParser:
             m = re.search(r'when\s*:\s*"([^"]*)"', line)
             if m:
                 when = _normalize_when(m.group(1))
+            m = re.search(r'timing_type\s*:\s*"?([^";\s]+)"?\s*;', line)
+            if m:
+                timing_type = m.group(1)
             if "}" in line and "{" not in line:
                 break
 
@@ -462,7 +484,7 @@ def extract_to_dir(lib_path, out_dir):
               ["cell_name", "pin", "related_pin", "when", "rise_fall",
                COL_INDEX1, COL_INDEX2, COL_POWER_VALUE], power)
     write_csv(out_dir / "timing.csv",
-              ["cell_name", "pin", "related_pin", "when", "table_type",
+              ["cell_name", "pin", "related_pin", "when", "timing_type", "table_type",
                COL_INDEX1, COL_INDEX2, COL_TIMING_VALUE], timing)
 
 

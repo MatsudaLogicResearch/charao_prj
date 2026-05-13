@@ -209,10 +209,19 @@ class MyLibrarySetting(BaseModel):
   #--------------------------------------------------
   #def __init__(self): 
 
+  @model_validator(mode='after')
+  def _clamp_num_thread_to_cpu(self):
+    cpu = os.cpu_count() or 1
+    limit = max(1, cpu - 1)   # cpu_count - 1 を上限、 1 つは汎用処理用に残す（max 1）
+    if self.num_thread > limit:
+      print(f"[INFO] num_thread={self.num_thread} clamped to (cpu_count-1)={limit} (cpu_count={cpu})")
+      object.__setattr__(self, 'num_thread', limit)
+    return self
+
   def print_variable(self):
     for k,v in self.__dict__.items():
       print(f"   {k}={v}")
-      
+
   def set_build_info(self, build_stamp=""):
 
     self.build_stamp= build_stamp
@@ -446,14 +455,14 @@ class MyLibrarySetting(BaseModel):
       #if index1_num>0:
       if index1_num>1:
         num=index1_num
-        dmy_values_list=[0.001 * (i+1) for i in range(num)]
+        dmy_values_list=[round(0.001 * (i+1), 3) for i in range(num)]
         dmy_values_str=",".join([str(x) for x in dmy_values_list])
         self.template_lines[kind].append(f'    index_1 ("{dmy_values_str}");')
 
       #if index2_num>0:
       if index2_num>1:
         num=index2_num
-        dmy_values_list=[0.001 * (i+1) for i in range(num)]
+        dmy_values_list=[round(0.001 * (i+1), 3) for i in range(num)]
         dmy_values_str=",".join([str(x) for x in dmy_values_list])
         self.template_lines[kind].append(f'    index_2 ("{dmy_values_str}");')
 

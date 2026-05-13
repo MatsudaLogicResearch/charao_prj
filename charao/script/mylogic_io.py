@@ -110,10 +110,10 @@ def get_logic_dict():
     "expect":
            [
              #--- leakage
-             MyExpectCell(pin_oir=["b0","b0","b0"], ival={"o":[],"i":[],"b":["0"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!b0", specify=""),
-             MyExpectCell(pin_oir=["b0","b0","b0"], ival={"o":[],"i":[],"b":["1"]}, mondrv_oir=["1","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="b0", specify=""),
+             MyExpectCell(pin_oirc=["b0","b0","b0",""], ival={"o":[],"i":[],"b":["0"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!b0", specify=""),
+             MyExpectCell(pin_oirc=["b0","b0","b0",""], ival={"o":[],"i":[],"b":["1"]}, mondrv_oirc=["1","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="b0", specify=""),
            ]
   },
   #---------------------------------------------------------------------------------------
@@ -134,40 +134,40 @@ def get_logic_dict():
     "expect":
            [
              #--- PAD to CORE
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["1","1","0"],"b":["0"]}, mondrv_oir=["1","1","1"]
-                         ,meas_types=["delay_i2c"] ,tmg_sense="pos",arc_oir=["r","r","r"], tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["1"],"i":["1","1","0"],"b":["1"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["delay_i2c"] ,tmg_sense="pos",arc_oir=["f","f","f"], tmg_when="", specify="(b0 => o0)=(0,0);"),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["1","1","0"],"b":["0"]}, mondrv_oirc=["1","1","1",""]
+                         ,meas_types=["delay_i2c"] ,tmg_sense="pos",arc_oirc=["r","r","r",""], tmg_when="", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["1"],"i":["1","1","0"],"b":["1"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["delay_i2c"] ,tmg_sense="pos",arc_oirc=["f","f","f",""], tmg_when="", specify="(b0 => o0)=(0,0);"),
              #--- IE to CORE
-             MyExpectCell(pin_oir=["o0","i0","i0"], ival={"o":["0"],"i":["0","1","0"],"b":["1"]}, mondrv_oir=["1","1","1"]
-                         ,meas_types=["delay_c2c"] ,tmg_sense="pos",arc_oir=["r","s","r"], tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","i0"], ival={"o":["1"],"i":["1","1","0"],"b":["1"]}, mondrv_oir=["0","1","0"]
-                         ,meas_types=["delay_c2c"] ,tmg_sense="pos",arc_oir=["f","s","f"], tmg_when="", specify="(i0 => o0)=(0,0);"),
+             MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["0"],"i":["0","1","0"],"b":["1"]}, mondrv_oirc=["1","1","1",""]
+                         ,meas_types=["delay_c2c"] ,tmg_sense="pos",arc_oirc=["r","s","r",""], tmg_when="", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["1"],"i":["1","1","0"],"b":["1"]}, mondrv_oirc=["0","1","0",""]
+                         ,meas_types=["delay_c2c"] ,tmg_sense="pos",arc_oirc=["f","s","f",""], tmg_when="", specify="(i0 => o0)=(0,0);"),
              #--- leakage
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["0","0","0"],"b":["0"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&!i1&!i2&!b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["0","0","0"],"b":["1"]}, mondrv_oir=["0","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&!i1&!i2&b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["0","1","0"],"b":["0"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&i1&!i2&!b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["0","1","0"],"b":["1"]}, mondrv_oir=["0","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&i1&!i2&b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["0","1","1"],"b":["0"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&i1&i2&!b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["0","1","1"],"b":["1"]}, mondrv_oir=["0","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&i1&i2&b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["1","0","0"],"b":["0"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="i0&!i1&!i2&!b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["1","0","0"],"b":["1"]}, mondrv_oir=["1","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="i0&!i1&!i2&b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["1","1","0"],"b":["0"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="i0&i1&!i2&!b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["1","1","0"],"b":["1"]}, mondrv_oir=["1","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="i0&i1&!i2&b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["1","1","1"],"b":["0"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="i0&i1&i2&!b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["1","1","1"],"b":["1"]}, mondrv_oir=["1","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="i0&i1&i2&b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["0","0","0"],"b":["0"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&!i1&!i2&!b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["0","0","0"],"b":["1"]}, mondrv_oirc=["0","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&!i1&!i2&b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["0","1","0"],"b":["0"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&i1&!i2&!b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["0","1","0"],"b":["1"]}, mondrv_oirc=["0","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&i1&!i2&b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["0","1","1"],"b":["0"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&i1&i2&!b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["0","1","1"],"b":["1"]}, mondrv_oirc=["0","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&i1&i2&b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["1","0","0"],"b":["0"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="i0&!i1&!i2&!b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["1","0","0"],"b":["1"]}, mondrv_oirc=["1","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="i0&!i1&!i2&b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["1","1","0"],"b":["0"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="i0&i1&!i2&!b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["1","1","0"],"b":["1"]}, mondrv_oirc=["1","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="i0&i1&!i2&b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["1","1","1"],"b":["0"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="i0&i1&i2&!b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["1","1","1"],"b":["1"]}, mondrv_oirc=["1","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="i0&i1&i2&b0", specify=""),
            ]
   },
   # PICS (PAD:b0, C:o0, IE:i0, PU_N:i1, PD_P:i2)
@@ -187,40 +187,40 @@ def get_logic_dict():
     "expect":
            [
              #--- PAD to CORE
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["1","1","0"],"b":["0"]}, mondrv_oir=["1","1","1"]
-                         ,meas_types=["delay_i2c"] ,tmg_sense="pos",arc_oir=["r","r","r"], tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["1"],"i":["1","1","0"],"b":["1"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["delay_i2c"] ,tmg_sense="pos",arc_oir=["f","f","f"], tmg_when="", specify="(b0 => o0)=(0,0);"),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["1","1","0"],"b":["0"]}, mondrv_oirc=["1","1","1",""]
+                         ,meas_types=["delay_i2c"] ,tmg_sense="pos",arc_oirc=["r","r","r",""], tmg_when="", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["1"],"i":["1","1","0"],"b":["1"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["delay_i2c"] ,tmg_sense="pos",arc_oirc=["f","f","f",""], tmg_when="", specify="(b0 => o0)=(0,0);"),
              #--- IE to CORE
-             MyExpectCell(pin_oir=["o0","i0","i0"], ival={"o":["0"],"i":["0","1","0"],"b":["1"]}, mondrv_oir=["1","1","1"]
-                         ,meas_types=["delay_c2c"] ,tmg_sense="pos",arc_oir=["r","s","r"], tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["o0","i0","i0"], ival={"o":["1"],"i":["1","1","0"],"b":["1"]}, mondrv_oir=["0","1","0"]
-                         ,meas_types=["delay_c2c"] ,tmg_sense="pos",arc_oir=["f","s","f"], tmg_when="", specify="(i0 => o0)=(0,0);"),
+             MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["0"],"i":["0","1","0"],"b":["1"]}, mondrv_oirc=["1","1","1",""]
+                         ,meas_types=["delay_c2c"] ,tmg_sense="pos",arc_oirc=["r","s","r",""], tmg_when="", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["1"],"i":["1","1","0"],"b":["1"]}, mondrv_oirc=["0","1","0",""]
+                         ,meas_types=["delay_c2c"] ,tmg_sense="pos",arc_oirc=["f","s","f",""], tmg_when="", specify="(i0 => o0)=(0,0);"),
              #--- leakage
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["0","0","0"],"b":["0"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&!i1&!i2&!b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["0","0","0"],"b":["1"]}, mondrv_oir=["0","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&!i1&!i2&b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["0","1","0"],"b":["0"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&i1&!i2&!b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["0","1","0"],"b":["1"]}, mondrv_oir=["0","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&i1&!i2&b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["0","1","1"],"b":["0"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&i1&i2&!b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["0","1","1"],"b":["1"]}, mondrv_oir=["0","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&i1&i2&b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["1","0","0"],"b":["0"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&!i1&!i2&!b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["1","0","0"],"b":["1"]}, mondrv_oir=["1","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&!i1&!i2&b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["1","1","0"],"b":["0"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&i1&!i2&!b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["1","1","0"],"b":["1"]}, mondrv_oir=["1","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&i1&!i2&b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["1","1","1"],"b":["0"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&i1&i2&!b0", specify=""),
-             MyExpectCell(pin_oir=["o0","b0","b0"], ival={"o":["0"],"i":["1","1","1"],"b":["1"]}, mondrv_oir=["1","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&i1&i2&b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["0","0","0"],"b":["0"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&!i1&!i2&!b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["0","0","0"],"b":["1"]}, mondrv_oirc=["0","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&!i1&!i2&b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["0","1","0"],"b":["0"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&i1&!i2&!b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["0","1","0"],"b":["1"]}, mondrv_oirc=["0","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&i1&!i2&b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["0","1","1"],"b":["0"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&i1&i2&!b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["0","1","1"],"b":["1"]}, mondrv_oirc=["0","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&i1&i2&b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["1","0","0"],"b":["0"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&!i1&!i2&!b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["1","0","0"],"b":["1"]}, mondrv_oirc=["1","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&!i1&!i2&b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["1","1","0"],"b":["0"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&i1&!i2&!b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["1","1","0"],"b":["1"]}, mondrv_oirc=["1","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&i1&!i2&b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["1","1","1"],"b":["0"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&i1&i2&!b0", specify=""),
+             MyExpectCell(pin_oirc=["o0","b0","b0",""], ival={"o":["0"],"i":["1","1","1"],"b":["1"]}, mondrv_oirc=["1","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&i1&i2&b0", specify=""),
            ]
   },
   # POC (PAD:b0, OEN:i0, PU_N:i1, PD_P:i2, I:i3)
@@ -239,45 +239,45 @@ def get_logic_dict():
     "expect":
            [
              #--- I to PAD
-             MyExpectCell(pin_oir=["b0","i3","i3"], ival={"o":[],"i":["0","1","0","0"],"b":["0"]}, mondrv_oir=["1","1","1"]
-                         ,meas_types=["delay_c2i"] ,tmg_sense="pos",arc_oir=["r","r","r"], tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["b0","i3","i3"], ival={"o":[],"i":["0","1","0","1"],"b":["1"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["delay_c2i"] ,tmg_sense="pos",arc_oir=["f","f","f"], tmg_when="", specify="(i3 => b0)=(0,0);"),
+             MyExpectCell(pin_oirc=["b0","i3","i3",""], ival={"o":[],"i":["0","1","0","0"],"b":["0"]}, mondrv_oirc=["1","1","1",""]
+                         ,meas_types=["delay_c2i"] ,tmg_sense="pos",arc_oirc=["r","r","r",""], tmg_when="", specify=""),
+             MyExpectCell(pin_oirc=["b0","i3","i3",""], ival={"o":[],"i":["0","1","0","1"],"b":["1"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["delay_c2i"] ,tmg_sense="pos",arc_oirc=["f","f","f",""], tmg_when="", specify="(i3 => b0)=(0,0);"),
              #--- OE to PAD(enable)
-             MyExpectCell(pin_oir=["b0","i3","i0"], ival={"o":[],"i":["1","1","0","1"],"b":["0"]}, mondrv_oir=["1","1","0"]
-                         ,meas_types=["three_state_enable_c2i"] ,tmg_sense="neg",arc_oir=["r","s","f"], tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["b0","i3","i0"], ival={"o":[],"i":["1","1","0","0"],"b":["1"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["three_state_enable_c2i"] ,tmg_sense="neg",arc_oir=["f","s","f"], tmg_when="", specify=""),
+             MyExpectCell(pin_oirc=["b0","i3","i0",""], ival={"o":[],"i":["1","1","0","1"],"b":["0"]}, mondrv_oirc=["1","1","0",""]
+                         ,meas_types=["three_state_enable_c2i"] ,tmg_sense="neg",arc_oirc=["r","s","f",""], tmg_when="", specify=""),
+             MyExpectCell(pin_oirc=["b0","i3","i0",""], ival={"o":[],"i":["1","1","0","0"],"b":["1"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["three_state_enable_c2i"] ,tmg_sense="neg",arc_oirc=["f","s","f",""], tmg_when="", specify=""),
              #--- OE to PAD(disable)
-             MyExpectCell(pin_oir=["b0","i3","i0"], ival={"o":[],"i":["0","1","0","0"],"b":["0"]}, mondrv_oir=["1","0","1"]
-                         ,meas_types=["three_state_disable_c2i"] ,tmg_sense="pos",arc_oir=["r","s","r"], tmg_when="", specify=""),
-             MyExpectCell(pin_oir=["b0","i3","i0"], ival={"o":[],"i":["0","1","0","1"],"b":["1"]}, mondrv_oir=["0","1","1"]
-                         ,meas_types=["three_state_disable_c2i"] ,tmg_sense="pos",arc_oir=["f","s","r"], tmg_when="", specify="(i0 => b0)=(0,0,0,0,0,0);"),
+             MyExpectCell(pin_oirc=["b0","i3","i0",""], ival={"o":[],"i":["0","1","0","0"],"b":["0"]}, mondrv_oirc=["1","0","1",""]
+                         ,meas_types=["three_state_disable_c2i"] ,tmg_sense="pos",arc_oirc=["r","s","r",""], tmg_when="", specify=""),
+             MyExpectCell(pin_oirc=["b0","i3","i0",""], ival={"o":[],"i":["0","1","0","1"],"b":["1"]}, mondrv_oirc=["0","1","1",""]
+                         ,meas_types=["three_state_disable_c2i"] ,tmg_sense="pos",arc_oirc=["f","s","r",""], tmg_when="", specify="(i0 => b0)=(0,0,0,0,0,0);"),
              #--- leakage
-             MyExpectCell(pin_oir=["b0","i3","i3"], ival={"o":[]  ,"i":["0","0","0","0"],"b":["0"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&!i1&!i2&!i3", specify=""),
-             MyExpectCell(pin_oir=["b0","i3","i3"], ival={"o":[]  ,"i":["0","0","0","1"],"b":["1"]}, mondrv_oir=["1","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&!i1&!i2&i3", specify=""),
-             MyExpectCell(pin_oir=["b0","i3","i3"], ival={"o":[]  ,"i":["0","1","0","0"],"b":["0"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&i1&!i2&!i3", specify=""),
-             MyExpectCell(pin_oir=["b0","i3","i3"], ival={"o":[]  ,"i":["0","1","0","1"],"b":["1"]}, mondrv_oir=["1","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&i1&!i2&i3", specify=""),
-             MyExpectCell(pin_oir=["b0","i3","i3"], ival={"o":[]  ,"i":["0","1","1","0"],"b":["0"]}, mondrv_oir=["0","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&i1&i2&!i3", specify=""),
-             MyExpectCell(pin_oir=["b0","i3","i3"], ival={"o":[]  ,"i":["0","1","1","1"],"b":["1"]}, mondrv_oir=["1","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="!i0&i1&i2&i3", specify=""),
-             MyExpectCell(pin_oir=["b0","i3","i3"], ival={"o":[]  ,"i":["1","0","0","0"],"b":["u"]}, mondrv_oir=["u","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="i0&!i1&!i2&!i3", specify=""),
-             MyExpectCell(pin_oir=["b0","i3","i3"], ival={"o":[]  ,"i":["1","0","0","1"],"b":["u"]}, mondrv_oir=["u","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="i0&!i1&!i2&i3", specify=""),
-             MyExpectCell(pin_oir=["b0","i3","i3"], ival={"o":[]  ,"i":["1","1","0","0"],"b":["z"]}, mondrv_oir=["z","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="i0&i1&!i2&!i3", specify=""),
-             MyExpectCell(pin_oir=["b0","i3","i3"], ival={"o":[]  ,"i":["1","1","0","1"],"b":["z"]}, mondrv_oir=["z","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="i0&i1&!i2&i3", specify=""),
-             MyExpectCell(pin_oir=["b0","i3","i3"], ival={"o":[]  ,"i":["1","1","1","0"],"b":["d"]}, mondrv_oir=["d","0","0"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="i0&i1&i2&!i3", specify=""),
-             MyExpectCell(pin_oir=["b0","i3","i3"], ival={"o":[]  ,"i":["1","1","1","1"],"b":["d"]}, mondrv_oir=["d","1","1"]
-                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oir=["s","s","s"], tmg_when="i0&i1&i2&i3", specify=""),
+             MyExpectCell(pin_oirc=["b0","i3","i3",""], ival={"o":[]  ,"i":["0","0","0","0"],"b":["0"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&!i1&!i2&!i3", specify=""),
+             MyExpectCell(pin_oirc=["b0","i3","i3",""], ival={"o":[]  ,"i":["0","0","0","1"],"b":["1"]}, mondrv_oirc=["1","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&!i1&!i2&i3", specify=""),
+             MyExpectCell(pin_oirc=["b0","i3","i3",""], ival={"o":[]  ,"i":["0","1","0","0"],"b":["0"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&i1&!i2&!i3", specify=""),
+             MyExpectCell(pin_oirc=["b0","i3","i3",""], ival={"o":[]  ,"i":["0","1","0","1"],"b":["1"]}, mondrv_oirc=["1","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&i1&!i2&i3", specify=""),
+             MyExpectCell(pin_oirc=["b0","i3","i3",""], ival={"o":[]  ,"i":["0","1","1","0"],"b":["0"]}, mondrv_oirc=["0","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&i1&i2&!i3", specify=""),
+             MyExpectCell(pin_oirc=["b0","i3","i3",""], ival={"o":[]  ,"i":["0","1","1","1"],"b":["1"]}, mondrv_oirc=["1","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="!i0&i1&i2&i3", specify=""),
+             MyExpectCell(pin_oirc=["b0","i3","i3",""], ival={"o":[]  ,"i":["1","0","0","0"],"b":["u"]}, mondrv_oirc=["u","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="i0&!i1&!i2&!i3", specify=""),
+             MyExpectCell(pin_oirc=["b0","i3","i3",""], ival={"o":[]  ,"i":["1","0","0","1"],"b":["u"]}, mondrv_oirc=["u","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="i0&!i1&!i2&i3", specify=""),
+             MyExpectCell(pin_oirc=["b0","i3","i3",""], ival={"o":[]  ,"i":["1","1","0","0"],"b":["z"]}, mondrv_oirc=["z","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="i0&i1&!i2&!i3", specify=""),
+             MyExpectCell(pin_oirc=["b0","i3","i3",""], ival={"o":[]  ,"i":["1","1","0","1"],"b":["z"]}, mondrv_oirc=["z","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="i0&i1&!i2&i3", specify=""),
+             MyExpectCell(pin_oirc=["b0","i3","i3",""], ival={"o":[]  ,"i":["1","1","1","0"],"b":["d"]}, mondrv_oirc=["d","0","0",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="i0&i1&i2&!i3", specify=""),
+             MyExpectCell(pin_oirc=["b0","i3","i3",""], ival={"o":[]  ,"i":["1","1","1","1"],"b":["d"]}, mondrv_oirc=["d","1","1",""]
+                         ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["s","s","s",""], tmg_when="i0&i1&i2&i3", specify=""),
            ]
   }
   }

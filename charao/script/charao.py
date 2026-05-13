@@ -77,7 +77,7 @@ def main():
     "charao.script.mylogic_comb_base",
     "charao.script.mylogic_comb_complex",
     "charao.script.mylogic_comb_tristate",
-    "charao.script.mylogic_seq",
+    "charao.script.mylogic_seq_ff",
     "charao.script.mylogic_io",
   ]
   logic_dict = {}

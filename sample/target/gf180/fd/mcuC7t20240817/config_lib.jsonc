@@ -216,7 +216,7 @@
 //--- simulator settings
   ,"simulator"  : "ngspice"
   ,"run_sim"    : "true"
-  ,"num_thread" : 8
+  ,"num_thread" : 4
   ,"sim_nice"   : 19
   ,"simulation_timestep"        : 1.0
   ,"sim_pulse_max"              : 5.0

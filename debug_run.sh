@@ -43,6 +43,8 @@ _setup_args() {
   [ -n "${INDEX1}" ] && INDEX1_OPT="--template_index1_only ${INDEX1}"
   INDEX2_OPT=""
   [ -n "${INDEX2}" ] && INDEX2_OPT="--template_index2_only ${INDEX2}"
+  MEAS_ONLY_OPT=""
+  [ -n "${MEAS_ONLY}" ] && MEAS_ONLY_OPT="--measures_only ${MEAS_ONLY}"
 
   # mylogic_user.py をプロジェクトルート直下から自動検出（v0.9.14 以降は通常不要）
   MYLOGIC_USER_OPT=""
@@ -89,7 +91,7 @@ cmd_run_all() {
   echo "===== run_all: MODE=${MODE_} CELLS='${CELLS:-<all>}' INDEX1='${INDEX1:-<all>}' INDEX2='${INDEX2:-<all>}' (batch) ====="
   rm -rf rslt work
   local LOG="lrpymrpc_debug_batch.log"
-  local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target sample/target ${CELLS_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MYLOGIC_USER_OPT}"
+  local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target sample/target ${CELLS_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${MYLOGIC_USER_OPT}"
   set -x
   python -u -m lrPymRPC \
     --SERVER_IP 192.168.168.103 \
@@ -122,7 +124,7 @@ cmd_run_each() {
     echo "=========================================="
     rm -rf rslt work "work_${short}" "rslt_${short}"
     local LOG="lrpymrpc_debug_${short}.log"
-    local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target sample/target --cells_only ${full} ${INDEX1_OPT} ${INDEX2_OPT} ${MYLOGIC_USER_OPT}"
+    local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target sample/target --cells_only ${full} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${MYLOGIC_USER_OPT}"
     set -x
     python -u -m lrPymRPC \
       --SERVER_IP 192.168.168.103 \

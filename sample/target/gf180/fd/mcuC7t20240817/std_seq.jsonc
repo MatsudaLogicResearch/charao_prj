@@ -1,0 +1,70 @@
+//===================================================================
+// This file is associated with the charao project.
+// Copyright (C) 2025-2026 MATSUDA Masahiro
+//
+// This configuration file is licensed under the MIT License.
+//===================================================================
+{
+"spice_path":"./sample/src/gf180mcuC/libs.ref/gf180mcu_fd_sc_mcu7t5v0/spice",
+
+"cell_info": [
+  // [Info] The order of "ports_dict" is same as the order of pin-list in the spice file.
+
+  // ---- DFF (no reset/set, Q only) -----------------------------------
+  // SPICE port order: D CLK Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dffq_1","logic":"DFF_PC","area":63.6608,
+   "primitive":"udp_iq_ff_n",
+   "ports_dict":{"D":"i0","CLK":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- DFF negedge clock (no reset/set, Q only) ----------------------
+  // SPICE port order: D CLKN Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dffnq_1","logic":"DFF_NC","area":65.8560,
+   "primitive":"udp_iq_ff_n",
+   "ports_dict":{"D":"i0","CLKN":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- DFF posedge clock + active-low reset, Q only -------------------
+  // SPICE port order: D RN CLK Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dffrnq_1","logic":"DFF_PC_NR","area":74.6368,
+   "primitive":"udp_iq_ff_n",
+   "ports_dict":{"D":"i0","RN":"r0","CLK":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- DFF negedge clock + active-low reset, Q only -------------------
+  // SPICE port order: D RN CLKN Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dffnrnq_1","logic":"DFF_NC_NR","area":74.6368,
+   "primitive":"udp_iq_ff_n",
+   "ports_dict":{"D":"i0","RN":"r0","CLKN":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- DFF posedge clock + active-low set, Q only ---------------------
+  // SPICE port order: D SETN CLK Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dffsnq_1","logic":"DFF_PC_NS","area":79.0272,
+   "primitive":"udp_iq_ff_n",
+   "ports_dict":{"D":"i0","SETN":"s0","CLK":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- DFF negedge clock + active-low set, Q only ---------------------
+  // SPICE port order: D SETN CLKN Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dffnsnq_1","logic":"DFF_NC_NS","area":79.0272,
+   "primitive":"udp_iq_ff_n",
+   "ports_dict":{"D":"i0","SETN":"s0","CLKN":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- DFF posedge clock + active-low reset + active-low set, Q only --
+  // SPICE port order: D RN SETN CLK Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dffrsnq_1","logic":"DFF_PC_NR_NS","area":85.6128,
+   "primitive":"udp_iq_ff_hn",
+   "ports_dict":{"D":"i0","RN":"r0","SETN":"s0","CLK":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- DFF negedge clock + active-low reset + active-low set, Q only --
+  // SPICE port order: D RN SETN CLKN Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dffnrsnq_1","logic":"DFF_NC_NR_NS","area":94.3936,
+   "primitive":"udp_iq_ff_hn",
+   "ports_dict":{"D":"i0","RN":"r0","SETN":"s0","CLKN":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}}
+
+]
+}

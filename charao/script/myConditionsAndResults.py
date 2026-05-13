@@ -147,8 +147,8 @@ class MyConditionsAndResults(BaseModel):
     
   def set_direction(self):
 
-    arc_out=self.mec.arc_oir[0]
-    arc_in =self.mec.arc_oir[1]
+    arc_out=self.mec.arc_oirc[0]
+    arc_in =self.mec.arc_oirc[1]
 
     ## -- for output
     if   (arc_out == 'r'):
@@ -189,7 +189,7 @@ class MyConditionsAndResults(BaseModel):
       my_exit()
       
   def set_measure_type(self):
-    if self.mec.meas_type in ["rising_edge","fallin_edge",
+    if self.mec.meas_type in ["rising_edge","falling_edge",
                               "setup_rising","setup_falling","hold_rising","hold_falling",
                               "removal_rising","removal_falling","recovery_rising","recovery_falling",
                               "clear", "preset",
@@ -248,7 +248,7 @@ class MyConditionsAndResults(BaseModel):
     
   def set_target_outport(self):
     
-    pin_pos=self.mec.pin_oir[0]
+    pin_pos=self.mec.pin_oirc[0]
 
     #-- CELL without output
     if not pin_pos:
@@ -283,7 +283,7 @@ class MyConditionsAndResults(BaseModel):
 
   def set_target_inport(self):
 
-    pin_pos=self.mec.pin_oir[1]
+    pin_pos=self.mec.pin_oirc[1]
     
     #-- CELL without input
     if not pin_pos:
@@ -316,7 +316,7 @@ class MyConditionsAndResults(BaseModel):
 
   def set_target_relport(self):
 
-    pin_pos=self.mec.pin_oir[2]
+    pin_pos=self.mec.pin_oirc[2]
     
     #-- CELL without relport
     if not pin_pos:
@@ -357,7 +357,7 @@ class MyConditionsAndResults(BaseModel):
     if self.mlc.clock != None:
       
       #-- get pin name & pin position
-      #pin_pos=self.mec.pin_oir[2]
+      #pin_pos=self.mec.pin_oirc[2]
       pin_pos= self.mlc.clock
       flag=re.match(r"([a-zA-Z]+)(\d+)", pin_pos)
       if flag:
@@ -379,7 +379,7 @@ class MyConditionsAndResults(BaseModel):
         my_exit();
 
     #---- role
-    self.clk_role= "related" if self.mec.pin_oir[2]=="c0" else "input" if self.mec.pin_oir[1] =="c0" else "nouse"
+    self.clk_role= "related" if self.mec.pin_oirc[2]=="c0" else "input" if self.mec.pin_oirc[1] =="c0" else "nouse"
 
     
   def set_stable_inport(self):

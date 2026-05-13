@@ -772,7 +772,7 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
     ##-------------------------------------------------------------------------
     ## power_tin (input pin internal_power, output stable state)
     ## Use passive_power (input direction) for fall_power/rise_power table name,
-    ## since direction_power="stable" when output is stable (arc_oir[0]=="s").
+    ## since direction_power="stable" when output is stable (arc_oirc[0]=="s").
     sorted_pt = sorted(h_list_in_pt, key=lambda x: (x.timing_when, x.passive_power))
     for timing_when, group in groupby(sorted_pt, key=lambda x: x.timing_when):
       group_list = list(group)

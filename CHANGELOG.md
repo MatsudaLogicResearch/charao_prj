@@ -4,6 +4,52 @@
 
 ---
 
+## [0.9.14a06] 2026-05-13
+
+Alpha pre-release toward `1.0.0`. ISS-00070 DFF 8 family 実装着手 + Phase 2 rename + lib CSV schema 拡張 + num_thread 安全網 (ISS-00079 暫定対策).
+
+### Added
+- ISS-00070 DFF 8 family (GF180):
+  - `charao/script/mylogic_seq_ff.py` (新規): dffq/dffnq/dffrnq/dffnrnq/dffsnq/dffnsnq/dffrsnq/dffnrsnq の 8 logic 定義 (GF180 wrap 流 vcode: not gate + udp_iq_ff_n/hn + not gate)
+  - `sample/target/gf180/fd/mcuC7t20240817/std_seq.jsonc` (新規): GF180 DFF 8 セル登録 (primitive 指定 + ports_dict)
+  - `docs/SPEC_seq_ff.md` (新規): DFF/SDFF 規約 11 章 + GF180 wrap 流 vcode 仕様 + 新規 PDK 移植手順
+  - `README.md`: SPEC_seq_ff.md リンク追加
+- num_thread 自動 clamp 安全網:
+  - `charao/script/myLibrarySetting.py`: `model_validator(mode='after')` で `max(1, cpu_count - 1)` に clamp (1 thread を汎用処理用に残す)
+- lib CSV schema 拡張 (DFF 比較対応):
+  - `charao/script/util_extract_lib_csv.py`: `timing_type` 列追加、 `rise_constraint`/`fall_constraint` テーブル対応、 scalar (NaN sentinel) 対応
+  - `charao/script/util_compare_lib_csv.py`: `timing_type` を group key に含める、 NaN 行は補間スキップ + strict 1:1 照合
+
+### Changed
+- Phase 2 rename: `pin_oir` → `pin_oirc` / `mondrv_oir` → `mondrv_oirc` / `arc_oir` → `arc_oirc` (常に 4 要素、 [3] = clock pin、 comb cell は `""`)
+  - `charao/script/myExpectCell.py`: コア field 4 要素化
+  - `charao/script/charao_run.py`: 参照側 + `arc_c0` 自動生成削除 (jsonc/mylogic で明示指定する設計)
+  - `charao/script/myConditionsAndResults.py`: 参照側 + typo `fallin_edge` → `falling_edge` 修正
+  - 既存セル群 (`mylogic_comb_base.py` / `mylogic_comb_complex.py` / `mylogic_comb_tristate.py` / `mylogic_io.py`) を全て 4 要素対応に追従
+- WOUT pre-charge SW 期間延長: `_t_init0 ~ _t_in0 - timestep` (comb/seq 共通)
+  - `charao/script/temp_testbench.sp.jp2`
+- `sample/target/gf180/fd/mcuC7t20240817/config_lib.jsonc`: 既存値 8 維持 (ISS-00079 で 100 検証後、 thread=4 sweet spot 判明 → subdir 化対策後に最終値決定)
+
+### Removed
+- `charao/script/mylogic_seq.py`: 旧 OSU035 用 DFF/Latch 定義を `mylogic_seq_ff.py` に統合 (GF180 wrap 流に書き直し)
+
+### Verified
+- DFF 8 family / 各 _1 サイズ full INDEX bg ジョブで **0 spice failures** (5/12〜5/13)
+- compare 動作: matched groups 40 / matched points 4000、 `cell_fall falling_edge` diff avg -0.25〜-0.35 ns (既存系統誤差レベル、 ISS-00075 同種)
+- `setup_rising` で diff avg +2〜+12 ns 観察 → **ISS-00077** として記録
+
+### Known issues
+- **ISS-00077**: DFF setup_rising 系統誤差 (charao > orig +2〜+12 ns、 INDEX2 大で diff 増大)
+- **ISS-00078**: sim 実行時の波形取得オプション未実装 (`--wave_raw` + 階層参照 `V(XCELL.XDUT.<port>)` + 汎用 raw viewer `tools/raw_viewer.html`)、 仕様確定済
+- **ISS-00079**: num_thread 最適化。 192.168.168.103 (物理 16/HT 32) で thread=4 sweet spot (thread=8 で 4 倍遅、 thread=31 で 17 倍遅) → btrfs 同 dir 並列新規 inode 作成の B-tree contention が原因。 sim ごと subdir 化で対策予定
+
+### Next
+- ISS-00079 subdir 分割で thread スケーラビリティ改善
+- ISS-00078 波形取得オプション + raw viewer 実装
+- ISS-00070 残: SDFF/LAT/ICG family、 DFF サイズ展開 (_2/_4)、 1.0.0 main マージ
+
+---
+
 ## [0.9.14a05] 2026-05-12
 
 Alpha pre-release toward `1.0.0`. Closes ISS-00076 (sim time optimization for comb/tristate/power). BUFZ_1 full INDEX で **約 25 倍高速化** (1h 51min → 4min 20s) を確認。
