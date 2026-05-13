@@ -4,6 +4,50 @@
 
 ---
 
+## [0.9.14a08] 2026-05-13
+
+Alpha pre-release. ISS-00078 完成: wave_raw オプション + 汎用 raw viewer (tools/raw_viewer.html).
+
+### Added
+- `charao/script/charao.py`: `--wave_raw` CLI オプション追加
+- `charao/script/myLibrarySetting.py`: `wave_raw : bool` field 追加
+- `charao/script/myTbParam.py`:
+  - `wave_save_list` (XCELL 渡し 14 信号、 小文字 vector 名) と `pinmap_dict` (DUT cell port → plot signal name) を生成
+  - `write_pinmap_if_enabled()` メソッド: sim_dir に `.pinmap.json` sidecar を書き出し
+- `charao/script/charao_run.py`: 各 `genFileLogic_*` で sim file 書き出し直後に `.pinmap.json` を出力
+- `charao/script/temp_testbench.sp.jp2`: `.control / run / write sim.sp.raw <signals> / .endc` ブロック追加（wave_raw 有効時のみ、 XCELL 渡し 14 信号を小文字で指定）
+- `debug_run.sh`: `WAVE_RAW` env var → `--wave_raw` CLI 自動展開
+- `tools/raw_viewer.html` (新規、 ~75 KB): 汎用 ngspice raw viewer
+  - 1 HTML 完結（uPlot inline、 オフライン動作）
+  - D&D で `.raw` + optional `.pinmap.json` 読込
+  - **multi-pane 表示**（1 signal = 1 plot pane、 x 軸 + cursor 同期）
+  - 各 pane 左に **2 段 label**（上：DUT pin name、 下：raw signal name）
+  - y 軸：全 pane 統一スケール（全 enabled signal の min/max ±5%）
+  - **VLOW / VHIGH 罫線**（v(vss_dyn) / v(vdd_dyn) 最終値、 グレー破線）
+  - **時間軸専用 pane** を最下段固定（枠なし、 数値 + 単位 label）
+  - 電源系（V(VDD*)/V(VSS*)/V(VNW*)/V(VPW*)/V(VHIGH*)/V(VLOW*)）デフォルト OFF
+  - pinmap がある場合は **pinmap 対応 signal のみ** sidebar 表示（DUT pin name 順）
+  - **signal 並び替え**（↑↓ ボタン）
+  - **pane height ピクセル設定**（footer、 min=20、 初期値 100 px）
+  - 時間軸自動単位（ns/μs/ms/s/ps）＋手動切替
+  - zoom（box drag）/ pan / cursor crosshair / autoscale
+  - **2 cursor 差分計測**：plot click で marker A 固定 → mouse hover の cursor B との `Δt` / 各 signal の `Δv` を footer に表示
+
+### Implementation notes
+- ngspice raw 出力：`.save` directive ではなく `.control` ブロック内 `write` コマンドを使用（`.save` は HSpice 互換モード下で transient 結果が 1 point に圧縮される問題があった）
+- ngspice の `write` は vector 名を小文字で要求（`v(vclk)` etc.）→ `wave_save_list` を小文字生成
+- WOUT / WFLOAT は XCELL に渡される port ではないため保存対象外
+- pinmap は 2 段 mapping（cell port name → logic port name → testbench top node）：`ports_dict[port] == h.target_inport` 等で照合
+
+### Verified
+- dffsnq_1 / INDEX1=9 / INDEX2=9 / setup_rising / WAVE_RAW=1: 0 spice failures、 raw 18 KB / sim、 No. Points: 149、 15 variables、 `.pinmap.json` 8 entries（D/SETN/CLK/Q/VDD/VNW/VPW/VSS）
+- viewer: D&D で raw + pinmap 読込、 multi-pane 表示、 cursor / x scale 同期、 並び替え、 2 cursor 差分計測、 全動作確認
+
+### Known issues
+- DFF Q 初期値は ngspice DC OP の自然 state に依存（`.IC` 強制は val0="u"/"d" 時のみ。 通常 ival="0"/"1" では DC OP まかせ）。 setup secant は CLK 遷移の Q 変化で判定するため動作上は許容範囲
+
+---
+
 ## [0.9.14a07] 2026-05-13
 
 Alpha pre-release. ISS-00079 検証中の構造的改善（速度効果薄だが基盤として保持）.

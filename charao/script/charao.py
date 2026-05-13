@@ -61,7 +61,8 @@ def main():
   parser.add_argument('-b','--build_stamp',type=str             , default="b00" , help='build-stamp for output files.')
   parser.add_argument('-w','--work_dir' ,type=str               , default="work", help='work directory.')
   parser.add_argument('--mylogic_user'  ,type=str               , default=""    , help='PATH to User-define Logic entries file(ex myloic_user.py).')
-  
+  parser.add_argument('--wave_raw'      , action='store_true'                  , help='Save ngspice transient result as sim.sp.raw (per-sim subdir). Saves DUT cell port via hierarchical reference V(XCELL.XDUT.<port>). ISS-00078.')
+
   args = parser.parse_args()
   #print(args.batch)
 
@@ -166,7 +167,8 @@ def main():
                     "template_index1_only":args.template_index1_only,
                     "template_index2_only":args.template_index2_only,
                     "significant_digits"  :args.significant_digits,
-                    "work_dir"            :args.work_dir
+                    "work_dir"            :args.work_dir,
+                    "wave_raw"            :args.wave_raw
                     }
   targetLib = targetLib.model_copy(update=config_from_args)
 

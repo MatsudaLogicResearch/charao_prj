@@ -478,6 +478,7 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, index1_slope:float
   rendered = tb_template.render(param=param)
   with open(spicef, 'w') as f:
     f.write(rendered)
+  param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
   print(f"  [INFO] generate tb={spicef}")
   
   #-- execute spice
@@ -673,6 +674,7 @@ def genFileLogic_PowerToutTrial1x(targetHarness:Mcar, spicef:str, meas_energy:in
   rendered = tb_template.render(param=param)
   with open(spicef, 'w') as f:
     f.write(rendered)
+  param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
   print(f"  [INFO] generate tb={spicef}")
   
   #-- execute spice
@@ -824,6 +826,7 @@ def genFileLogic_PowerTinTrial1x(targetHarness:Mcar, spicef:str, index1_slope:fl
   rendered = tb_template.render(param=param)
   with open(spicef, 'w') as f:
     f.write(rendered)
+  param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
   print(f"  [INFO] generate tb={spicef}")
 
   ## execute spice
@@ -1118,6 +1121,7 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float,
   rendered = tb_template.render(param=param)
   with open(spicef, 'w') as f:
     f.write(rendered)
+  param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
   print(f"  [INFO] generate tb={spicef}")
   
   #-- execute spice
@@ -1384,6 +1388,7 @@ def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float, 
   rendered = tb_template.render(param=param)
   with open(spicef, 'w') as f:
     f.write(rendered)
+  param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
   print(f"  [INFO] generate tb={spicef}")
   
   #-- execute spice
@@ -1577,6 +1582,7 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
   rendered = tb_template.render(param=param)
   with open(spicef, 'w') as f:
     f.write(rendered)
+  param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
   print(f"  [INFO] generate tb={spicef}")
   
   #-- execute spice
@@ -1819,6 +1825,7 @@ def genFileLogic_MinPulse1x(targetHarness:Mcar, spicef:str, tpulse_rel:float, ts
   rendered = tb_template.render(param=param)
   with open(spicef, 'w') as f:
     f.write(rendered)
+  param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
   print(f"  [INFO] generate tb={spicef}")
   
   #-- execute spice
@@ -2010,6 +2017,7 @@ def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str):
   rendered = tb_template.render(param=param)
   with open(spicef, 'w') as f:
     f.write(rendered)
+  param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
   print(f"  [INFO] generate tb={spicef}")
   
   #-- execute spice

@@ -366,6 +366,15 @@ C0 WOUT 0 'cap'
 .SUBCKT DUT CLK REL IN OUT HIGH LOW HIGH_IO LOW_IO VDD VSS VNW VPW VDDIO VSSIO
 {{param.tb_instance}}
 
-.ends 
+.ends
 
-.end 
+{%- if param.wave_raw %}
+* ISS-00078: write waveform raw via ngspice control block
+.control
+run
+write sim.sp.raw {{ param.wave_save_list }}
+.endc
+{%- endif %}
+
+.end
+

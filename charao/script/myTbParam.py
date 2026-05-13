@@ -17,8 +17,9 @@
 ###############################################################################
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
+import os, json
 
-from .myLibrarySetting       import MyLibrarySetting        as Mls 
+from .myLibrarySetting       import MyLibrarySetting        as Mls
 from .myLogicCell            import MyLogicCell             as Mlc
 from .myConditionsAndResults import MyConditionsAndResults  as Mcar
 
@@ -61,9 +62,54 @@ class MyTbParam:
   tpulse_rel   :float      =1e-9;  #-- for VREL(relport)
   tsweep_rel   :float      =0;  #-- for VREL(relport), setup/hold timing
 
+  wave_raw         :bool=False  #-- ISS-00078: True で .save / -r 出力
+  wave_save_list   :str ="";    #-- testbench top node の固定 14 リスト
+  pinmap_dict      :dict        = None #-- raw signal → cell port mapping (sidecar .pinmap.json 用)
 
   def set_common_value(self, harness:Mcar, arc_oirc:list[str]):
     h=harness
+
+    #-- ISS-00078: wave_raw 設定 + testbench top node を .save
+    #   raw 内の signal name は ngspice 内部 node 名（generic）のまま。 viewer 側で
+    #   sidecar .pinmap.json (DUT pin name -> plot signal name) を参照して表示変換する。
+    self.wave_raw = bool(getattr(h.mls, "wave_raw", False))
+    if self.wave_raw:
+      # XCELL（DUT instance）に渡す 14 信号のみ。 WOUT/WFLOAT は XCELL の port ではないため除外。
+      # ngspice の control block write は vector name を小文字で要求する（'no writable vector' 回避）。
+      self.wave_save_list = (
+        "v(vclk) v(vrel) v(vin) v(vout) "
+        "v(vhigh) v(vlow) v(vhigh_io) v(vlow_io) "
+        "v(vdd_dyn) v(vss_dyn) v(vnw_dyn) v(vpw_dyn) v(vddio_dyn) v(vssio_dyn)"
+      )
+      # DUT cell port name -> plot signal name の mapping
+      # ports_dict は {cell_port_name: logic_port_name}（例 dffsnq_1: {"D":"i0","CLK":"c0",...}）
+      # target_*port / stable_inport_val / nontarget_outport は logic port name (i0/c0/s0/...) ベース。
+      # 電源ピンは大文字名で mls.vdd_name 等と直接照合。
+      pinmap = {}
+      ports_dict = h.mlc.ports_dict if (hasattr(h.mlc, "ports_dict") and h.mlc.ports_dict) else {}
+      vdd_u = (h.mls.vdd_name or "").upper()
+      vss_u = (h.mls.vss_name or "").upper()
+      vnw_u = (h.mls.nwell_name or "").upper()
+      vpw_u = (h.mls.pwell_name or "").upper()
+      for port, logic_port in ports_dict.items():
+        pu = port.upper()
+        if   logic_port == h.target_inport:  pinmap[port] = "v(vin)"
+        elif logic_port == h.target_outport: pinmap[port] = "v(vout)"
+        elif logic_port == h.target_clkport: pinmap[port] = "v(vclk)"
+        elif logic_port == h.target_relport: pinmap[port] = "v(vrel)"
+        elif logic_port in (h.stable_inport_val or {}):
+          val = h.stable_inport_val[logic_port]
+          pinmap[port] = "v(vhigh)" if val == "1" else ("v(vlow)" if val == "0" else "")
+        elif logic_port in (h.nontarget_outport or []): pinmap[port] = "v(wfloat)"
+        elif pu == vdd_u: pinmap[port] = "v(vdd_dyn)"
+        elif pu == vss_u: pinmap[port] = "v(vss_dyn)"
+        elif pu == vnw_u: pinmap[port] = "v(vnw_dyn)"
+        elif pu == vpw_u: pinmap[port] = "v(vpw_dyn)"
+        # else: unmapped (viewer 側で除外 or generic 名表示)
+      self.pinmap_dict = pinmap
+    else:
+      self.wave_save_list = ""
+      self.pinmap_dict = None
 
     #--
     self.tb_instance  = h.gen_instance_for_tb()
@@ -118,4 +164,16 @@ class MyTbParam:
     elif h.timing_type == "three_state_disable":
       v = h.mls.sim_pullres_io_disable if h.mlc.isio else h.mls.sim_pullres_std_disable
       self.pullres = float("{:.5g}".format(v * h.mls.resistance_mag))
+
+
+  def write_pinmap_if_enabled(self, sim_dir:str):
+    """ISS-00078: wave_raw 有効時に sim_dir に .pinmap.json を書き出す。
+    内容: DUT cell port name -> plot signal name (raw 内 generic 名) の dict。"""
+    if not self.wave_raw or not self.pinmap_dict or not sim_dir:
+      return
+    try:
+      with open(os.path.join(sim_dir, ".pinmap.json"), "w", encoding="utf-8") as f:
+        json.dump(self.pinmap_dict, f, indent=2, ensure_ascii=False)
+    except OSError:
+      pass
     

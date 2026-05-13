@@ -124,6 +124,7 @@ class MyLibrarySetting(BaseModel):
   spiceinit: list[str] = []
   num_thread : int = 1
   sim_nice :int = 19
+  wave_raw : bool = False   # ISS-00078: True で ngspice の sim 結果を sim 個別 dir の sim.sp.raw に保存（DUT cell port を階層参照で .save）
 
   simulation_timestep : float = 0.001
   sim_pulse_max       : float = 2.0
@@ -494,6 +495,7 @@ class MyLibrarySetting(BaseModel):
 
     #-- command (basename only: subprocess は cwd=sim_dir で起動)
     if(re.search("ngspice", self.simulator)):
+      # ISS-00078: wave_raw=True 時は tb 内 .control/write/.endc ブロックで sim.sp.raw 出力（-r オプションは使わない）
       cmd = "nice -n "+str(self.sim_nice)+" "+str(self.simulator)+" -b "+sim_base+" > "+spicelis_base+" 2>&1 \n"
     elif(re.search("hspice", self.simulator)):
       cmd = "nice -n "+str(self.sim_nice)+" "+str(self.simulator)+" "+sim_base+" -o "+spicelis_base+" 2> /dev/null \n"
