@@ -4,6 +4,25 @@
 
 ---
 
+## [0.9.14a07] 2026-05-13
+
+Alpha pre-release. ISS-00079 検証中の構造的改善（速度効果薄だが基盤として保持）.
+
+### Changed
+- `charao/script/charao_run.py`: sim 個別 subdir 化のためヘルパー `_build_spicef_base` / `_make_sim_path` 追加、 各 MultiThread 関数 (Delay/PowerTout/PowerTin/Setup/Hold/Passive/MinPulse/Leakage) と Single 関数で spicef path を `<cell>/vt_<v>_<t>_<n>_<meas>/oir=<o>_arc=<a>_..._s.../sim.sp` 形式に変更
+- `charao/script/myLibrarySetting.py:exec_spice`: subprocess の cwd を sim 個別 dir に切替、 ngspice cmd 内 path を basename 化、 `.spiceinit` を sim_dir にコピーして並列 read 競合を回避
+
+### Verified
+- dffsnq_1 / INDEX2=0,8,9 / setup_rising bench (thread=8): base 5m 15.95s → subdir のみ 5m 21.82s → subdir + cwd 分離 + `.spiceinit` copy 5m 34.65s
+- 速度効果は薄い（or 微悪化）が、 sim 個別 dir 化により raw 取得 (ISS-00078) で各 sim 波形を独立 file として整理可能、 将来 dir 分散最適化の基盤として有効
+- `.lis` 分析で thread=8 の analysis time が thread=4 比 19 倍遅 (max 1032 倍) → ngspice 内部の serial bottleneck が dominant、 fs/cwd/OpenMP では説明できない
+
+### Known issues
+- ISS-00079 真因は依然不明。 次フェーズ: ngspice OpenMP 対応確認 (`ldd $(which ngspice) | grep omp`、 `strings ... | grep -i openmp`)、 BLAS 環境変数試行 (`OPENBLAS_NUM_THREADS=1` 等)、 遅化 sim の特徴抽出
+- 暫定運用: `sample/target/gf180/fd/mcuC7t20240817/config_lib.jsonc` の `num_thread=4` を維持 (sweet spot)
+
+---
+
 ## [0.9.14a06] 2026-05-13
 
 Alpha pre-release toward `1.0.0`. ISS-00070 DFF 8 family 実装着手 + Phase 2 rename + lib CSV schema 拡張 + num_thread 安全網 (ISS-00079 暫定対策).

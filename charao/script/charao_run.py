@@ -39,6 +39,24 @@ def _tslew_from_template(slew:float, mls:Mls) -> float:
   span = mls.logic_threshold_high - mls.logic_threshold_low
   return float("{:.5g}".format(slew / span * mls.time_mag))
 
+
+def _build_spicef_base(mls:Mls, mlc:Mlc, mec:Mec, num:int) -> str:
+  """sim file base path を生成し、 第 1, 2 層 dir を作成する。
+  ISS-00079 対策で sim ごとに専用 subdir に書く構造（btrfs B-tree contention 回避）。
+  return: '<cell>/vt_<v>_<t>_<n>_<meas>/oir=<o>_arc=<a>' 形式の base path"""
+  cell_dir = str(mlc.cell)
+  meas_dir = f"vt_{mls.vdd_voltage}_{mls.temperature}_{num}_{mec.meas_type}"
+  arc_part = "oir=" + ''.join(mec.pin_oirc) + "_arc=" + ''.join(mec.arc_oirc)
+  os.makedirs(f"{cell_dir}/{meas_dir}", exist_ok=True)
+  return f"{cell_dir}/{meas_dir}/{arc_part}"
+
+
+def _make_sim_path(spicef_base:str) -> str:
+  """spicef_base (sim 個別 path、 拡張子なし) を dir として作成し、 spicef_base/sim.sp を返す。
+  ISS-00079 対策で 1 sim = 1 dir の構造（並列 inode 作成の contention 回避）。"""
+  os.makedirs(spicef_base, exist_ok=True)
+  return f"{spicef_base}/sim.sp"
+
 import numpy as np
 from typing import List
 from jinja2 import Environment, FileSystemLoader
@@ -136,10 +154,8 @@ def runExpectation(targetLib:Mls, targetCell:Mlc, expectationdictList:List[Mec])
 #--------------------------------------------------------------------------------------------------
 def runSpiceDelayMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
-  ## spice file name
-  spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oirc) + "_arc=" + ''.join(mec.arc_oirc)
-  spicef = spicef0 + spicef1
+  ## spice file name (ISS-00079: sim ごとに dir 分離、 第 1,2 層は _build_spicef_base で作成)
+  spicef = _build_spicef_base(mls, mlc, mec, num)
 
   # Limit number of threads
   poolg_sema = threading.BoundedSemaphore(mls.num_thread)
@@ -219,10 +235,8 @@ def runSpiceDelayMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 #--------------------------------------------------------------------------------------------------
 def runSpicePowerToutMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
-  ## spice file name
-  spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oirc) + "_arc=" + ''.join(mec.arc_oirc)
-  spicef = spicef0 + spicef1
+  ## spice file name (ISS-00079: sim ごとに dir 分離、 第 1,2 層は _build_spicef_base で作成)
+  spicef = _build_spicef_base(mls, mlc, mec, num)
 
   # Limit number of threads
   poolg_sema = threading.BoundedSemaphore(mls.num_thread)
@@ -303,10 +317,8 @@ def runSpicePowerToutMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mc
 def runSpicePowerTinMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
   ## input pin internal_power: 1D template (input slope only, output load = 0pF)
 
-  ## spice file name
-  spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oirc) + "_arc=" + ''.join(mec.arc_oirc)
-  spicef = spicef0 + spicef1
+  ## spice file name (ISS-00079: sim ごとに dir 分離、 第 1,2 層は _build_spicef_base で作成)
+  spicef = _build_spicef_base(mls, mlc, mec, num)
 
   # Limit number of threads
   poolg_sema = threading.BoundedSemaphore(mls.num_thread)
@@ -365,7 +377,7 @@ def runSpicePowerTinMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mca
 def runSpiceDelaySingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope:float, index2_load:float):
                       
   with poolg_sema:
-    spicefo  = str(spicef)+"_"+str(index2_load)+"_"+str(index1_slope)+".sp"
+    spicefo  = _make_sim_path(f"{spicef}_{index2_load}_{index1_slope}")
  
     ## trial
     rslt=genFileLogic_DelayTrial1x(targetHarness=targetHarness, spicef=spicefo, index1_slope=index1_slope,index2_load=index2_load)
@@ -514,8 +526,8 @@ def runSpicePowerToutSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_s
   ## output pin internal_power: 2-trial (meas_energy=1 -> estart/eend, then meas_energy=2 -> energy)
 
   with poolg_sema:
-    spicefoe1 = str(spicef)+"_"+str(index2_load)+"_"+str(index1_slope)+"_energy1.sp"
-    spicefoe2 = str(spicef)+"_"+str(index2_load)+"_"+str(index1_slope)+"_energy2.sp"
+    spicefoe1 = _make_sim_path(f"{spicef}_{index2_load}_{index1_slope}_energy1")
+    spicefoe2 = _make_sim_path(f"{spicef}_{index2_load}_{index1_slope}_energy2")
 
     ## 1st trial, extract energy_start and energy_end
     rslt1= genFileLogic_PowerToutTrial1x(targetHarness=targetHarness, spicef=spicefoe1, meas_energy=1, index1_slope=index1_slope, index2_load=index2_load, estart=0.0, eend=0.0)
@@ -545,7 +557,7 @@ def runSpicePowerTinSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_sl
   ## meas_energy=5: estart/eend fixed by input transition window, no .meas tran for energy_start/end.
 
   with poolg_sema:
-    spicefoe2 = str(spicef)+"_"+str(index1_slope)+"_energy2.sp"
+    spicefoe2 = _make_sim_path(f"{spicef}_{index1_slope}_energy2")
 
     h = targetHarness
 
@@ -884,10 +896,8 @@ def genFileLogic_PowerTinTrial1x(targetHarness:Mcar, spicef:str, index1_slope:fl
 #--------------------------------------------------------------------------------------------------
 def runSpiceSetupMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
-  ## spice file name
-  spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oirc) + "_arc=" + ''.join(mec.arc_oirc)
-  spicef = spicef0 + spicef1
+  ## spice file name (ISS-00079: sim ごとに dir 分離、 第 1,2 層は _build_spicef_base で作成)
+  spicef = _build_spicef_base(mls, mlc, mec, num)
   
   # Limit number of threads
   # define semaphore 
@@ -1007,7 +1017,7 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
       #-- search setup and check trans while prop is valid
       for id,tsweep in enumerate(tsweep_list):
 
-        spicefo  = f"{spicef}_c{index2_slope_const}_r{index1_slope_rel}_s{cnt*100+id}.sp"
+        spicefo  = _make_sim_path(f"{spicef}_c{index2_slope_const}_r{index1_slope_rel}_s{cnt*100+id}")
         
         rslt=genFileLogic_Setup1x(targetHarness=h, spicef=spicefo, index1_slope_rel=index1_slope_rel, index2_slope_const=index2_slope_const, tsweep=tsweep*-1.0, tsim_end=tsim_end)
 
@@ -1153,10 +1163,8 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float,
 #--------------------------------------------------------------------------------------------------
 def runSpiceHoldMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
-  ## spice file name
-  spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oirc) + "_arc=" + ''.join(mec.arc_oirc)
-  spicef = spicef0 + spicef1
+  ## spice file name (ISS-00079: sim ごとに dir 分離、 第 1,2 層は _build_spicef_base で作成)
+  spicef = _build_spicef_base(mls, mlc, mec, num)
   
   # Limit number of threads
   # define semaphore 
@@ -1276,7 +1284,7 @@ def runSpiceHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_
       #-- search hold and check v_
       for id,tsweep in enumerate(tsweep_list):
 
-        spicefo  = f"{spicef}_c{index2_slope_const}_r{index1_slope_rel}_s{cnt*100+id}.sp"
+        spicefo  = _make_sim_path(f"{spicef}_c{index2_slope_const}_r{index1_slope_rel}_s{cnt*100+id}")
         
         rslt=genFileLogic_Hold1x(targetHarness=h, spicef=spicefo, index1_slope_rel=index1_slope_rel, index2_slope_const=index2_slope_const, tsweep=tsweep*1.0, tsim_end=tsim_end)
 
@@ -1418,10 +1426,8 @@ def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, index1_slope_rel:float, 
 #--------------------------------------------------------------------------------------------------
 def runSpicePassiveMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
-  ## spice file name
-  spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 =  f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oirc) + "_arc=" + ''.join(mec.arc_oirc)
-  spicef = spicef0 + spicef1
+  ## spice file name (ISS-00079: sim ごとに dir 分離、 第 1,2 層は _build_spicef_base で作成)
+  spicef = _build_spicef_base(mls, mlc, mec, num)
   
   # Limit number of threads
   # define semaphore 
@@ -1490,7 +1496,7 @@ def runSpicePassiveSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slo
                       
   with poolg_sema:
     
-    spicefoe = f"{spicef}_i{index1_slope_in}_energy.sp"
+    spicefoe = _make_sim_path(f"{spicef}_i{index1_slope_in}_energy")
         
     ## extract energy_start and energy_end
     rslt=genFileLogic_PassiveTrial1x(targetHarness=targetHarness, spicef=spicefoe, index1_slope_in=index1_slope_in)
@@ -1652,10 +1658,8 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, index1_slope_in:
 #--------------------------------------------------------------------------------------------------
 def runSpiceMinPulseMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
-  ## spice file name
-  spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 =  f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oirc) + "_arc=" + ''.join(mec.arc_oirc)
-  spicef = spicef0 + spicef1
+  ## spice file name (ISS-00079: sim ごとに dir 分離、 第 1,2 層は _build_spicef_base で作成)
+  spicef = _build_spicef_base(mls, mlc, mec, num)
   
   # Limit number of threads
   # define semaphore 
@@ -1726,7 +1730,7 @@ def runSpiceMinPulseSingle(poolg_sema, targetHarness:Mcar, spicef:str):
       #-- search setup and check trans while prop is valid
       for id,tsweep in enumerate(tsweep_list):
 
-        spicefo  = f"{spicef}_s{cnt*100+id}.sp"
+        spicefo  = _make_sim_path(f"{spicef}_s{cnt*100+id}")
         
         rslt=genFileLogic_MinPulse1x(targetHarness=targetHarness, spicef=spicefo, tpulse_rel=tsweep, tsim_end=tsim_end)
 
@@ -1857,10 +1861,8 @@ def genFileLogic_MinPulse1x(targetHarness:Mcar, spicef:str, tpulse_rel:float, ts
 #--------------------------------------------------------------------------------------------------
 def runSpiceLeakageMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
-  ## spice file name
-  spicef0 = "vt_"+str(mls.vdd_voltage)+"_"+str(mls.temperature)+"_"+str(mlc.cell)
-  spicef1 = f"_{num}" + f"_{mec.meas_type}" + "_oir=" + ''.join(mec.pin_oirc) + "_arc=" + ''.join(mec.arc_oirc)
-  spicef = spicef0 + spicef1
+  ## spice file name (ISS-00079: sim ごとに dir 分離、 第 1,2 層は _build_spicef_base で作成)
+  spicef = _build_spicef_base(mls, mlc, mec, num)
   
   # Limit number of threads
   # define semaphore 
@@ -1919,7 +1921,7 @@ def runSpiceLeakageMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar
 def runSpiceLeakageSingle(poolg_sema, targetHarness:Mcar, spicef:str):
                       
   with poolg_sema:
-    spicefoe1 = str(spicef)+"_leakage.sp"
+    spicefoe1 = _make_sim_path(f"{spicef}_leakage")
  
     ## 1st trial, extract energy_start and energy_end
     rslt= genFileLogic_LeakageTrial1x(targetHarness=targetHarness, spicef=spicefoe1)

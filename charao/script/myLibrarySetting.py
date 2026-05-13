@@ -475,29 +475,43 @@ class MyLibrarySetting(BaseModel):
       
   def exec_spice(self,spicef:str) ->str:
     #---
+    # ISS-00079 対策: subprocess の cwd を sim 個別 dir に切替 → 8 並列 ngspice が
+    # 同一 work/ 直下で動作する問題（.spiceinit の並列 open、 cwd vfs 競合）を回避。
+    # cmd 内の path は basename 化、 .spiceinit は sim_dir にコピーして独立 open とする。
     spicelis = spicef + ".lis"
     spicerun = spicef + ".run"
+    sim_dir       = os.path.dirname(spicef)
+    sim_base      = os.path.basename(spicef)
+    spicelis_base = os.path.basename(spicelis)
+    spicerun_base = os.path.basename(spicerun)
 
-    #-- command
+    #-- copy .spiceinit from cwd (work/) to sim_dir for parallel-safe open
+    src_spiceinit = os.path.join(os.getcwd(), ".spiceinit")
+    if sim_dir and os.path.exists(src_spiceinit):
+      dst_spiceinit = os.path.join(sim_dir, ".spiceinit")
+      if not os.path.exists(dst_spiceinit):
+        shutil.copy(src_spiceinit, dst_spiceinit)
+
+    #-- command (basename only: subprocess は cwd=sim_dir で起動)
     if(re.search("ngspice", self.simulator)):
-      cmd = "nice -n "+str(self.sim_nice)+" "+str(self.simulator)+" -b "+str(spicef)+" > "+str(spicelis)+" 2>&1 \n"
+      cmd = "nice -n "+str(self.sim_nice)+" "+str(self.simulator)+" -b "+sim_base+" > "+spicelis_base+" 2>&1 \n"
     elif(re.search("hspice", self.simulator)):
-      cmd = "nice -n "+str(self.sim_nice)+" "+str(self.simulator)+" "+str(spicef)+" -o "+str(spicelis)+" 2> /dev/null \n"
+      cmd = "nice -n "+str(self.sim_nice)+" "+str(self.simulator)+" "+sim_base+" -o "+spicelis_base+" 2> /dev/null \n"
     elif(re.search("Xyce", self.simulator)):
-      cmd = "nice -n "+str(self.sim_nice)+" "+str(self.simulator)+" "+str(spicef)+" -hspice-ext all 1> "+str(spicelis)
+      cmd = "nice -n "+str(self.sim_nice)+" "+str(self.simulator)+" "+sim_base+" -hspice-ext all 1> "+spicelis_base
 
     #-- create execute file
     with open(spicerun,'w') as f:
       outlines = []
-      outlines.append(cmd) 
+      outlines.append(cmd)
       f.writelines(outlines)
 
-    #- do spice simulation
-    cmd = ['sh', spicerun]
-    
+    #- do spice simulation (cwd=sim_dir で独立分離)
+    cmd = ['sh', spicerun_base]
+
     if(self.runsim == "true"):
       try:
-        res = subprocess.check_call(cmd)
+        res = subprocess.check_call(cmd, cwd=sim_dir if sim_dir else None)
       except subprocess.CalledProcessError as e:
         print(f"Failed to launch spice. lis={spicelis}, returncode={e.returncode}")
         my_exit()
