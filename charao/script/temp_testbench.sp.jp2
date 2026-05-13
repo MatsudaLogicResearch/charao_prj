@@ -23,6 +23,8 @@
 *.option gmin=1e-10
 *.option rshunt=1e9
 .options NOREFVALUE
+* ISS-00077: reltol=1e-4 で adaptive step を tight に → 入力 slew 大 × load 大での出力急変解像度向上（setup_rising avg +2.5ns → +0.16ns）
+.option reltol=1e-4
 
 .inc '{{param.model}}'
 .inc '{{param.netlist}}'

@@ -979,14 +979,16 @@ def compressFiles(targetLib, targetCell):
     dt_string = now.strftime("%Y/%m/%d %H:%M:%S")
     
     targetLib.print_msg(dt_string+" creating "+targetCell.cell+" directory")
-    cmd_str = "mkdir "+targetLib.work_dir+"/"+targetCell.cell 
-    subprocess.run(cmd_str, shell=True)  
-    targetLib.print_msg(dt_string+" compress "+targetCell.cell+" characterization result")
-    
-    cmd_str = "mv "+targetLib.work_dir+"/vt*"+targetCell.cell+"* "+targetLib.work_dir+"/"+targetCell.cell 
+    # ISS-00079 subdir 化後は work/<cell>/ が既存のため -p で抑制
+    cmd_str = "mkdir -p "+targetLib.work_dir+"/"+targetCell.cell
     subprocess.run(cmd_str, shell=True)
-    
-    #cmd_str = "tar -zcvf "+targetLib.work_dir+"/"+targetCell.cell+".tgz "+targetLib.work_dir+"/"+targetCell.cell 
+    targetLib.print_msg(dt_string+" compress "+targetCell.cell+" characterization result")
+
+    # subdir 化後は flat な vt*<cell>* file は存在しないため src 無しの警告抑制
+    cmd_str = "mv "+targetLib.work_dir+"/vt*"+targetCell.cell+"* "+targetLib.work_dir+"/"+targetCell.cell+" 2>/dev/null"
+    subprocess.run(cmd_str, shell=True)
+
+    #cmd_str = "tar -zcvf "+targetLib.work_dir+"/"+targetCell.cell+".tgz "+targetLib.work_dir+"/"+targetCell.cell
     cmd_str = "tar -zcf "+targetLib.work_dir+"/"+targetCell.cell+".tgz "+targetLib.work_dir+"/"+targetCell.cell
     subprocess.run(cmd_str, shell=True)
 
