@@ -654,9 +654,26 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
 
     if port in targetCell.min_pulse_width_high.keys():
       outlines.append(f'      min_pulse_width_high : {f2s_ceil(f=targetCell.min_pulse_width_high[port], sigdigs=sigdigs)};')
-        
+
     if port in targetCell.min_pulse_width_low.keys():
       outlines.append(f'      min_pulse_width_low : {f2s_ceil(f=targetCell.min_pulse_width_low[port], sigdigs=sigdigs)};')
+
+    #-- ISS-00081: min_period attribute + timing(min_pulse_width) block 追加（state 別 sim 未実装、 簡易実装）
+    #              min_period = 2 * max(mpw_high, mpw_low)：duty 50% 安全側、 大きい値が conservative
+    #              （独立 full-cycle sim は duty 決定不能のため不可能、 A 方式で確定）
+    if (port in targetCell.min_pulse_width_high.keys()) and (port in targetCell.min_pulse_width_low.keys()):
+      mpw_high = targetCell.min_pulse_width_high[port]
+      mpw_low  = targetCell.min_pulse_width_low[port]
+      outlines.append(f'      min_period : {f2s_ceil(f=2*max(mpw_high, mpw_low), sigdigs=sigdigs)};')
+      outlines.append(f'      timing () {{')
+      outlines.append(f'        timing_type : min_pulse_width;')
+      outlines.append(f'        rise_constraint(scalar) {{')
+      outlines.append(f'          values("{f2s_ceil(f=mpw_high, sigdigs=sigdigs)}");')
+      outlines.append(f'        }}')
+      outlines.append(f'        fall_constraint(scalar) {{')
+      outlines.append(f'          values("{f2s_ceil(f=mpw_low, sigdigs=sigdigs)}");')
+      outlines.append(f'        }}')
+      outlines.append(f'      }}')
       
     ##-------------------------------------------------------------------------
     ## check timing/power infomation
