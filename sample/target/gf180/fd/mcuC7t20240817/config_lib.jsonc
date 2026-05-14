@@ -219,6 +219,7 @@
   ,"num_thread" : 4
   ,"sim_nice"   : 19
   ,"simulation_timestep"        : 1.0
+  ,"simulation_slew_min"        : 0.001
   ,"sim_pulse_max"              : 5.0
   ,"sim_prop_max"               : 25.0
   ,"sim_prop_tri_max"           : 25.0
@@ -229,7 +230,7 @@
   ,"sim_segment_timestep_start" : 1.0
   ,"sim_segment_timestep_ratio" : 0.1
   ,"sim_segment_timestep_min"   : 0.001
-  ,"sim_time_const_threshold"   : 0.01
+  ,"sim_time_const_threshold"   : 0.1
   ,"sim_tsim_end4hold"          : 35.0
   ,"sim_pullres_std_enable"     : 100000
   ,"sim_pullres_std_disable"    : 100000

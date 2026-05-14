@@ -12,7 +12,7 @@
 
   // ---- DFF (no reset/set, Q only) -----------------------------------
   // SPICE port order: D CLK Q VDD VNW VPW VSS
-  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["passive","10x0","d00"]],
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["power_tin","10x0","d000"],["passive","10x0","d00"]],
    "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dffq_1","logic":"DFF_PC","area":63.6608,
    "primitive":"udp_iq_ff_n",
    "ports_dict":{"D":"i0","CLK":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},

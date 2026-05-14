@@ -42,11 +42,31 @@ def get_logic_dict():
            "vcode":"udp_iq_ff_n inst (o0, 1'b0, 1'b0, c0, i0, );",
            "expect":
            [
-             #--- q delay (clk -> q)
+             #--- q delay (clk -> q) + power_tout
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"]}, mondrv_oirc=["1","1","1","1"]
-                         ,meas_types=["rising_edge"] ,tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify=""),
+                         ,meas_types=["rising_edge","power_tout"] ,tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify=""),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"]}, mondrv_oirc=["0","0","1","1"]
-                         ,meas_types=["rising_edge"] ,tmg_sense="non",arc_oirc=["f","f","r","r"], tmg_when="", specify="(posedge c0 => (o0 +: i0)) =(0,0);"),
+                         ,meas_types=["rising_edge","power_tout"] ,tmg_sense="non",arc_oirc=["f","f","r","r"], tmg_when="", specify="(posedge c0 => (o0 +: i0)) =(0,0);"),
+             #--- power_tin pin(CLK) when:"!D" - CLK 変化、 D=0 stable、 Q=0 stable
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"]}, mondrv_oirc=["0","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","r"], tmg_when="!i0", specify=""),
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"]}, mondrv_oirc=["0","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","f"], tmg_when="!i0", specify=""),
+             #--- power_tin pin(CLK) when:"D" - CLK 変化、 D=1 stable、 Q=1 stable
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"]}, mondrv_oirc=["1","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","r"], tmg_when="i0", specify=""),
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"]}, mondrv_oirc=["1","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","f"], tmg_when="i0", specify=""),
+             #--- power_tin pin(D) when:"!CLK" - D 変化、 CLK=0 stable、 Q 不変
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["0"],"b":[],"c":["0"]}, mondrv_oirc=["d","1","1","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","s"], tmg_when="!c0", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["1"],"b":[],"c":["0"]}, mondrv_oirc=["d","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","s"], tmg_when="!c0", specify=""),
+             #--- power_tin pin(D) when:"CLK" - D 変化、 CLK=1 stable、 Q 不変
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["0"],"b":[],"c":["1"]}, mondrv_oirc=["d","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","s"], tmg_when="c0", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["1"],"b":[],"c":["1"]}, mondrv_oirc=["d","0","0","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","s"], tmg_when="c0", specify=""),
              #--- setup
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"]}, mondrv_oirc=["1","1","1","1"]
                         ,meas_types=["setup_rising"] ,tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify="$setup(posedge i0, posedge c0, 0, notifier);"),
@@ -70,6 +90,9 @@ def get_logic_dict():
              #--- min_pulse (clk) -- H pulse 完了で L 終了
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"]}, mondrv_oirc=["1","1","0","0"]
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
+             #--- min_pulse_low (clk) -- L pulse 計測 (init H -> fall -> L -> rise)
+             MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"]}, mondrv_oirc=["1","1","1","1"]
+                        ,meas_types=["min_pulse_width_low"],tmg_sense="non",arc_oirc=["r","r","r","f"], tmg_when="", specify="$width(negedge c0, 0, 0, notifier);"),
              #--- leakage (4 conditions: !D&!CLK / !D&CLK / D&!CLK / D&CLK)
              MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d","u"],"i":["0"],"c":["0"]},mondrv_oirc=["0","0","0","0"]
                         ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s","s"],tmg_when="!i0&!c0", specify=""),

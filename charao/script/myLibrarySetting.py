@@ -127,6 +127,7 @@ class MyLibrarySetting(BaseModel):
   wave_raw : bool = False   # ISS-00078: True で ngspice の sim 結果を sim 個別 dir の sim.sp.raw に保存（DUT cell port を階層参照で .save）
 
   simulation_timestep : float = 0.001
+  simulation_slew_min : float = 0.001   # min_pulse_width / setup / hold 等の PWL slew 用（ns 単位、 default 1 ps）
   sim_pulse_max       : float = 2.0
   sim_prop_max        : float =10.0
   sim_prop_tri_max    : float =20.0
@@ -360,7 +361,7 @@ class MyLibrarySetting(BaseModel):
   def gen_lut_templates(self):
 
     #-- lu_table_template for kind/grid
-    var_1_dict={"const"  :"related_pin_transition",
+    var_1_dict={"const"  :"constrained_pin_transition",
                 "delay"  :"input_net_transition",
                 "delay_disable"  :"input_net_transition",
                 "delay_c2c"  :"input_net_transition",
@@ -377,7 +378,7 @@ class MyLibrarySetting(BaseModel):
                 "power_i2i"  :"input_transition_time",
                 }
 
-    var_2_dict={"const"  :"constrained_pin_transition",
+    var_2_dict={"const"  :"related_pin_transition",
                 "delay"  :"total_output_net_capacitance",
                 "delay_disable"  :"not_supported",
                 "delay_c2c"  :"total_output_net_capacitance",

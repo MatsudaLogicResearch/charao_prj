@@ -387,7 +387,7 @@ function rebuildPlot() {
   // cursor B 位置（mouse hover）/ marker A 位置 → footer 表示更新
   function updateCursorInfo(u) {
     const i = u.cursor.idx;
-    const tArr = state.plots.length > 0 ? state.plots[0].data[0] : null;
+    const tArr = u && u.data && u.data[0] ? u.data[0] : (state.plots.length > 0 ? state.plots[0].data[0] : null);
     if (!tArr) { document.getElementById('cursor-info').textContent = 'cursor: -'; return; }
     let s = '';
     if (state.markerIdx != null) {
@@ -396,7 +396,9 @@ function rebuildPlot() {
     }
     if (i != null) {
       const tB = tArr[i];
-      s += (s ? '   ' : '') + 'B: t=' + (tB != null ? tB.toFixed(4) : '?') + ' ' + tScale.label;
+      const tPx = (u && u.cursor && u.cursor.left != null) ? u.posToVal(u.cursor.left, 'x') : null;
+      s += (s ? '   ' : '') + 'B: t=' + (tB != null ? tB.toFixed(4) : '?') + ' ' + tScale.label
+         + (tPx != null ? ' (px=' + tPx.toFixed(4) + ')' : '');
       if (state.markerIdx != null) {
         const tA = tArr[state.markerIdx];
         if (tA != null && tB != null) s += '   Δt=' + (tB - tA).toFixed(4) + ' ' + tScale.label;
@@ -446,7 +448,7 @@ function rebuildPlot() {
     const opts = {
       width: plotW,
       height: paneH,
-      scales: { x: { time: false }, y: { range: [yMin, yMax] } },
+      scales: { x: { time: false, range: (u, dataMin, dataMax) => [dataMin, dataMax] }, y: { range: [yMin, yMax] } },
       series: [
         { label: 'time (' + tScale.label + ')',
           value: (u, val) => val == null ? '' : val.toFixed(4) + ' ' + tScale.label },
@@ -511,7 +513,7 @@ function rebuildPlot() {
   const timeOpts = {
     width: Math.max(200, chartW - 100),
     height: 56,
-    scales: { x: { time: false }, y: { range: [0, 1] } },
+    scales: { x: { time: false, range: (u, dataMin, dataMax) => [dataMin, dataMax] }, y: { range: [0, 1] } },
     series: [
       { label: 'time (' + tScale.label + ')',
         value: (u, val) => val == null ? '' : val.toFixed(4) + ' ' + tScale.label },

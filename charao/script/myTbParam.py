@@ -51,6 +51,7 @@ class MyTbParam:
   meas_o_max_min:int       =0;
   
   timestep     :float      =1e-9;
+  tslew_min    :float      =1e-12;  # PWL slew 用の最小時間（秒、 .tran の timestep より細かい用途）
   timestep_tmax:float      =1e-9;
   tsim_end     :float      =1e-9;
   tdelay_init  :float      =1e-9;  #-- for VCLK
@@ -113,6 +114,9 @@ class MyTbParam:
 
     #--
     self.tb_instance  = h.gen_instance_for_tb()
+
+    # PWL slew 用の最小時間（秒換算）。 .tran の print 間隔（simulation_timestep）と独立に細かい値を扱える
+    self.tslew_min = float("{:.5g}".format(h.mls.simulation_slew_min * h.mls.time_mag))
     
     #self.model        = h.mlc.model   if h.mlc.model.startswith("/")   else "../" + h.mlc.model
     #self.netlist      = h.mlc.netlist if h.mlc.netlist.startswith("/") else "../" + h.mlc.netlist
