@@ -72,52 +72,28 @@
 .param _tmax       = {{param.timestep_tmax}}
 .param _tsim_end   = {{param.tsim_end}}
 
-.param _tdelay_init= {{param.tdelay_init}}
-.param _tpulse_init= {{param.tpulse_init}}
+** timing (ISS-00080: Python 側 Mtp.compute_timing() で算出した絶対時刻を直接埋め込み。
+**          jp2 側 `.param` 計算撤廃、 Python 側で単一管理。 clk_role 分岐も Python 側で完結。
+**          spice 内で参照される _t_* のみ残し、 中間 .param (_tdelay_init 等、 _t_init1/2、 _t_rel2/3) は削除。)
+.param _t_init0 = {{param.t_init0}}
+.param _t_init3 = {{param.t_init3}}
 
-.param _tdelay_in  = {{param.tdelay_in}}
-.param _tslew_in   = {{param.tslew_in}}
+.param _t_in0   = {{param.t_in0}}
+.param _t_in1   = {{param.t_in1}}
 
-.param _tdelay_rel = {{param.tdelay_rel}}
-.param _tslew_rel  = {{param.tslew_rel}}
-.param _tpulse_rel = {{param.tpulse_rel}}
-.param _tsweep_rel = {{param.tsweep_rel}}
+.param _t_rel0  = {{param.t_rel0}}
+.param _t_rel1  = {{param.t_rel1}}
+.param _t_rel2  = {{param.t_rel2}}
+.param _t_rel3  = {{param.t_rel3}}
 
-** timing
-.param _t_init0 = {_tslew_min + _tdelay_init}
-.param _t_init1 = {_t_init0  + 2*_tslew_min}
-.param _t_init2 = {_t_init1  + _tpulse_init}
-.param _t_init3 = {_t_init2  + 2*_tslew_min}
-
-.param _t_in0   = {_t_init3 + _tdelay_in}
-.param _t_in1   = {_t_in0   + _tslew_in}
-
-.param _t_rel0  = {_t_in1  + _tdelay_rel + _tsweep_rel}
-.param _t_rel1  = {_t_rel0 + _tslew_rel}
-.param _t_rel2  = {_t_rel1 + _tpulse_rel}
-.param _t_rel3  = {_t_rel2 + 2*_tslew_min}
-
-
-.param _t_clk0  = {_t_init0}
-.param _t_clk1  = {_t_init1}
-.param _t_clk2  = {_t_init2}
-.param _t_clk3  = {_t_init3}
-{% if param.clk_role == "related" %}
-.param _t_clk4  = {_t_rel0}
-.param _t_clk5  = {_t_rel1}
-.param _t_clk6  = {_t_rel2}
-.param _t_clk7  = {_t_rel3}
-{%- elif param.clk_role == "input" %}
-.param _t_clk4  = {_t_in0}
-.param _t_clk5  = {_t_in1}
-.param _t_clk6  = {_tsim_end + 2*_tslew_min}
-.param _t_clk7  = {_t_clk6   + 2*_tslew_min}
-{%- else %}
-.param _t_clk4  = {_tsim_end+ 2*_tslew_min}
-.param _t_clk5  = {_t_clk4  + 2*_tslew_min}
-.param _t_clk6  = {_t_clk5  + 2*_tslew_min}
-.param _t_clk7  = {_t_clk6  + 2*_tslew_min}
-{%- endif %}
+.param _t_clk0  = {{param.t_clk0}}
+.param _t_clk1  = {{param.t_clk1}}
+.param _t_clk2  = {{param.t_clk2}}
+.param _t_clk3  = {{param.t_clk3}}
+.param _t_clk4  = {{param.t_clk4}}
+.param _t_clk5  = {{param.t_clk5}}
+.param _t_clk6  = {{param.t_clk6}}
+.param _t_clk7  = {{param.t_clk7}}
 
 
 ** DC

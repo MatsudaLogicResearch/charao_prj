@@ -63,6 +63,29 @@ class MyTbParam:
   tpulse_rel   :float      =1e-9;  #-- for VREL(relport)
   tsweep_rel   :float      =0;  #-- for VREL(relport), setup/hold timing
 
+  #-- ISS-00080: testbench jp2 の `.param _t_*` を Python 側でも保持。
+  #   secant 制御で `_t_rel0` を `_t_init3` まで戻す等の物理単位指定を可能にする。
+  #   `compute_timing()` で算出。 jp2 側 `.param` と同じ式で値も一致する想定（二重管理だが
+  #   spice 側で `.param` 評価 / Python 側で secant 制御、 用途を分離）。
+  t_init0      :float      =0.0
+  t_init1      :float      =0.0
+  t_init2      :float      =0.0
+  t_init3      :float      =0.0
+  t_in0        :float      =0.0
+  t_in1        :float      =0.0
+  t_rel0       :float      =0.0
+  t_rel1       :float      =0.0
+  t_rel2       :float      =0.0
+  t_rel3       :float      =0.0
+  t_clk0       :float      =0.0
+  t_clk1       :float      =0.0
+  t_clk2       :float      =0.0
+  t_clk3       :float      =0.0
+  t_clk4       :float      =0.0
+  t_clk5       :float      =0.0
+  t_clk6       :float      =0.0
+  t_clk7       :float      =0.0
+
   wave_raw         :bool=False  #-- ISS-00078: True で .save / -r 出力
   wave_save_list   :str ="";    #-- testbench top node の固定 14 リスト
   pinmap_dict      :dict        = None #-- raw signal → cell port mapping (sidecar .pinmap.json 用)
@@ -180,4 +203,49 @@ class MyTbParam:
         json.dump(self.pinmap_dict, f, indent=2, ensure_ascii=False)
     except OSError:
       pass
-    
+
+  def compute_timing(self):
+    """ISS-00080: testbench jp2 の `.param _t_*` と同じロジックで Python 側 timing を算出。
+    secant 制御 (tsweep_rel 更新) の後に呼ぶことで `_t_rel0..t_clk7` を再計算する。
+    `_t_clk4..7` は `clk_role` に応じて分岐（jp2 line 105-120 と同じ）。
+    呼び出し順序：set_common_value(harness, arc_oirc) → 個別 field 設定 → compute_timing()。
+    """
+    self.t_init0 = self.tslew_min + self.tdelay_init
+    self.t_init1 = self.t_init0  + 2*self.tslew_min
+    self.t_init2 = self.t_init1  + self.tpulse_init
+    self.t_init3 = self.t_init2  + 2*self.tslew_min
+    self.t_in0   = self.t_init3  + self.tdelay_in
+    self.t_in1   = self.t_in0    + self.tslew_in
+    self.t_rel0  = self.t_in1    + self.tdelay_rel + self.tsweep_rel
+    self.t_rel1  = self.t_rel0   + self.tslew_rel
+    self.t_rel2  = self.t_rel1   + self.tpulse_rel
+    self.t_rel3  = self.t_rel2   + 2*self.tslew_min
+    # _t_clk0..3 は init phase 共通（jp2 line 101-104）
+    self.t_clk0 = self.t_init0
+    self.t_clk1 = self.t_init1
+    self.t_clk2 = self.t_init2
+    self.t_clk3 = self.t_init3
+    # _t_clk4..7 は clk_role に応じて分岐（jp2 line 105-120）
+    if   self.clk_role == "related":
+      self.t_clk4 = self.t_rel0
+      self.t_clk5 = self.t_rel1
+      self.t_clk6 = self.t_rel2
+      self.t_clk7 = self.t_rel3
+    elif self.clk_role == "input":
+      self.t_clk4 = self.t_in0
+      self.t_clk5 = self.t_in1
+      self.t_clk6 = self.tsim_end + 2*self.tslew_min
+      self.t_clk7 = self.t_clk6   + 2*self.tslew_min
+    else:
+      self.t_clk4 = self.tsim_end + 2*self.tslew_min
+      self.t_clk5 = self.t_clk4   + 2*self.tslew_min
+      self.t_clk6 = self.t_clk5   + 2*self.tslew_min
+      self.t_clk7 = self.t_clk6   + 2*self.tslew_min
+
+  def tsweep_for_rel0_at(self, target_time:float) -> float:
+    """ISS-00080: `_t_rel0` を `target_time` にするための `tsweep_rel` を返す。
+    secant の seg_start/seg_end を物理単位（例 `param.t_init3`）で指定可能にする。
+    呼び出し前に `compute_timing()` で `t_in1, tdelay_rel` を確定しておくこと。
+    """
+    return target_time - self.t_in1 - self.tdelay_rel
+
