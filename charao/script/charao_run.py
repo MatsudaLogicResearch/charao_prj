@@ -392,7 +392,7 @@ def runSpiceDelaySingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
   #-- timestep
   slope          = index1_slope
   tslew_min_s    = h.mls.simulation_slew_min
-  timestep_tstep = min(slope * 0.0099, h.mls.simulation_timestep)
+  timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
   timestep_tmax  = 20 * timestep_tstep
 
   #-- pullres_role / pullres_gate（three_state arc 依存）
@@ -418,7 +418,9 @@ def runSpiceDelaySingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
   cap = 0.0 if h.timing_type == "three_state_disable" else index2_load
 
   #-- param 早期 instantiate
-  is_dtp = h.measure_type.startswith(("delay","three","power"))
+  #-- is_dtp: 短い init で OK な系 (delay/three_state)。 FF 系 (rising_edge/falling_edge/clear/preset) は False で長い init
+  #-- runSpiceDelaySingle には power 系は来ないため "power" は判定不要
+  is_dtp = h.measure_type.startswith(("delay","three"))
   param = Mtp(
      cap          = float("{:.5g}".format(cap  * h.mls.capacitance_mag))
     ,clk_role     = h.clk_role
@@ -433,9 +435,9 @@ def runSpiceDelaySingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
     ,tsim_end     = tsim_end
     ,tdelay_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
-    ,tdelay_in    = 1e-9 if is_dtp else float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
+    ,tdelay_in    = 1e-9   # ISS-00076 WOUT pre-charge SW で Q を init 段で強制設定するため、 D→Q 待ち padding (sim_c2d_max) は不要
     ,tslew_in     = float("{:.5g}".format(tslew_min_s    * h.mls.time_mag))
-    ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_prop_max  * h.mls.time_mag))
+    ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_d2c_max  * h.mls.time_mag))
     ,tslew_rel    = _tslew_from_template(index1_slope, h.mls)
     ,tpulse_rel   = tsim_end
     ,tsweep_rel   = 0.0
@@ -525,8 +527,9 @@ def runSpicePowerToutSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_s
   #-- timestep
   slope          = index1_slope
   tslew_min_s    = h.mls.simulation_slew_min
-  timestep_tstep = min(slope * 0.0099, h.mls.simulation_timestep)
-  is_dtp = h.measure_type.startswith(("delay","three","power"))
+  timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
+  #-- is_dtp: 短い init で OK な系。 power_tout は元 arc (rising_edge 等) と同じ sim で計測するため measure_type は元 arc 名 → "power" は判定不要
+  is_dtp = h.measure_type.startswith(("delay","three"))
 
   #-- pullres_role (three_state_enable)
   pullres_role="nouse"
@@ -547,9 +550,9 @@ def runSpicePowerToutSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_s
     ,tsim_end     = 1e-6        # 各 sim で更新
     ,tdelay_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
-    ,tdelay_in    = 1e-9 if is_dtp else float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
+    ,tdelay_in    = 1e-9   # ISS-00076 pre-force のため D→Q 待ち padding 不要
     ,tslew_in     = float("{:.5g}".format(10*tslew_min_s    * h.mls.time_mag))
-    ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_prop_max  * h.mls.time_mag))
+    ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_d2c_max  * h.mls.time_mag))
     ,tslew_rel    = _tslew_from_template(index1_slope, h.mls)
     ,tpulse_rel   = 1e-6        # 各 sim で更新
     ,tsweep_rel   = 0.0
@@ -610,7 +613,7 @@ def runSpicePowerTinSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_sl
   #-- timestep
   slope          = index1_slope
   tslew_min_s    = h.mls.simulation_slew_min
-  timestep_tstep = min(slope * 0.0099, h.mls.simulation_timestep)
+  timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
 
   #-- param 早期 instantiate（meas_energy=5、 estart/eend は compute_timing 後に確定）
   is_dtp = h.measure_type.startswith(("delay","three","power"))
@@ -627,9 +630,9 @@ def runSpicePowerTinSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_sl
     ,tsim_end     = 1e-6      # compute_timing 後に確定
     ,tdelay_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
-    ,tdelay_in    = 1e-9 if is_dtp else float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
+    ,tdelay_in    = 1e-9   # ISS-00076 pre-force のため D→Q 待ち padding 不要
     ,tslew_in     = float("{:.5g}".format(10*tslew_min_s    * h.mls.time_mag))
-    ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_prop_max  * h.mls.time_mag))
+    ,tdelay_rel   = float("{:.5g}".format(h.mls.sim_d2c_max  * h.mls.time_mag))
     ,tslew_rel    = _tslew_from_template(index1_slope, h.mls)
     ,tpulse_rel   = 1e-6      # 後で更新
     ,tsweep_rel   = 0.0
@@ -930,7 +933,7 @@ def runSpiceSetupMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_const:float, index2_slope_rel:float):
   """ISS-00080 Step 2：Mtp 早期 instantiate + compute_timing() で物理単位の secant 制御。
   param.tsweep_rel / param.tsim_end / param.tpulse_rel を secant ループで更新、
-  genFileLogic_Setup1x には param を渡す。 secant range は `param.tsweep_for_rel0_at(t_init3)` で算出。
+  genFileLogic_Setup1x には param を渡す。 secant range は `param.tsweep_for_rel0_at((t_init3+t_in0)/2)` で算出（ISS-00087）。
   """
   h=targetHarness
   arc_oirc = h.mec.arc_oirc
@@ -941,7 +944,7 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
 
   #-- timestep （CLK slew 由来）
   slope          = index2_slope_rel
-  timestep_tstep = min(slope * 0.0099, h.mls.simulation_timestep)
+  timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
   timestep_tmax  = 20 * timestep_tstep
 
   #-- param 早期 instantiate（setup: tdelay_in = sim_c2d_max 1倍）
@@ -955,9 +958,9 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
     ,timestep     =float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
     ,timestep_tmax=float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
     ,tsim_end     =1.0E-6
-    ,tdelay_init  =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
-    ,tpulse_init  =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
-    ,tdelay_in    =float("{:.5g}".format(sim_c2d_max        * h.mls.time_mag))
+    ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))   # setup には delay 系 measure_type は来ないため固定
+    ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
+    ,tdelay_in    =float("{:.5g}".format(_tslew_from_template(index2_slope_rel, h.mls) + sim_c2d_max * h.mls.time_mag))   # ISS-00087: tdelay_in = tslew_rel + sim_c2d_max。 small slew でも sim_c2d_max が下限となり、 seg_start で rel signal を動かす余裕を確保
     ,tslew_in     =_tslew_from_template(index1_slope_const, h.mls)
     ,tdelay_rel   =float("{:.5g}".format(h.mls.sim_d2c_max  * h.mls.time_mag))
     ,tslew_rel    =_tslew_from_template(index2_slope_rel, h.mls)
@@ -972,10 +975,10 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
   with poolg_sema:
 
     seg_start  = 0.0
-    #-- ISS-00080: secant range を物理単位で（_t_rel0 を _t_init3 まで戻す tsweep を符号反転）
-    #   旧式: (sim_c2d_max + sim_d2c_max + slew_D + slew_CLK) * time_mag （slew_CLK は意味的に不要）
-    #   新式: -param.tsweep_for_rel0_at(param.t_init3) = (sim_c2d_max + slew_D + sim_d2c_max) * time_mag
-    seg_end    = -param.tsweep_for_rel0_at(param.t_init3)
+    #-- ISS-00080: secant range を物理単位で（_t_rel0 を seg 端まで戻す tsweep を符号反転）
+    #-- ISS-00087: seg 端を `(t_init3 + t_in0)/2` に変更（旧 t_init3 端では VCLK 2nd rise が
+    #   1st fall と同時刻になり L 期間 0 で ngspice 不安定。 中間配置で L 期間を確保）
+    seg_end    = -param.tsweep_for_rel0_at((param.t_init3 + param.t_in0) / 2)
 
     ratio      = h.mls.sim_segment_timestep_ratio
     threshold  = h.mls.sim_time_const_threshold * h.mls.time_mag
@@ -1187,15 +1190,10 @@ def runSpiceHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_
   #-- timestep
   slope          = index2_slope_rel
   tslew_min_s    = h.mls.simulation_slew_min   # ns 単位（後で time_mag 倍）
-  timestep_tstep = min(slope * 0.0099, h.mls.simulation_timestep)
+  timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
   timestep_tmax  = 20 * timestep_tstep
 
-  #-- tsim_end 計算（hold 固定式、 t_in1 + alpha 相当）
-  tsim_end  = (5*tslew_min_s + h.mls.sim_d2c_max + h.mls.sim_pulse_max) * h.mls.time_mag
-  tsim_end += (  tslew_min_s + 2*sim_c2d_max ) * h.mls.time_mag
-  tsim_end += (2 * h.mls.sim_d2c_max + index2_slope_rel) * h.mls.time_mag
-
-  #-- param 早期 instantiate（hold: tdelay_in = 2*sim_c2d_max 2倍、 meas_o_max_min=1）
+  #-- param 早期 instantiate（hold: meas_o_max_min=1、 tsim_end は compute_timing 後に確定）
   param = Mtp(
     cap           = 0.0
     ,clk_role     =h.clk_role
@@ -1205,26 +1203,34 @@ def runSpiceHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_
     ,tslew_min    =float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
     ,timestep     =float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
     ,timestep_tmax=float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
-    ,tsim_end     =tsim_end
+    ,tsim_end     =1e-6   # 暫定値。 compute_timing 後に param.t_rel1 + 1ns で再設定
     ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
-    ,tdelay_in    =float("{:.5g}".format(2*sim_c2d_max       * h.mls.time_mag))
+    ,tdelay_in    =float("{:.5g}".format(_tslew_from_template(index2_slope_rel, h.mls) + sim_c2d_max * h.mls.time_mag))   # ISS-00087: tdelay_in = tslew_rel + sim_c2d_max。 small slew でも sim_c2d_max が下限となり、 seg_start で rel signal を動かす余裕を確保
     ,tslew_in     =_tslew_from_template(index1_slope_const, h.mls)
     ,tdelay_rel   =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tslew_rel    =_tslew_from_template(index2_slope_rel, h.mls)
-    ,tpulse_rel   =tsim_end
+    ,tpulse_rel   =1e-6   # 暫定値、 tsim_end と同期して再設定
     ,tsweep_rel   =0
   )
   param.set_common_value(harness=h, arc_oirc=arc_oirc)
+  param.compute_timing()
+  #-- ISS-00087: tsim_end は旧 hold 固定式 (5*tslew_min + sim_d2c_max + sim_pulse_max + ...) ではなく、
+  #   compute_timing() で算出された param.t_rel1 (= rel signal slew 完了時刻) + 1 ns buffer で確定。
+  #   tdelay_in 式変更時にも自動で整合する。 t_clk6/7 は tsim_end 依存（clk_role="input"/"nouse" 分岐）
+  #   なので、 tsim_end 確定後に compute_timing() を **2 回目**呼び直して t_clk6/7 を再計算する。
+  tsim_end = param.t_rel1 + 1e-9
+  param.tsim_end   = tsim_end
+  param.tpulse_rel = tsim_end
   param.compute_timing()
 
   segstep_min  = h.mls.sim_segment_timestep_min * h.mls.time_mag
 
   with poolg_sema:
-    #-- ISS-00080: secant range を物理単位で（_t_rel0 を _t_init3 まで戻す tsweep_rel）
-    #   旧式: -(2*sim_c2d_max + sim_d2c_max + slew_D) * time_mag
-    #   新式: param.tsweep_for_rel0_at(param.t_init3) と同値（負値）
-    seg_start  = param.tsweep_for_rel0_at(param.t_init3)
+    #-- ISS-00080: secant range を物理単位で（_t_rel0 を seg 端まで戻す tsweep_rel）
+    #-- ISS-00087: seg 端を `(t_init3 + t_in0)/2` に変更（旧 t_init3 端では VCLK 2nd rise が
+    #   1st fall と同時刻になり L 期間 0 で ngspice 不安定。 中間配置で L 期間を確保）
+    seg_start  = param.tsweep_for_rel0_at((param.t_init3 + param.t_in0) / 2)
     seg_end    = 0
 
     ratio      = h.mls.sim_segment_timestep_ratio
@@ -1431,36 +1437,39 @@ def runSpicePassiveSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slo
   #-- timestep
   slope          = index1_slope_in
   tslew_min_s    = h.mls.simulation_slew_min
-  timestep_tstep = min(slope * 0.0099, h.mls.simulation_timestep)
+  timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
   timestep_tmax  = 20 * timestep_tstep
 
-  #-- estart/eend/tsim_end
-  #   estart = _t_rel0 相当（旧版式：6*tslew_min + sim_d2c_max + sim_pulse_max + sim_c2d_max + slew_in + sim_prop_max）
-  estart   = (6 * tslew_min_s + h.mls.sim_d2c_max + h.mls.sim_pulse_max + sim_c2d_max + index1_slope_in + h.mls.sim_prop_max) * h.mls.time_mag
-  eend     = estart + (index1_slope_in) * h.mls.time_mag + 2e-9
-  tsim_end = eend + 1e-9
-
-  #-- param 早期 instantiate
+  #-- param 早期 instantiate（passive: meas_energy=4、 tsim_end/time_energy は compute_timing 後に確定）
   param = Mtp(
      cap          =0.0
     ,clk_role     =h.clk_role
     ,meas_energy  =4
-    ,time_energy  =[estart,eend]
+    ,time_energy  =[0, 0]     # compute_timing 後に [t_rel0, t_rel1 + 2ns] で確定
     ,meas_o_max_min=0
-    ,tslew_min    = float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
+    ,tslew_min    =float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
     ,timestep     =float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
     ,timestep_tmax=float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
-    ,tsim_end     =tsim_end
+    ,tsim_end     =1e-6       # 暫定値、 compute_timing 後に eend+1ns で再設定
     ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
-    ,tdelay_in    =float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
+    ,tdelay_in    =float("{:.5g}".format(_tslew_from_template(index1_slope_in, h.mls) + sim_c2d_max * h.mls.time_mag))   # ISS-00087: setup/hold と同流儀 (tdelay_in = tslew_rel + sim_c2d_max)。 passive は rel = input pin で tslew_rel = tslew_in
     ,tslew_in     =_tslew_from_template(index1_slope_in, h.mls)
-    ,tdelay_rel   =float("{:.5g}".format(h.mls.sim_prop_max  * h.mls.time_mag))
+    ,tdelay_rel   =float("{:.5g}".format(h.mls.sim_d2c_max  * h.mls.time_mag))
     ,tslew_rel    =_tslew_from_template(index1_slope_in, h.mls)
-    ,tpulse_rel   =tsim_end
+    ,tpulse_rel   =1e-6       # 暫定値、 tsim_end と同期して再設定
     ,tsweep_rel   =0.0
   )
   param.set_common_value(harness=h, arc_oirc=arc_oirc)
+  param.compute_timing()
+  #-- ISS-00087: 計測 window = [t_rel0, t_rel1 + 2ns] / tsim_end = eend + 1ns
+  #   compute_timing() で算出された絶対時刻に合わせて再設定し、 compute_timing() を 2 回目呼び直す
+  estart = param.t_rel0
+  eend   = param.t_rel1 + 2e-9
+  tsim_end = eend + 1e-9
+  param.time_energy = [estart, eend]
+  param.tsim_end    = tsim_end
+  param.tpulse_rel  = tsim_end
   param.compute_timing()
 
   with poolg_sema:
@@ -1626,8 +1635,8 @@ def runSpiceMinPulseSingle(poolg_sema, targetHarness:Mcar, spicef:str):
 
   #-- timestep
   tslew_min_s    = h.mls.simulation_slew_min
-  timestep_tstep = h.mls.simulation_timestep
-  timestep_tmax  = max(100 * h.mls.simulation_timestep, timestep_tstep)
+  timestep_tstep = max(h.mls.simulation_timestep_min, h.mls.simulation_timestep_max)
+  timestep_tmax  = max(100 * h.mls.simulation_timestep_max, timestep_tstep)
 
   #-- tslew for tslew_in/rel（5 * tslew_min）
   tslew = 5 * tslew_min_s * h.mls.time_mag
@@ -1643,8 +1652,8 @@ def runSpiceMinPulseSingle(poolg_sema, targetHarness:Mcar, spicef:str):
     ,timestep     =float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
     ,timestep_tmax=float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
     ,tsim_end     =1.0E-6
-    ,tdelay_init  =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
-    ,tpulse_init  =1e-9 if h.measure_type.startswith("delay") else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
+    ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))   # min_pulse には delay 系 measure_type は来ないため固定
+    ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
     ,tdelay_in    =float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
     ,tslew_in     =tslew
     ,tdelay_rel   =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
@@ -1817,56 +1826,47 @@ def runSpiceLeakageMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar
 
 #--------------------------------------------------------------------------------------------------
 def runSpiceLeakageSingle(poolg_sema, targetHarness:Mcar, spicef:str):
-  """ISS-00080 Step 4：Mtp 早期 instantiate + param 渡し型。"""
+  """ISS-00080 Step 4 + ISS-00087: delaySingle ベースで refactor。
+  leakage は全 signal stable（init pulse 後）で I(VDD) を AVG 計測（meas_energy=3）。
+  計測 window = [t_in0, t_in1] / tsim_end = t_rel3。 D/rel は arc_oirc 全 "s" で transition なし。
+  """
   h=targetHarness
   arc_oirc = h.mec.arc_oirc
 
-  #-- sim_c2d_max
-  sim_c2d_max = h.mls.sim_c2d_min
-
-  #-- timestep
+  #-- timestep（leakage は slope/load 依存なし、 短 TSTEP で AVG window 内のサンプル数を確保）
   tslew_min_s    = h.mls.simulation_slew_min
-  timestep_tstep = h.mls.simulation_timestep
+  timestep_tstep = h.mls.simulation_timestep_min
+  timestep_tmax  = 20 * timestep_tstep
 
-  #-- tdelay_init/tpulse_init/tdelay_in 等（旧式そのまま、 単位 ns）
-  tdelay_init_ns = 1 if h.mlc.isflop==0 else h.mls.sim_d2c_max
-  tpulse_init_ns = 1 if h.mlc.isflop==0 else h.mls.sim_pulse_max
-  tdelay_in_ns   = sim_c2d_max
-  tslew_in_ns    = 10
-  tdelay_rel_ns  = 10
-  tslew_rel_ns   = 10
-
-  #-- estart/eend/tsim_end
-  estart   = (7*tslew_min_s + (tdelay_init_ns + tpulse_init_ns) + (tdelay_in_ns + tslew_in_ns)) * h.mls.time_mag + 10e-9
-  eend     = estart + 10e-9
-  tsim_end = eend + 1e-9
-
-  #-- timestep_tmax: tsim_end*0.1 で cap
-  timestep_tmax  = max(100 * h.mls.simulation_timestep, timestep_tstep)
-  timestep_tmax  = min(timestep_tmax, tsim_end * 0.1)
-  timestep_tmax  = max(timestep_tmax, timestep_tstep)
+  #-- is_dtp: FF でない (= isflop==0) → 短い init で OK
+  is_dtp = (h.mlc.isflop == 0)
 
   param = Mtp(
      cap          = 0.0
     ,clk_role     = h.clk_role
     ,pullres_role = "nouse"
     ,meas_energy  = 3
-    ,time_energy  = [estart,eend]
+    ,time_energy  = [0, 0]    # compute_timing 後に [t_in0, t_in1] で確定
     ,meas_o_max_min=0
-    ,tslew_min    = float("{:.5g}".format(tslew_min_s    * h.mls.time_mag))
+    ,tslew_min    = float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
     ,timestep     = float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
     ,timestep_tmax= float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
-    ,tsim_end     = float("{:.5g}".format(tsim_end))
-    ,tdelay_init  = float("{:.5g}".format(tdelay_init_ns * h.mls.time_mag))
-    ,tpulse_init  = float("{:.5g}".format(tpulse_init_ns * h.mls.time_mag))
-    ,tdelay_in    = float("{:.5g}".format(tpulse_init_ns * h.mls.time_mag))   # 旧コードと一致（tpulse_init を tdelay_in に流用）
-    ,tslew_in     = float("{:.5g}".format(tslew_in_ns    * h.mls.time_mag))
-    ,tdelay_rel   = float("{:.5g}".format(tdelay_rel_ns  * h.mls.time_mag))
-    ,tslew_rel    = float("{:.5g}".format(tslew_rel_ns   * h.mls.time_mag))
-    ,tpulse_rel   = tsim_end
+    ,tsim_end     = 1e-6      # 暫定値、 compute_timing 後に t_rel3 で再設定
+    ,tdelay_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
+    ,tpulse_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
+    ,tdelay_in    = 1e-9 if is_dtp else 10e-9  # ISS-00087: 非 FF は 1ns、 FF は settling 確保 10ns（orig との 10〜30 倍乖離は別途調査）
+    ,tslew_in     = 1e-9      # ISS-00087: AVG window = [t_in0, t_in1] = tslew_in = 1ns
+    ,tdelay_rel   = 1e-9      # leakage: rel transition なし、 短い 1 ns
+    ,tslew_rel    = float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
+    ,tpulse_rel   = float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
     ,tsweep_rel   = 0.0
   )
   param.set_common_value(harness=h, arc_oirc=arc_oirc)
+  param.compute_timing()
+  #-- ISS-00087: 計測 window = [t_in0, t_in1] / tsim_end = t_rel3。 compute_timing で算出された
+  #   絶対時刻に合わせて Mtp を再設定し、 compute_timing() を **2 回目**呼び直して t_clk6/7 を再計算
+  param.time_energy = [param.t_in0, param.t_in1]
+  param.tsim_end    = param.t_rel3
   param.compute_timing()
 
   with poolg_sema:

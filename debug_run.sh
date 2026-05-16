@@ -32,6 +32,10 @@ fi
 
 set -e
 
+# RUN_NAME: default "run" (常に設定、 並列実行時は run1/run2/... 等を指定)
+# 全 cmd_* で ${RUN_NAME} を直接参照（RUN_NAME 指定時 ./<name>/rslt、 指定なし ./run/rslt）
+RUN_NAME="${RUN_NAME:-run}"
+
 LIB_FILE="gf180CB5P00fdmcuC7t20240817_TTV5P00C25_b00.lib"
 ORIG_LIB="sample/src/gf180mcuC/libs.ref/gf180mcu_fd_sc_mcu7t5v0/lib/gf180mcu_fd_sc_mcu7t5v0__tt_025C_5v00.lib"
 ORIG_CSV_DIR="tmp/gf180_fd_mcuC7t20240817/tt_025C_5v00"
@@ -75,7 +79,9 @@ _setup_args() {
 
 cmd_clean() {
   set -x
-  rm -rf rslt rslt_* work work_* lrpymrpc*.log
+  # run* / *.log* を一括削除（RUN_NAME 区別なし、 並列実行時の個別削除は手動で）
+  # *.log* は *.log と *.log.gz の両方をカバー（案 A の動的 gzip ログ含む）
+  rm -rf run* *.log*
   { set +x; } 2>/dev/null
 }
 
@@ -90,26 +96,33 @@ cmd_run_all() {
     CELLS_OPT="--cells_only${CELLS_FULL}"
   fi
 
-  echo "===== run_all: MODE=${MODE_} CELLS='${CELLS:-<all>}' INDEX1='${INDEX1:-<all>}' INDEX2='${INDEX2:-<all>}' (batch) ====="
-  rm -rf rslt work
-  local LOG="lrpymrpc_debug_batch.log"
+  echo "===== run_all: MODE=${MODE_} CELLS='${CELLS:-<all>}' INDEX1='${INDEX1:-<all>}' INDEX2='${INDEX2:-<all>}' RUN_NAME='${RUN_NAME:-}' (batch) ====="
+  local RSLT_PATH="${RUN_NAME:+$RUN_NAME/}rslt"
+  local WORK_PATH="${RUN_NAME:+$RUN_NAME/}work"
+  rm -rf "$RSLT_PATH" "$WORK_PATH"
+  local LOG="lrpymrpc_debug_batch${RUN_NAME:+_$RUN_NAME}.log.gz"
+  local RUN_NAME_OPT=""
+  [ -n "${RUN_NAME}" ] && RUN_NAME_OPT="--RUN_NAME ${RUN_NAME}"
   local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target sample/target ${CELLS_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${MYLOGIC_USER_OPT}"
   set -x
+  # 動的 gzip 圧縮：sim 中もリアルタイムで .log.gz に書き込み、 画面表示も維持
+  # 読み出しは zcat / zgrep / zless で透過アクセス可
   python -u -m lrPymRPC \
     --SERVER_IP 192.168.168.103 \
     $REPO_ARG \
     $SOURCE_ARG \
     $SOURCE_INCLUDE_ARG \
     $SOURCE_MATCH_ARG \
+    $RUN_NAME_OPT \
     --RESULT rslt work \
-    --CMD "$CMD" 2>&1 | tee "$LOG"
+    --CMD "$CMD" 2>&1 | tee >(gzip --best > "$LOG")
   { set +x; } 2>/dev/null
   echo ""
   echo "===== summary: failed-spice grep (batch log) ====="
   local n
-  n=$(grep -c "Failed to launch spice" "$LOG" 2>/dev/null || true)
+  n=$(zgrep -c "Failed to launch spice" "$LOG" 2>/dev/null || true)
   [ -z "$n" ] && n=0
-  printf "  %-20s : %s failures\n" "batch" "$n"
+  printf "  %-20s : %s failures\n" "batch${RUN_NAME:+_$RUN_NAME}" "$n"
 }
 
 cmd_run_each() {
@@ -118,14 +131,20 @@ cmd_run_each() {
     echo "run_each requires CELLS to be set (per-cell loop)" >&2
     exit 2
   fi
-  echo "===== run_each: MODE=${MODE_} CELLS='${CELLS}' INDEX1='${INDEX1:-<all>}' INDEX2='${INDEX2:-<all>}' (per-cell) ====="
+  echo "===== run_each: MODE=${MODE_} CELLS='${CELLS}' INDEX1='${INDEX1:-<all>}' INDEX2='${INDEX2:-<all>}' RUN_NAME='${RUN_NAME:-}' (per-cell) ====="
+  local RUN_NAME_OPT=""
+  [ -n "${RUN_NAME}" ] && RUN_NAME_OPT="--RUN_NAME ${RUN_NAME}"
   for short in $CELLS; do
     local full="gf180mcu_fd_sc_mcu7t5v0__${short}"
     echo "=========================================="
     echo "===== running cell: ${short}"
     echo "=========================================="
-    rm -rf rslt work "work_${short}" "rslt_${short}"
-    local LOG="lrpymrpc_debug_${short}.log"
+    local RSLT_PATH="${RUN_NAME:+$RUN_NAME/}rslt"
+    local WORK_PATH="${RUN_NAME:+$RUN_NAME/}work"
+    local RSLT_DEST="${RUN_NAME:+$RUN_NAME/}rslt_${short}"
+    local WORK_DEST="${RUN_NAME:+$RUN_NAME/}work_${short}"
+    rm -rf "$RSLT_PATH" "$WORK_PATH" "$RSLT_DEST" "$WORK_DEST"
+    local LOG="lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log.gz"
     local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target sample/target --cells_only ${full} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${MYLOGIC_USER_OPT}"
     set -x
     python -u -m lrPymRPC \
@@ -134,17 +153,18 @@ cmd_run_each() {
       $SOURCE_ARG \
       $SOURCE_INCLUDE_ARG \
       $SOURCE_MATCH_ARG \
+      $RUN_NAME_OPT \
       --RESULT rslt work \
-      --CMD "$CMD" 2>&1 | tee "$LOG"
+      --CMD "$CMD" 2>&1 | tee >(gzip --best > "$LOG")
     { set +x; } 2>/dev/null
-    [ -d work ] && mv work "work_${short}"
-    [ -d rslt ] && mv rslt "rslt_${short}"
+    [ -d "$WORK_PATH" ] && mv "$WORK_PATH" "$WORK_DEST"
+    [ -d "$RSLT_PATH" ] && mv "$RSLT_PATH" "$RSLT_DEST"
   done
   echo ""
   echo "===== summary: failed-spice grep across logs ====="
   for short in $CELLS; do
     local n
-    n=$(grep -c "Failed to launch spice" "lrpymrpc_debug_${short}.log" 2>/dev/null || true)
+    n=$(zgrep -c "Failed to launch spice" "lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log.gz" 2>/dev/null || true)
     [ -z "$n" ] && n=0
     printf "  %-20s : %s failures\n" "$short" "$n"
   done
@@ -161,11 +181,24 @@ cmd_lib2csv_orig() {
 }
 
 cmd_lib2csv_charao() {
-  echo "===== lib2csv_charao: extract charao .lib -> CSV (wipes tmp/charao_* first) ====="
+  echo "===== lib2csv_charao: extract charao .lib -> CSV ====="
   set -x
-  rm -rf tmp/charao_*
+  if [ -n "${RUN_NAME}" ]; then
+    rm -rf "tmp/charao_${RUN_NAME}"
+  else
+    rm -rf tmp/charao_*
+  fi
   { set +x; } 2>/dev/null
   local found=0
+  # RUN_NAME 指定時：${RUN_NAME}/rslt/ を tmp/charao_${RUN_NAME} に
+  if [ -n "${RUN_NAME}" ] && [ -f "${RUN_NAME}/rslt/${LIB_FILE}" ]; then
+    found=1
+    set -x
+    python -u -m charao.script.util_extract_lib_csv \
+      --lib "${RUN_NAME}/rslt/${LIB_FILE}" \
+      --out "tmp/charao_${RUN_NAME}"
+    { set +x; } 2>/dev/null
+  fi
   # batch: rslt/
   if [ -f "rslt/${LIB_FILE}" ]; then
     found=1
@@ -175,20 +208,28 @@ cmd_lib2csv_charao() {
       --out tmp/charao_batch
     { set +x; } 2>/dev/null
   fi
-  # per-cell: rslt_<name>/
-  for d in rslt_*; do
+  # per-cell: rslt_<name>/ または ${RUN_NAME}/rslt_<name>/
+  local per_cell_glob
+  if [ -n "${RUN_NAME}" ]; then
+    per_cell_glob="${RUN_NAME}/rslt_*"
+  else
+    per_cell_glob="rslt_*"
+  fi
+  for d in $per_cell_glob; do
     [ -d "$d" ] || continue
     [ -f "${d}/${LIB_FILE}" ] || continue
     found=1
-    local name="${d#rslt_}"
+    local base="${d##*/}"
+    local name="${base#rslt_}"
+    local out_name="${RUN_NAME:+${RUN_NAME}_}${name}"
     set -x
     python -u -m charao.script.util_extract_lib_csv \
       --lib "${d}/${LIB_FILE}" \
-      --out "tmp/charao_${name}"
+      --out "tmp/charao_${out_name}"
     { set +x; } 2>/dev/null
   done
   if [ $found -eq 0 ]; then
-    echo "lib2csv_charao: no rslt/ or rslt_*/ with ${LIB_FILE} found" >&2
+    echo "lib2csv_charao: no rslt/, rslt_*/, or ${RUN_NAME:-<RUN_NAME>}/rslt/ with ${LIB_FILE} found" >&2
     exit 2
   fi
 }

@@ -4,6 +4,54 @@
 
 ---
 
+## [0.9.14a13] 2026-05-16
+
+Alpha pre-release. a09〜a13 統合 entry（a09〜a12 は commit のみで CHANGELOG entry が omit されていた経緯あり）。ISS-00077 / 00080 / 00081 / 00083〜00085 / 00087 / 00089 解決、ISS-00088 検出。
+
+### Added
+- (ISS-00077, a09) `charao/script/temp_testbench.sp.jp2`: `.option reltol=1e-4` 追加（ngspice default の 10 倍 tight、setup_rising 精度向上）
+- (ISS-00080, a10) `charao/script/myTbParam.py`: `Mtp` class 拡張（timing fields 18 個 + `compute_timing()` + `tsweep_for_rel0_at()`）
+- (ISS-00081, a11) `charao/script/myExportLib.py`: pin(CLK) 内 `min_period` attribute + `timing(timing_type:min_pulse_width)` block 出力
+- (ISS-00083, a12) DFF 7 family（DFF_NC / DFF_PC_NR / DFF_PC_NS / DFF_NC_NR / DFF_NC_NS / DFF_PC_NR_NS / DFF_NC_NR_NS）に power_tin (CLK/CLKN x 2 + D x 2 = 8 個) と power_tout 展開
+- (ISS-00084, a12) DFF 8 family の `min_pulse_width_high` / `min_pulse_width_low` 両 polarity 実装
+- (ISS-00086 準備, a12〜a13) `30_projects/SPEC_mylogic.md`、全 family pin mapping コメント
+- (ISS-00087, a13) `charao/script/myLibrarySetting.py`: `simulation_timestep_min = 0.001 ns` 新設、下限保護 `timestep_tstep = max(min, min(slope*0.0099, max))`
+- (ISS-00088, a13 検出) passive lib 出力形式の orig vendor 不整合（LOW 優先、後段）
+
+### Changed
+- (ISS-00080, a10) 全 sim 関数の interface 統一：`(targetHarness, spicef, param)` 型に変更、`runSpiceXxxSingle` で Mtp 早期 instantiate + `compute_timing()` 呼び出し
+- (ISS-00080, a10) secant range の物理表現化（setup/hold は `t_init3` 基準で `tsweep_for_rel0_at()` 経由）
+- (ISS-00080, a10) PowerTout 2 段階 sim 改善（1st: estart/eend 抽出、2nd: energy 測定、共通 param 流用）
+- (ISS-00080, a10) jp2 の `.param _t_*` を `{{param.t_*}}` に置換、testbench timing は Mtp.compute_timing() が single source of truth
+- (ISS-00080, a10) `charao_run.py` -530 行、`myTbParam.py` +70 行、`temp_testbench.sp.jp2` -66 行
+- (ISS-00081, a11) min_period 値の決定方式：duty 50% 安全側 `min_period = 2 * max(mpw_high, mpw_low)`
+- (ISS-00085, a12) `temp_testbench.sp.jp2`: VREL に `_t_rel2 / _t_rel3` 追加し VCLK と対称な cycle 化（RN/SETN min_pulse_width_low secant 失敗解消）
+- (ISS-00087, a13) `charao/script/temp_testbench.sp.jp2`: VPC_CTRL release を `_t_in0 - tslew_min` から `_t_init3` に前倒し、VCLK PWL closure バグ修正
+- (ISS-00087, a13) `charao_run.py` runSpice*Single 一連の Mtp param refactor（tdelay_in、seg_start、tsim_end、timestep_tstep）
+- (ISS-00087, a13) `sample/target/gf180/fd/mcuC7t20240817/config_lib.jsonc`: `sim_c2d_min=10.0 / sim_c2d_max=200.0` 明示
+- (ISS-00089, a13) `charao_run.py` の **Delay / PowerTout / PowerTin / Passive** で `tdelay_rel` を `h.mls.sim_prop_max` → `h.mls.sim_d2c_max` に統一
+  - 真因：`sim_prop_max(25ns)` は propagation delay 最大値で、D→CLK 間隔としては誤用。setup/hold/min_pulse と同じ `sim_d2c_max(6ns)` 用法が正
+  - 背景：ISS-00076 の WOUT pre-charge SW があるため、settling 余裕は不要
+- (ISS-00089, a13) `debug_run.sh`: cmd_run_each の RUN_NAME / sim per-dir 強化
+
+### Fixed
+- (ISS-00077, a09) dffq_1 full INDEX bench (setup_rising): avg `+2.55 → +0.16` ns（**16 倍改善**）、σ `2.96 → 0.88`、max `+12.14 → +7.05` ns
+- (ISS-00085, a12) RN/SETN min_pulse_width_low: secant 失敗 → 物理値（dffrnq_1 RN 76 ps、dffsnq_1 SETN 154 ps）
+- (ISS-00087, a13) DFF 8 family full INDEX で 10 件発生していた `Timestep too small @ vclk#branch` を 0 件に解消（setup/hold/recovery/removal 系）
+- (ISS-00089, a13) negedge CLK 系 (dffn*) の power_tout sim 失敗 4 件解消（slew=0.02 × energy2 trial × arc=ffff/rrff）
+
+### Verified
+- (ISS-00080, a10) dffq_1 INDEX(9,9) 全 meas_type で旧 charao と完全同値（setup_rising fall=2.2/rise=-0.644、hold_rising fall=-2.19/rise=0.647、min_pulse_low/high=0.128/0.212、cell_leakage_power=0.00341 等）
+- (ISS-00089, a13) dffnsnq_1 / power_tout / arc=ffff / INDEX1=0 / INDEX2=0：A 修正前 abort → 修正後 0 failures、全 measurement 完了
+- (ISS-00089, a13) DFF 8 family `_1` × full INDEX × 全 measure：**0 failures**（既知 14 件失敗解消、新規 failure 無し、所要時間 約 1 時間）
+
+### Known issues
+- (ISS-00086) SDFF 4 family 実装：次回
+- (ISS-00088) passive lib 出力形式の orig 整合：別途
+- (ISS-00079) num_thread 最適化：thread=4 で運用継続中
+
+---
+
 ## [0.9.14a08] 2026-05-13
 
 Alpha pre-release. ISS-00078 完成: wave_raw オプション + 汎用 raw viewer (tools/raw_viewer.html).

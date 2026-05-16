@@ -30,6 +30,11 @@ from .myExpectCell import MyExpectCell
 ###############################################################################
 def get_logic_dict():
   return {
+    #---------------------------------------------------------------------------------------
+    # ANTENNA: antenna diode cell (single input, no output).
+    #   Pin mapping (charao internal logic ports):
+    #     i0 = A (input, antenna pin)
+    #   ports_dict example: {"A":"i0",...}
     "ANTENNA":{"logic_type":"comb",
            "functions":{},
            "expect":
@@ -42,6 +47,11 @@ def get_logic_dict():
             ]
     },
 
+    #---------------------------------------------------------------------------------------
+    # TIE1: constant-1 tie cell (output fixed to VDD; no input).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y (output, tied to 1)
+    #   ports_dict example: {"Y":"o0",...}
     "TIE1":{"logic_type":"comb",
            "functions":{"o0":"1"},
            "expect":
@@ -51,6 +61,11 @@ def get_logic_dict():
             ]
     },
 
+    #---------------------------------------------------------------------------------------
+    # TIE0: constant-0 tie cell (output fixed to VSS; no input).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y (output, tied to 0)
+    #   ports_dict example: {"Y":"o0",...}
     "TIE0":{"logic_type":"comb",
            "functions":{"o0":"0"},
            "expect":
@@ -60,6 +75,12 @@ def get_logic_dict():
             ]
     },
 
+    #---------------------------------------------------------------------------------------
+    # BUF: non-inverting buffer (o0 = i0).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y (output)
+    #     i0 = A (data input)
+    #   ports_dict example: {"A":"i0","Y":"o0",...}
     "BUF":{"logic_type":"comb",
            "functions":{"o0":"i0"},
            "expect":
@@ -71,6 +92,12 @@ def get_logic_dict():
             ]
     },
 
+    #---------------------------------------------------------------------------------------
+    # DEL: delay buffer (o0 = i0; same logic as BUF but timing-optimized cell).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y (output)
+    #     i0 = A (data input)
+    #   ports_dict example: {"A":"i0","Y":"o0",...}
     "DEL":{"logic_type":"comb",
            "functions":{"o0":"i0"},
            "expect":
@@ -82,6 +109,12 @@ def get_logic_dict():
             ]
     },
     
+    #---------------------------------------------------------------------------------------
+    # INV: inverter (o0 = !i0).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y (output, inverted)
+    #     i0 = A (data input)
+    #   ports_dict example: {"A":"i0","Y":"o0",...}  (also ZN/YN depending on tech)
     "INV":{"logic_type":"comb",
            "functions":{"o0":"!i0"},
            "expect":
@@ -93,6 +126,13 @@ def get_logic_dict():
             ]
     },
     
+    #---------------------------------------------------------------------------------------
+    # AND2: 2-input AND (o0 = i0 & i1).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y (output)
+    #     i0 = A (data input 0)
+    #     i1 = B (data input 1)
+    #   ports_dict example: {"A":"i0","B":"i1","Y":"o0",...}
     "AND2":{"logic_type":"comb",
             "functions":{"o0":"i0&i1"},
             "expect":                                                     
@@ -112,6 +152,11 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["u"],"i":["1","1"]},mondrv_oirc=["1","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1", specify=""),
              ]
     },
+    #---------------------------------------------------------------------------------------
+    # AND3: 3-input AND (o0 = i0 & i1 & i2).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y, i0 = A, i1 = B, i2 = C
+    #   ports_dict example: {"A":"i0","B":"i1","C":"i2","Y":"o0",...}
     "AND3":{"logic_type":"comb",
             "functions":{"o0":"i0&i1&i2"},
             "expect":
@@ -153,6 +198,11 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["u"],"i":["1","1","1"]},mondrv_oirc=["1","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1&i2", specify=""),
              ]
     },
+    #---------------------------------------------------------------------------------------
+    # AND4: 4-input AND (o0 = i0 & i1 & i2 & i3).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y, i0 = A, i1 = B, i2 = C, i3 = D
+    #   ports_dict example: {"A":"i0","B":"i1","C":"i2","D":"i3","Y":"o0",...}
     "AND4":{"logic_type":"comb",
             "functions":{"o0":"i0&i1&i2&i3"},
             "expect":
@@ -244,6 +294,10 @@ def get_logic_dict():
              ]
     },
     
+    #---------------------------------------------------------------------------------------
+    # OR2: 2-input OR (o0 = i0 | i1).
+    #   Pin mapping: o0 = Y, i0 = A, i1 = B
+    #   ports_dict example: {"A":"i0","B":"i1","Y":"o0",...}
     "OR2":{"logic_type":"comb",
            "functions":{"o0":"i0|i1"},
            "expect":
@@ -264,6 +318,10 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["u"],"i":["1","1"]},mondrv_oirc=["1","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1", specify=""),
              ]
     },
+    #---------------------------------------------------------------------------------------
+    # OR3: 3-input OR (o0 = i0 | i1 | i2).
+    #   Pin mapping: o0 = Y, i0 = A, i1 = B, i2 = C
+    #   ports_dict example: {"A":"i0","B":"i1","C":"i2","Y":"o0",...}
     "OR3":{"logic_type":"comb",
            "functions":{"o0":"i0|i1|i2"},
            "expect":                                                     
@@ -305,6 +363,10 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["u"],"i":["1","1","1"]},mondrv_oirc=["1","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1&i2", specify=""),
              ]
     },
+    #---------------------------------------------------------------------------------------
+    # OR4: 4-input OR (o0 = i0 | i1 | i2 | i3).
+    #   Pin mapping: o0 = Y, i0 = A, i1 = B, i2 = C, i3 = D
+    #   ports_dict example: {"A":"i0","B":"i1","C":"i2","D":"i3","Y":"o0",...}
     "OR4":{"logic_type":"comb",
            "functions":{"o0":"i0|i1|i2|i3"},
            "expect":
@@ -396,6 +458,10 @@ def get_logic_dict():
              ]
     },
     
+    #---------------------------------------------------------------------------------------
+    # NAND2: 2-input NAND (o0 = !(i0 & i1)).
+    #   Pin mapping: o0 = Y (often ZN), i0 = A, i1 = B
+    #   ports_dict example: {"A":"i0","B":"i1","Y":"o0",...}
     "NAND2":{"logic_type":"comb",
              "functions":{"o0":"!(i0&i1)"},
              "expect":                                                     
@@ -416,6 +482,10 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["d"],"i":["1","1"]},mondrv_oirc=["0","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1", specify=""),
              ]
     },
+    #---------------------------------------------------------------------------------------
+    # NAND3: 3-input NAND (o0 = !(i0 & i1 & i2)).
+    #   Pin mapping: o0 = Y, i0 = A, i1 = B, i2 = C
+    #   ports_dict example: {"A":"i0","B":"i1","C":"i2","Y":"o0",...}
     "NAND3":{"logic_type":"comb",
              "functions":{"o0":"!(i0&i1&i2)"},
              "expect":                                                     
@@ -457,6 +527,10 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["d"],"i":["1","1","1"]},mondrv_oirc=["0","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1&i2", specify=""),
              ]
     },
+    #---------------------------------------------------------------------------------------
+    # NAND4: 4-input NAND (o0 = !(i0 & i1 & i2 & i3)).
+    #   Pin mapping: o0 = Y, i0 = A, i1 = B, i2 = C, i3 = D
+    #   ports_dict example: {"A":"i0","B":"i1","C":"i2","D":"i3","Y":"o0",...}
     "NAND4":{"logic_type":"comb",
              "functions":{"o0":"!(i0&i1&i2&i3)"},
              "expect":                                                     
@@ -548,6 +622,10 @@ def get_logic_dict():
              ]
     },
 
+    #---------------------------------------------------------------------------------------
+    # NOR2: 2-input NOR (o0 = !(i0 | i1)).
+    #   Pin mapping: o0 = Y, i0 = A, i1 = B
+    #   ports_dict example: {"A":"i0","B":"i1","Y":"o0",...}
     "NOR2":{"logic_type":"comb",
             "functions":{"o0":"!(i0|i1)"},
             "expect":
@@ -568,6 +646,10 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["d"],"i":["1","1"]},mondrv_oirc=["0","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1", specify=""),
              ]
     },
+    #---------------------------------------------------------------------------------------
+    # NOR3: 3-input NOR (o0 = !(i0 | i1 | i2)).
+    #   Pin mapping: o0 = Y, i0 = A, i1 = B, i2 = C
+    #   ports_dict example: {"A":"i0","B":"i1","C":"i2","Y":"o0",...}
     "NOR3":{"logic_type":"comb",
             "functions":{"o0":"!(i0|i1|i2)"},
             "expect":                                                     
@@ -609,6 +691,10 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["d"],"i":["1","1","1"]},mondrv_oirc=["0","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1&i2", specify=""),
              ]
     },
+    #---------------------------------------------------------------------------------------
+    # NOR4: 4-input NOR (o0 = !(i0 | i1 | i2 | i3)).
+    #   Pin mapping: o0 = Y, i0 = A, i1 = B, i2 = C, i3 = D
+    #   ports_dict example: {"A":"i0","B":"i1","C":"i2","D":"i3","Y":"o0",...}
     "NOR4":{"logic_type":"comb",
             "functions":{"o0":"!(i0|i1|i2|i3)"},
             "expect":                                                     
@@ -701,6 +787,10 @@ def get_logic_dict():
     },
 
 
+    #---------------------------------------------------------------------------------------
+    # XOR2: 2-input XOR (o0 = i0 ^ i1).
+    #   Pin mapping: o0 = Y, i0 = A, i1 = B
+    #   ports_dict example: {"A":"i0","B":"i1","Y":"o0",...}
     "XOR2":{"logic_type":"comb",
             "functions":{"o0":"i0^i1"},
             "expect":                                                     
@@ -723,6 +813,10 @@ def get_logic_dict():
             ]
     },
 
+    #---------------------------------------------------------------------------------------
+    # XNOR2: 2-input XNOR (o0 = !(i0 ^ i1)).
+    #   Pin mapping: o0 = Y, i0 = A, i1 = B
+    #   ports_dict example: {"A":"i0","B":"i1","Y":"o0",...}
     "XNOR2":{"logic_type":"comb",
              "functions":{"o0":"!(i0^i1)"},
              "expect":                                                     
@@ -745,6 +839,14 @@ def get_logic_dict():
             ]
     },
 
+    #---------------------------------------------------------------------------------------
+    # MUX2: 2-to-1 multiplexer (o0 = (i2)? i1 : i0 — i2 is the select).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y  (output)
+    #     i0 = A  (data input 0, selected when S=0)
+    #     i1 = B  (data input 1, selected when S=1)
+    #     i2 = S0 (select, 0 -> A, 1 -> B)
+    #   ports_dict example: {"A":"i0","B":"i1","S0":"i2","Y":"o0",...}
     "MUX2":{"logic_type":"comb",
             "functions":{"o0":"(i0&!i2)|(i1&i2)"},  #--- o0 = (i2)? i1 : i0
             "expect":                                                     
@@ -784,6 +886,10 @@ def get_logic_dict():
             ]
     },
 
+    #---------------------------------------------------------------------------------------
+    # XOR3: 3-input XOR (o0 = i0 ^ i1 ^ i2).
+    #   Pin mapping: o0 = Y, i0 = A, i1 = B, i2 = C
+    #   ports_dict example: {"A":"i0","B":"i1","C":"i2","Y":"o0",...}
     "XOR3":{"logic_type":"comb",
             "functions":{"o0":"i0^i1^i2"},
             "expect":
@@ -841,6 +947,10 @@ def get_logic_dict():
             ]
     },
 
+    #---------------------------------------------------------------------------------------
+    # XNOR3: 3-input XNOR (o0 = !(i0 ^ i1 ^ i2)).
+    #   Pin mapping: o0 = Y, i0 = A, i1 = B, i2 = C
+    #   ports_dict example: {"A":"i0","B":"i1","C":"i2","Y":"o0",...}
     "XNOR3":{"logic_type":"comb",
              "functions":{"o0":"!(i0^i1^i2)"},
              "expect":

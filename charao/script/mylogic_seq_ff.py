@@ -31,8 +31,13 @@ from .myExpectCell import MyExpectCell
 def get_logic_dict():
   return {
     #---------------------------------------------------------------------------------------
-    # DFF_PC (D + posedge CLK + Q, no reset/set, single Q output).
-    # GF180 target: dffq_1/2/4. Verilog primitive: udp_iq_ff_n (Q, C=0, P=0, CK, D, N).
+    # DFF_PC: D + posedge CLK + Q (no reset/set, single Q output).
+    #   GF180 target: dffq_1/2/4. Verilog primitive: udp_iq_ff_n (Q, C=0, P=0, CK, D, N).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Q   (output)
+    #     i0 = D   (data input)
+    #     c0 = CLK (clock, posedge)
+    #   ports_dict example: {"D":"i0","CLK":"c0","Q":"o0",...}
     "DFF_PC":{
            "logic_type":"seq",
            "functions":{"o0":"Io0"},
@@ -105,7 +110,13 @@ def get_logic_dict():
            ]
     },
     #---------------------------------------------------------------------------------------
-    # DFF_NC (D + negedge CLKN + Q, no reset/set, single Q output).
+    # DFF_NC: D + negedge CLKN + Q (no reset/set, single Q output).
+    #   GF180 target: dffnq_1/2/4.
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Q    (output)
+    #     i0 = D    (data input)
+    #     c0 = CLKN (clock, negedge — internally inverted then fed to udp_iq_ff_n)
+    #   ports_dict example: {"D":"i0","CLKN":"c0","Q":"o0",...}
     # GF180 target: dffnq_1/2/4.
     # Internal: CLKN -> not -> CLK_int -> udp_iq_ff_n (posedge primitive), D -> not -> D_int,
     #           udp_iq_ff_n outputs iq1 (= !D), then not gate -> Q (= D).
@@ -118,11 +129,31 @@ def get_logic_dict():
            "vcode":"wire clkn_int; wire d_int; wire iq1; not (clkn_int, c0); not (d_int, i0); udp_iq_ff_n inst (iq1, 1'b0, 1'b0, clkn_int, d_int, ); not (o0, iq1);",
            "expect":
            [
-             #--- q delay (clkn negedge -> q)
+             #--- q delay (clkn negedge -> q) + power_tout
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"]}, mondrv_oirc=["1","1","0","0"]
-                         ,meas_types=["falling_edge"] ,tmg_sense="non",arc_oirc=["r","r","f","f"], tmg_when="", specify=""),
+                         ,meas_types=["falling_edge","power_tout"] ,tmg_sense="non",arc_oirc=["r","r","f","f"], tmg_when="", specify=""),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"]}, mondrv_oirc=["0","0","0","0"]
-                         ,meas_types=["falling_edge"] ,tmg_sense="non",arc_oirc=["f","f","f","f"], tmg_when="", specify="(negedge c0 => (o0 +: i0)) =(0,0);"),
+                         ,meas_types=["falling_edge","power_tout"] ,tmg_sense="non",arc_oirc=["f","f","f","f"], tmg_when="", specify="(negedge c0 => (o0 +: i0)) =(0,0);"),
+             #--- power_tin pin(CLKN) when:"!D" - CLKN 変化、 D=0 stable、 Q=0 stable
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"]}, mondrv_oirc=["0","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","r"], tmg_when="!i0", specify=""),
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"]}, mondrv_oirc=["0","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","f"], tmg_when="!i0", specify=""),
+             #--- power_tin pin(CLKN) when:"D" - CLKN 変化、 D=1 stable、 Q=1 stable
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"]}, mondrv_oirc=["1","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","r"], tmg_when="i0", specify=""),
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"]}, mondrv_oirc=["1","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","f"], tmg_when="i0", specify=""),
+             #--- power_tin pin(D) when:"!CLKN" - D 変化、 CLKN=0 stable、 Q 不変
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["0"],"b":[],"c":["0"]}, mondrv_oirc=["d","1","1","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","s"], tmg_when="!c0", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["1"],"b":[],"c":["0"]}, mondrv_oirc=["d","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","s"], tmg_when="!c0", specify=""),
+             #--- power_tin pin(D) when:"CLKN" - D 変化、 CLKN=1 stable、 Q 不変
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["0"],"b":[],"c":["1"]}, mondrv_oirc=["d","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","s"], tmg_when="c0", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["1"],"b":[],"c":["1"]}, mondrv_oirc=["d","0","0","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","s"], tmg_when="c0", specify=""),
              #--- setup
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"]}, mondrv_oirc=["1","1","0","0"]
                         ,meas_types=["setup_falling"] ,tmg_sense="non",arc_oirc=["r","r","f","f"], tmg_when="", specify="$setup(posedge i0, negedge c0, 0, notifier);"),
@@ -143,6 +174,9 @@ def get_logic_dict():
                         ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["s","s","f","f"], tmg_when="", specify=""),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"]}, mondrv_oirc=["0","0","1","1"]
                         ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["s","s","r","r"], tmg_when="", specify=""),
+             #--- min_pulse_high (clkn) -- H pulse 計測 (init L -> rise -> H pulse -> fall)
+             MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"]}, mondrv_oirc=["1","1","0","0"]
+                        ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
              #--- min_pulse (clkn) -- L pulse 完了で H 終了
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"]}, mondrv_oirc=["1","1","1","1"]
                         ,meas_types=["min_pulse_width_low"],tmg_sense="non",arc_oirc=["f","f","f","f"], tmg_when="", specify="$width(negedge c0, 0, 0, notifier);"),
@@ -158,7 +192,14 @@ def get_logic_dict():
            ]
     },
     #---------------------------------------------------------------------------------------
-    # DFF_PC_NR (D + posedge CLK + active-low reset RN + Q, single Q output).
+    # DFF_PC_NR: D + posedge CLK + active-low reset RN + Q (single Q output).
+    #   GF180 target: dffrnq_1/2/4.
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Q   (output)
+    #     i0 = D   (data input)
+    #     c0 = CLK (clock, posedge)
+    #     r0 = RN  (reset, active-low — Q=0 when RN=0)
+    #   ports_dict example: {"D":"i0","RN":"r0","CLK":"c0","Q":"o0",...}
     # GF180 target: dffrnq_1/2/4.
     # Internal: RN -> not -> p_int (active high), D -> not -> d_int,
     #           udp_iq_ff_n(iq1, 0, p_int, CLK, d_int, N), then not -> Q.
@@ -173,11 +214,31 @@ def get_logic_dict():
            "vcode":"wire p_int; wire d_int; wire iq1; not (p_int, r0); not (d_int, i0); udp_iq_ff_n inst (iq1, 1'b0, p_int, c0, d_int, ); not (o0, iq1);",
            "expect":
            [
-             #--- q delay (clk -> q) -- RN=1 (non-reset)
+             #--- q delay (clk -> q) -- RN=1 (non-reset) + power_tout
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["1","1","1","1"]
-                         ,meas_types=["rising_edge"] ,tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify=""),
+                         ,meas_types=["rising_edge","power_tout"] ,tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify=""),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["0","0","1","1"]
-                         ,meas_types=["rising_edge"] ,tmg_sense="non",arc_oirc=["f","f","r","r"], tmg_when="", specify="(posedge c0 => (o0 +: i0)) =(0,0);"),
+                         ,meas_types=["rising_edge","power_tout"] ,tmg_sense="non",arc_oirc=["f","f","r","r"], tmg_when="", specify="(posedge c0 => (o0 +: i0)) =(0,0);"),
+             #--- power_tin pin(CLK) when:"!D" - CLK 変化、 D=0 stable、 Q=0 stable (RN inactive)
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["0","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","r"], tmg_when="!i0", specify=""),
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["0","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","f"], tmg_when="!i0", specify=""),
+             #--- power_tin pin(CLK) when:"D"
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["1","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","r"], tmg_when="i0", specify=""),
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["1","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","f"], tmg_when="i0", specify=""),
+             #--- power_tin pin(D) when:"!CLK" - D 変化、 CLK=0 stable
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["0"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["d","1","1","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","s"], tmg_when="!c0", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["1"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["d","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","s"], tmg_when="!c0", specify=""),
+             #--- power_tin pin(D) when:"CLK"
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["0"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["d","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","s"], tmg_when="c0", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["1"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["d","0","0","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","s"], tmg_when="c0", specify=""),
              #--- clear (RN fall -> Q fall, async)
              MyExpectCell(pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["0","1","0","0"]
                         ,meas_types=["clear"]       ,tmg_sense="pos",arc_oirc=["f","s","f","s"], tmg_when="", specify="(negedge r0 => (o0 +: 1'b0)) = (0,0);"),
@@ -215,6 +276,9 @@ def get_logic_dict():
              #--- min_pulse (clk) -- H pulse 完了で L 終了
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["1","1","0","0"]
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
+             #--- min_pulse_low (clk) -- L pulse 計測 (init H -> fall -> L -> rise)
+             MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["1","1","1","1"]
+                        ,meas_types=["min_pulse_width_low"],tmg_sense="non",arc_oirc=["r","r","r","f"], tmg_when="", specify="$width(negedge c0, 0, 0, notifier);"),
              #--- min_pulse (reset) -- RN L pulse
              MyExpectCell(pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["0","1","0","0"]
                         ,meas_types=["min_pulse_width_low"] ,tmg_sense="non",arc_oirc=["f","s","f","s"], tmg_when="", specify="$width(negedge r0, 0, 0, notifier);"),
@@ -238,7 +302,14 @@ def get_logic_dict():
            ]
     },
     #---------------------------------------------------------------------------------------
-    # DFF_PC_NS (D + posedge CLK + active-low set SETN + Q).
+    # DFF_PC_NS: D + posedge CLK + active-low set SETN + Q (single Q output).
+    #   GF180 target: dffsnq_1/2/4.
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Q    (output)
+    #     i0 = D    (data input)
+    #     c0 = CLK  (clock, posedge)
+    #     s0 = SETN (set, active-low — Q=1 when SETN=0)
+    #   ports_dict example: {"D":"i0","SETN":"s0","CLK":"c0","Q":"o0",...}
     # GF180 target: dffsnq_1/2/4.
     # Internal: SETN -> not -> c_int (active high), D -> not -> d_int,
     #           udp_iq_ff_n(iq1, c_int, 0, CLK, d_int, N), then not -> Q.
@@ -254,9 +325,29 @@ def get_logic_dict():
            [
              #--- q delay (clk -> q) -- SETN=1 (non-set)
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"s":["1"]}, mondrv_oirc=["1","1","1","1"]
-                         ,meas_types=["rising_edge"] ,tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify=""),
+                         ,meas_types=["rising_edge","power_tout"] ,tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify=""),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"s":["1"]}, mondrv_oirc=["0","0","1","1"]
-                         ,meas_types=["rising_edge"] ,tmg_sense="non",arc_oirc=["f","f","r","r"], tmg_when="", specify="(posedge c0 => (o0 +: i0)) =(0,0);"),
+                         ,meas_types=["rising_edge","power_tout"] ,tmg_sense="non",arc_oirc=["f","f","r","r"], tmg_when="", specify="(posedge c0 => (o0 +: i0)) =(0,0);"),
+             #--- power_tin pin(CLK) when:"!D" (SETN inactive)
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"s":["1"]}, mondrv_oirc=["0","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","r"], tmg_when="!i0", specify=""),
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"],"s":["1"]}, mondrv_oirc=["0","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","f"], tmg_when="!i0", specify=""),
+             #--- power_tin pin(CLK) when:"D"
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"s":["1"]}, mondrv_oirc=["1","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","r"], tmg_when="i0", specify=""),
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"],"s":["1"]}, mondrv_oirc=["1","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","f"], tmg_when="i0", specify=""),
+             #--- power_tin pin(D) when:"!CLK"
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["0"],"b":[],"c":["0"],"s":["1"]}, mondrv_oirc=["d","1","1","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","s"], tmg_when="!c0", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["1"],"b":[],"c":["0"],"s":["1"]}, mondrv_oirc=["d","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","s"], tmg_when="!c0", specify=""),
+             #--- power_tin pin(D) when:"CLK"
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["0"],"b":[],"c":["1"],"s":["1"]}, mondrv_oirc=["d","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","s"], tmg_when="c0", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["1"],"b":[],"c":["1"],"s":["1"]}, mondrv_oirc=["d","0","0","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","s"], tmg_when="c0", specify=""),
              #--- preset (SETN fall -> Q rise, async)
              MyExpectCell(pin_oirc=["o0","i0","s0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"s":["1"]}, mondrv_oirc=["1","0","0","0"]
                         ,meas_types=["preset"]      ,tmg_sense="neg",arc_oirc=["r","s","f","s"], tmg_when="", specify="(negedge s0 => (o0 -: 1'b1)) = (0,0);"),
@@ -294,6 +385,9 @@ def get_logic_dict():
              #--- min_pulse (clk)
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"s":["1"]}, mondrv_oirc=["1","1","0","0"]
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
+             #--- min_pulse_low (clk) -- L pulse 計測 (init H -> fall -> L -> rise)
+             MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"],"s":["1"]}, mondrv_oirc=["1","1","1","1"]
+                        ,meas_types=["min_pulse_width_low"],tmg_sense="non",arc_oirc=["r","r","r","f"], tmg_when="", specify="$width(negedge c0, 0, 0, notifier);"),
              #--- min_pulse (set)
              MyExpectCell(pin_oirc=["o0","i0","s0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"s":["1"]}, mondrv_oirc=["1","0","0","0"]
                         ,meas_types=["min_pulse_width_low"] ,tmg_sense="non",arc_oirc=["r","s","f","s"], tmg_when="", specify="$width(negedge s0, 0, 0, notifier);"),
@@ -317,7 +411,14 @@ def get_logic_dict():
            ]
     },
     #---------------------------------------------------------------------------------------
-    # DFF_NC_NR (D + negedge CLKN + active-low reset RN + Q).
+    # DFF_NC_NR: D + negedge CLKN + active-low reset RN + Q (single Q output).
+    #   GF180 target: dffnrnq_1/2/4.
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Q    (output)
+    #     i0 = D    (data input)
+    #     c0 = CLKN (clock, negedge)
+    #     r0 = RN   (reset, active-low — Q=0 when RN=0)
+    #   ports_dict example: {"D":"i0","RN":"r0","CLKN":"c0","Q":"o0",...}
     # GF180 target: dffnrnq_1/2/4.
     "DFF_NC_NR":{
            "logic_type":"seq",
@@ -329,11 +430,31 @@ def get_logic_dict():
            "vcode":"wire clkn_int; wire p_int; wire d_int; wire iq1; not (clkn_int, c0); not (p_int, r0); not (d_int, i0); udp_iq_ff_n inst (iq1, 1'b0, p_int, clkn_int, d_int, ); not (o0, iq1);",
            "expect":
            [
-             #--- q delay (clkn neg -> q)
+             #--- q delay (clkn neg -> q) + power_tout
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["1","1","0","0"]
-                         ,meas_types=["falling_edge"] ,tmg_sense="non",arc_oirc=["r","r","f","f"], tmg_when="", specify=""),
+                         ,meas_types=["falling_edge","power_tout"] ,tmg_sense="non",arc_oirc=["r","r","f","f"], tmg_when="", specify=""),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["0","0","0","0"]
-                         ,meas_types=["falling_edge"] ,tmg_sense="non",arc_oirc=["f","f","f","f"], tmg_when="", specify="(negedge c0 => (o0 +: i0)) =(0,0);"),
+                         ,meas_types=["falling_edge","power_tout"] ,tmg_sense="non",arc_oirc=["f","f","f","f"], tmg_when="", specify="(negedge c0 => (o0 +: i0)) =(0,0);"),
+             #--- power_tin pin(CLKN) when:"!D" (RN inactive)
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["0","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","r"], tmg_when="!i0", specify=""),
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["0","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","f"], tmg_when="!i0", specify=""),
+             #--- power_tin pin(CLKN) when:"D"
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["1","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","r"], tmg_when="i0", specify=""),
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["1","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","f"], tmg_when="i0", specify=""),
+             #--- power_tin pin(D) when:"!CLKN"
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["0"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["d","1","1","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","s"], tmg_when="!c0", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["1"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["d","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","s"], tmg_when="!c0", specify=""),
+             #--- power_tin pin(D) when:"CLKN"
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["0"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["d","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","s"], tmg_when="c0", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["1"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["d","0","0","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","s"], tmg_when="c0", specify=""),
              #--- clear
              MyExpectCell(pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["0","1","0","1"]
                         ,meas_types=["clear"]       ,tmg_sense="pos",arc_oirc=["f","s","f","s"], tmg_when="", specify="(negedge r0 => (o0 +: 1'b0)) = (0,0);"),
@@ -368,6 +489,9 @@ def get_logic_dict():
                         ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["s","s","f","f"], tmg_when="", specify=""),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["0","0","1","1"]
                         ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["s","s","r","r"], tmg_when="", specify=""),
+             #--- min_pulse_high (clkn) -- H pulse 計測 (init L -> rise -> H pulse -> fall)
+             MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["1","1","0","0"]
+                        ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
              #--- min_pulse (clkn) -- L pulse 完了で H 終了
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["1","1","1","1"]
                         ,meas_types=["min_pulse_width_low"] ,tmg_sense="non",arc_oirc=["f","f","f","f"], tmg_when="", specify="$width(negedge c0, 0, 0, notifier);"),
@@ -394,7 +518,14 @@ def get_logic_dict():
            ]
     },
     #---------------------------------------------------------------------------------------
-    # DFF_NC_NS (D + negedge CLKN + active-low set SETN + Q).
+    # DFF_NC_NS: D + negedge CLKN + active-low set SETN + Q (single Q output).
+    #   GF180 target: dffnsnq_1/2/4.
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Q    (output)
+    #     i0 = D    (data input)
+    #     c0 = CLKN (clock, negedge)
+    #     s0 = SETN (set, active-low — Q=1 when SETN=0)
+    #   ports_dict example: {"D":"i0","SETN":"s0","CLKN":"c0","Q":"o0",...}
     # GF180 target: dffnsnq_1/2/4.
     "DFF_NC_NS":{
            "logic_type":"seq",
@@ -406,11 +537,31 @@ def get_logic_dict():
            "vcode":"wire clkn_int; wire c_int; wire d_int; wire iq1; not (clkn_int, c0); not (c_int, s0); not (d_int, i0); udp_iq_ff_n inst (iq1, c_int, 1'b0, clkn_int, d_int, ); not (o0, iq1);",
            "expect":
            [
-             #--- q delay (clkn neg -> q)
+             #--- q delay (clkn neg -> q) + power_tout
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"],"s":["1"]}, mondrv_oirc=["1","1","0","0"]
-                         ,meas_types=["falling_edge"] ,tmg_sense="non",arc_oirc=["r","r","f","f"], tmg_when="", specify=""),
+                         ,meas_types=["falling_edge","power_tout"] ,tmg_sense="non",arc_oirc=["r","r","f","f"], tmg_when="", specify=""),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"],"s":["1"]}, mondrv_oirc=["0","0","0","0"]
-                         ,meas_types=["falling_edge"] ,tmg_sense="non",arc_oirc=["f","f","f","f"], tmg_when="", specify="(negedge c0 => (o0 +: i0)) =(0,0);"),
+                         ,meas_types=["falling_edge","power_tout"] ,tmg_sense="non",arc_oirc=["f","f","f","f"], tmg_when="", specify="(negedge c0 => (o0 +: i0)) =(0,0);"),
+             #--- power_tin pin(CLKN) when:"!D" (SETN inactive)
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"s":["1"]}, mondrv_oirc=["0","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","r"], tmg_when="!i0", specify=""),
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"],"s":["1"]}, mondrv_oirc=["0","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","f"], tmg_when="!i0", specify=""),
+             #--- power_tin pin(CLKN) when:"D"
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"s":["1"]}, mondrv_oirc=["1","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","r"], tmg_when="i0", specify=""),
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"],"s":["1"]}, mondrv_oirc=["1","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","f"], tmg_when="i0", specify=""),
+             #--- power_tin pin(D) when:"!CLKN"
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["0"],"b":[],"c":["0"],"s":["1"]}, mondrv_oirc=["d","1","1","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","s"], tmg_when="!c0", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["1"],"b":[],"c":["0"],"s":["1"]}, mondrv_oirc=["d","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","s"], tmg_when="!c0", specify=""),
+             #--- power_tin pin(D) when:"CLKN"
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["0"],"b":[],"c":["1"],"s":["1"]}, mondrv_oirc=["d","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","s"], tmg_when="c0", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["1"],"b":[],"c":["1"],"s":["1"]}, mondrv_oirc=["d","0","0","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","s"], tmg_when="c0", specify=""),
              #--- preset
              MyExpectCell(pin_oirc=["o0","i0","s0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"],"s":["1"]}, mondrv_oirc=["1","0","0","1"]
                         ,meas_types=["preset"]      ,tmg_sense="neg",arc_oirc=["r","s","f","s"], tmg_when="", specify="(negedge s0 => (o0 -: 1'b1)) = (0,0);"),
@@ -445,6 +596,9 @@ def get_logic_dict():
                         ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["s","s","f","f"], tmg_when="", specify=""),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"],"s":["1"]}, mondrv_oirc=["0","0","1","1"]
                         ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["s","s","r","r"], tmg_when="", specify=""),
+             #--- min_pulse_high (clkn) -- H pulse 計測 (init L -> rise -> H pulse -> fall)
+             MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"s":["1"]}, mondrv_oirc=["1","1","0","0"]
+                        ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
              #--- min_pulse (clkn)
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"],"s":["1"]}, mondrv_oirc=["1","1","1","1"]
                         ,meas_types=["min_pulse_width_low"] ,tmg_sense="non",arc_oirc=["f","f","f","f"], tmg_when="", specify="$width(negedge c0, 0, 0, notifier);"),
@@ -471,7 +625,15 @@ def get_logic_dict():
            ]
     },
     #---------------------------------------------------------------------------------------
-    # DFF_PC_NR_NS (D + posedge CLK + active-low reset RN + active-low set SETN + Q).
+    # DFF_PC_NR_NS: D + posedge CLK + active-low reset RN + active-low set SETN + Q.
+    #   GF180 target: dffrsnq_1/2/4. Verilog primitive: udp_iq_ff_hn.
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Q    (output)
+    #     i0 = D    (data input)
+    #     c0 = CLK  (clock, posedge)
+    #     r0 = RN   (reset, active-low — Q=0 when RN=0; reset has priority over set)
+    #     s0 = SETN (set,   active-low — Q=1 when SETN=0)
+    #   ports_dict example: {"D":"i0","RN":"r0","SETN":"s0","CLK":"c0","Q":"o0",...}
     # GF180 target: dffrsnq_1/2/4. Uses udp_iq_ff_hn (P dominates over C).
     "DFF_PC_NR_NS":{
            "logic_type":"seq",
@@ -486,11 +648,31 @@ def get_logic_dict():
            "vcode":"wire p_int; wire c_int; wire d_int; wire iq1; not (p_int, r0); not (c_int, s0); not (d_int, i0); udp_iq_ff_hn inst (iq1, c_int, p_int, c0, d_int, ); not (o0, iq1);",
            "expect":
            [
-             #--- q delay (clk -> q) -- RN=1, SETN=1
+             #--- q delay (clk -> q) -- RN=1, SETN=1 + power_tout
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oirc=["1","1","1","1"]
-                         ,meas_types=["rising_edge"] ,tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify=""),
+                         ,meas_types=["rising_edge","power_tout"] ,tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify=""),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oirc=["0","0","1","1"]
-                         ,meas_types=["rising_edge"] ,tmg_sense="non",arc_oirc=["f","f","r","r"], tmg_when="", specify="(posedge c0 => (o0 +: i0)) =(0,0);"),
+                         ,meas_types=["rising_edge","power_tout"] ,tmg_sense="non",arc_oirc=["f","f","r","r"], tmg_when="", specify="(posedge c0 => (o0 +: i0)) =(0,0);"),
+             #--- power_tin pin(CLK) when:"!D" (RN/SETN inactive)
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oirc=["0","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","r"], tmg_when="!i0", specify=""),
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"],"r":["1"],"s":["1"]}, mondrv_oirc=["0","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","f"], tmg_when="!i0", specify=""),
+             #--- power_tin pin(CLK) when:"D"
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oirc=["1","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","r"], tmg_when="i0", specify=""),
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"],"r":["1"],"s":["1"]}, mondrv_oirc=["1","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","f"], tmg_when="i0", specify=""),
+             #--- power_tin pin(D) when:"!CLK"
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oirc=["d","1","1","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","s"], tmg_when="!c0", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["1"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oirc=["d","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","s"], tmg_when="!c0", specify=""),
+             #--- power_tin pin(D) when:"CLK"
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["0"],"b":[],"c":["1"],"r":["1"],"s":["1"]}, mondrv_oirc=["d","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","s"], tmg_when="c0", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["1"],"b":[],"c":["1"],"r":["1"],"s":["1"]}, mondrv_oirc=["d","0","0","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","s"], tmg_when="c0", specify=""),
              #--- clear (RN fall)
              MyExpectCell(pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oirc=["0","1","0","0"]
                         ,meas_types=["clear"]       ,tmg_sense="pos",arc_oirc=["f","s","f","s"], tmg_when="", specify="(negedge r0 => (o0 +: 1'b0)) = (0,0);"),
@@ -542,6 +724,9 @@ def get_logic_dict():
              #--- min_pulse (clk)
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oirc=["1","1","0","0"]
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
+             #--- min_pulse_low (clk) -- L pulse 計測 (init H -> fall -> L -> rise)
+             MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"],"r":["1"],"s":["1"]}, mondrv_oirc=["1","1","1","1"]
+                        ,meas_types=["min_pulse_width_low"],tmg_sense="non",arc_oirc=["r","r","r","f"], tmg_when="", specify="$width(negedge c0, 0, 0, notifier);"),
              #--- min_pulse (reset)
              MyExpectCell(pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oirc=["0","1","0","0"]
                         ,meas_types=["min_pulse_width_low"] ,tmg_sense="non",arc_oirc=["f","s","f","s"], tmg_when="", specify="$width(negedge r0, 0, 0, notifier);"),
@@ -585,7 +770,15 @@ def get_logic_dict():
     },
 
     #---------------------------------------------------------------------------------------
-    # DFF_NC_NR_NS (D + negedge CLKN + active-low reset RN + active-low set SETN + Q).
+    # DFF_NC_NR_NS: D + negedge CLKN + active-low reset RN + active-low set SETN + Q.
+    #   GF180 target: dffnrsnq_1/2/4. Verilog primitive: udp_iq_ff_hn.
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Q    (output)
+    #     i0 = D    (data input)
+    #     c0 = CLKN (clock, negedge)
+    #     r0 = RN   (reset, active-low — Q=0 when RN=0; reset has priority over set)
+    #     s0 = SETN (set,   active-low — Q=1 when SETN=0)
+    #   ports_dict example: {"D":"i0","RN":"r0","SETN":"s0","CLKN":"c0","Q":"o0",...}
     # GF180 target: dffnrsnq_1/2/4. Uses udp_iq_ff_hn (P dominates over C).
     "DFF_NC_NR_NS":{
            "logic_type":"seq",
@@ -600,11 +793,31 @@ def get_logic_dict():
            "vcode":"wire clkn_int; wire p_int; wire c_int; wire d_int; wire iq1; not (clkn_int, c0); not (p_int, r0); not (c_int, s0); not (d_int, i0); udp_iq_ff_hn inst (iq1, c_int, p_int, clkn_int, d_int, ); not (o0, iq1);",
            "expect":
            [
-             #--- q delay (clkn neg -> q)
+             #--- q delay (clkn neg -> q) + power_tout
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"],"r":["1"],"s":["1"]}, mondrv_oirc=["1","1","0","0"]
-                         ,meas_types=["falling_edge"] ,tmg_sense="non",arc_oirc=["r","r","f","f"], tmg_when="", specify=""),
+                         ,meas_types=["falling_edge","power_tout"] ,tmg_sense="non",arc_oirc=["r","r","f","f"], tmg_when="", specify=""),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"],"r":["1"],"s":["1"]}, mondrv_oirc=["0","0","0","0"]
-                         ,meas_types=["falling_edge"] ,tmg_sense="non",arc_oirc=["f","f","f","f"], tmg_when="", specify="(negedge c0 => (o0 +: i0)) =(0,0);"),
+                         ,meas_types=["falling_edge","power_tout"] ,tmg_sense="non",arc_oirc=["f","f","f","f"], tmg_when="", specify="(negedge c0 => (o0 +: i0)) =(0,0);"),
+             #--- power_tin pin(CLKN) when:"!D" (RN/SETN inactive)
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oirc=["0","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","r"], tmg_when="!i0", specify=""),
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"],"r":["1"],"s":["1"]}, mondrv_oirc=["0","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","f"], tmg_when="!i0", specify=""),
+             #--- power_tin pin(CLKN) when:"D"
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oirc=["1","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","r"], tmg_when="i0", specify=""),
+             MyExpectCell(pin_oirc=["o0","c0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"],"r":["1"],"s":["1"]}, mondrv_oirc=["1","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","f"], tmg_when="i0", specify=""),
+             #--- power_tin pin(D) when:"!CLKN"
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oirc=["d","1","1","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","s"], tmg_when="!c0", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["1"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oirc=["d","0","0","0"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","s"], tmg_when="!c0", specify=""),
+             #--- power_tin pin(D) when:"CLKN"
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["0"],"b":[],"c":["1"],"r":["1"],"s":["1"]}, mondrv_oirc=["d","1","1","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","r","r","s"], tmg_when="c0", specify=""),
+             MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d"],"i":["1"],"b":[],"c":["1"],"r":["1"],"s":["1"]}, mondrv_oirc=["d","0","0","1"]
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["s","f","f","s"], tmg_when="c0", specify=""),
              #--- clear
              MyExpectCell(pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"],"r":["1"],"s":["1"]}, mondrv_oirc=["0","1","0","1"]
                         ,meas_types=["clear"]       ,tmg_sense="pos",arc_oirc=["f","s","f","s"], tmg_when="", specify="(negedge r0 => (o0 +: 1'b0)) = (0,0);"),
@@ -630,6 +843,9 @@ def get_logic_dict():
                        ,meas_types=["recovery_falling"],tmg_sense="pos",arc_oirc=["f","r","f","f"], tmg_when="", specify="$recovery(posedge s0, negedge c0, 0, notifier);"),
              MyExpectCell(pin_oirc=["o0","s0","c0","c0"], ival={"o":["1"],"i":["0"],"b":[],"c":["1"],"r":["1"],"s":["0"]}, mondrv_oirc=["1","1","0","0"]
                         ,meas_types=["removal_falling"],tmg_sense="non",arc_oirc=["s","r","f","f"], tmg_when="", specify="$removal(posedge s0, negedge c0, 0, notifier);"),
+             #--- min_pulse_high (clkn) -- H pulse 計測 (init L -> rise -> H pulse -> fall)
+             MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"],"s":["1"]}, mondrv_oirc=["1","1","0","0"]
+                        ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
              #--- min_pulse (clkn)
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"],"r":["1"],"s":["1"]}, mondrv_oirc=["1","1","1","1"]
                         ,meas_types=["min_pulse_width_low"] ,tmg_sense="non",arc_oirc=["f","f","f","f"], tmg_when="", specify="$width(negedge c0, 0, 0, notifier);"),
@@ -677,6 +893,15 @@ def get_logic_dict():
 
   #==========================================================================================================================================================
   #Q,QB
+    #---------------------------------------------------------------------------------------
+    # DFFB_PC_PR: D + posedge CLK + active-high reset R + Q + QB (differential output).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Q   (output, normal)
+    #     o1 = QB  (output, inverted)
+    #     i0 = D   (data input)
+    #     c0 = CLK (clock, posedge)
+    #     r0 = R   (reset, active-high — Q=0, QB=1 when R=1)
+    #   ports_dict example: {"D":"i0","R":"r0","CLK":"c0","Q":"o0","QB":"o1",...}
     "DFFB_PC_PR":{
            "logic_type":"seq",
            "functions":{"o0":"Io0","o1":"Io1"},
@@ -763,6 +988,15 @@ def get_logic_dict():
            ]
     },
 
+    #---------------------------------------------------------------------------------------
+    # DFFB_PC_NS: D + posedge CLK + active-low set SETN + Q + QB (differential output).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Q    (output, normal)
+    #     o1 = QB   (output, inverted)
+    #     i0 = D    (data input)
+    #     c0 = CLK  (clock, posedge)
+    #     s0 = SETN (set, active-low — Q=1, QB=0 when SETN=0)
+    #   ports_dict example: {"D":"i0","SETN":"s0","CLK":"c0","Q":"o0","QB":"o1",...}
     "DFFB_PC_NS":{
            "logic_type":"seq",
            "functions":{"o0":"Io0","o1":"Io1"},

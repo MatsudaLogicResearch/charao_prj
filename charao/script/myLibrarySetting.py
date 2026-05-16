@@ -126,7 +126,8 @@ class MyLibrarySetting(BaseModel):
   sim_nice :int = 19
   wave_raw : bool = False   # ISS-00078: True で ngspice の sim 結果を sim 個別 dir の sim.sp.raw に保存（DUT cell port を階層参照で .save）
 
-  simulation_timestep : float = 0.001
+  simulation_timestep_max : float = 1.0     # .tran TSTEP の上限 (ns)。 timestep_tstep = max(_min, min(slope*0.0099, _max))
+  simulation_timestep_min : float = 0.001   # .tran TSTEP の下限 (ns、 default 1 ps)。 ngspice LTE 暴走の間接抑制 (ISS-00087)
   simulation_slew_min : float = 0.001   # min_pulse_width / setup / hold 等の PWL slew 用（ns 単位、 default 1 ps）
   sim_pulse_max       : float = 2.0
   sim_prop_max        : float =10.0

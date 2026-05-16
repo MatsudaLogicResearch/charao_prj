@@ -133,17 +133,18 @@ VOCAP VOUT WOUT DC 0
  .IC V(WOUT)={_vss_vout}
 {% endif %}
 
-**** WOUT pre-charge SW (ISS-00076: SW ON during _t_init0 ~ _t_in0-tslew_min)
+**** WOUT pre-charge SW (ISS-00076: SW ON during _t_init0 ~ _t_init3-tslew_min)
+**** ISS-00087: tdelay_in を 1 ns に短縮（pre-force あれば D→Q 待ち padding 不要）するため、 release を _t_init3 に変更。 release から D edge (_t_in0) まで tdelay_in=1 ns の安定期間で Q の internal settle を確保
 {% if param.val0_oirc[0] in ["u","1"] %}
 .model SW_PRECHARGE SW(Ron=0.1 Roff=1G Vt={{param.prop_vth_oirc[0]}} Vh=0.3)
 VFORCE_VAL VFORCE_VAL 0 DC {_vdd_vout}
-VPC_CTRL   VPC_CTRL   0 PWL(0 {_vss_vout} {_t_init0 - _tslew_min} {_vss_vout} {_t_init0} {_vdd_vout} {_t_in0 - 2*_tslew_min} {_vdd_vout} {_t_in0 - _tslew_min} {_vss_vout})
+VPC_CTRL   VPC_CTRL   0 PWL(0 {_vss_vout} {_t_init0 - _tslew_min} {_vss_vout} {_t_init0} {_vdd_vout} {_t_init3 - _tslew_min} {_vdd_vout} {_t_init3} {_vss_vout})
 SPRECHARGE WOUT VFORCE_VAL VPC_CTRL 0 SW_PRECHARGE
 .IC V(WOUT)={_vdd_vout}
 {% elif param.val0_oirc[0] in ["d","0"] %}
 .model SW_PRECHARGE SW(Ron=0.1 Roff=1G Vt={{param.prop_vth_oirc[0]}} Vh=0.3)
 VFORCE_VAL VFORCE_VAL 0 DC {_vss_vout}
-VPC_CTRL   VPC_CTRL   0 PWL(0 {_vss_vout} {_t_init0 - _tslew_min} {_vss_vout} {_t_init0} {_vdd_vout} {_t_in0 - 2*_tslew_min} {_vdd_vout} {_t_in0 - _tslew_min} {_vss_vout})
+VPC_CTRL   VPC_CTRL   0 PWL(0 {_vss_vout} {_t_init0 - _tslew_min} {_vss_vout} {_t_init0} {_vdd_vout} {_t_init3 - _tslew_min} {_vdd_vout} {_t_init3} {_vss_vout})
 SPRECHARGE WOUT VFORCE_VAL VPC_CTRL 0 SW_PRECHARGE
 .IC V(WOUT)={_vss_vout}
 {% endif %}
@@ -169,11 +170,11 @@ VIN VIN 0 PWL({_tslew_min}  {_vss_vin})
 VIN VIN 0 DC {_vss_vin}
 {% endif %}
 
-*** VREL
+*** VREL (ISS-00085: pulse 機構追加 VCLK と対称、 _t_rel2/3 で ival に戻す round trip)
 {% if   param.arc_oirc[2] == "rise" %}
-VREL VREL 0 PWL({_tslew_min}  {_vss_vrel} {_t_rel0} {_vss_vrel} {_t_rel1} {_vdd_vrel} )
+VREL VREL 0 PWL({_tslew_min}  {_vss_vrel} {_t_rel0} {_vss_vrel} {_t_rel1} {_vdd_vrel} {_t_rel2} {_vdd_vrel} {_t_rel3} {_vss_vrel})
 {% elif param.arc_oirc[2] == "fall" %}
-VREL VREL 0 PWL({_tslew_min}  {_vdd_vrel} {_t_rel0} {_vdd_vrel} {_t_rel1} {_vss_vrel} )
+VREL VREL 0 PWL({_tslew_min}  {_vdd_vrel} {_t_rel0} {_vdd_vrel} {_t_rel1} {_vss_vrel} {_t_rel2} {_vss_vrel} {_t_rel3} {_vdd_vrel})
 {% elif param.val0_oirc[2] == "1" %}
 *VREL VREL 0 DC {_vdd_vrel}
 VREL VREL 0 PWL({_tslew_min}  {_vdd_vrel} )
@@ -191,14 +192,16 @@ VREL VREL 0 DC {_vss_vin}
 
 *** VCLK
 {% if   param.val0_oirc[3] == "0" %}
-VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk} {_t_clk0} {_vss_vclk} {_t_clk1} {_vdd_vclk} {_t_clk2} {_vdd_vclk} 
+VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk} {_t_clk0} {_vss_vclk} {_t_clk1} {_vdd_vclk} {_t_clk2} {_vdd_vclk}
  {%- if (param.clk_role == "related") %}
 +               {_t_clk3} {_vss_vclk} {_t_clk4} {_vss_vclk} {_t_clk5} {_vdd_vclk} {_t_clk6} {_vdd_vclk} {_t_clk7} {_vss_vclk})
  {%- elif (param.clk_role == "input") and (param.arc_oirc[3]=="rise") %}
 +               {_t_clk3} {_vss_vclk} {_t_clk4} {_vss_vclk} {_t_clk5} {_vdd_vclk} {_t_clk6} {_vdd_vclk} {_t_clk7} {_vss_vclk})
  {%- elif (param.clk_role == "input") and (param.arc_oirc[3]=="fall") %}
 +               {_t_clk3} {_vdd_vclk} {_t_clk4} {_vdd_vclk} {_t_clk5} {_vss_vclk} {_t_clk6} {_vss_vclk} {_t_clk7} {_vss_vclk})
- {%- endif %}                
+ {%- else %}
++               )
+ {%- endif %}
 
 {% else %}
 VCLK VCLK 0 PWL({_tslew_min} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vclk} {_t_clk2} {_vss_vclk}
@@ -208,8 +211,10 @@ VCLK VCLK 0 PWL({_tslew_min} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_v
 +               {_t_clk3} {_vdd_vclk} {_t_clk4} {_vdd_vclk} {_t_clk5} {_vss_vclk} {_t_clk6} {_vss_vclk} {_t_clk7} {_vdd_vclk})
  {%- elif (param.clk_role == "input") and (param.arc_oirc[3]=="rise") %}
 +               {_t_clk3} {_vss_vclk} {_t_clk4} {_vss_vclk} {_t_clk5} {_vdd_vclk} {_t_clk6} {_vdd_vclk} {_t_clk7} {_vdd_vclk})
- {%- endif %}                
-                
+ {%- else %}
++               )
+ {%- endif %}
+
 {% endif %}
 
 

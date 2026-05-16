@@ -138,7 +138,7 @@ class MyTbParam:
     #--
     self.tb_instance  = h.gen_instance_for_tb()
 
-    # PWL slew 用の最小時間（秒換算）。 .tran の print 間隔（simulation_timestep）と独立に細かい値を扱える
+    # PWL slew 用の最小時間（秒換算）。 .tran の print 間隔（simulation_timestep_max / _min）と独立に細かい値を扱える
     self.tslew_min = float("{:.5g}".format(h.mls.simulation_slew_min * h.mls.time_mag))
     
     #self.model        = h.mlc.model   if h.mlc.model.startswith("/")   else "../" + h.mlc.model

@@ -44,6 +44,11 @@ def get_logic_dict():
     #   leakage_power: 4 conditions (!EN&!I, !EN&I, EN&!I, EN&I) + default
     #   timing(related:I, combinational, when:"EN") + power_tout(related:I, when:"EN")
     #   [A1.b/A2 後回し: power_tin EN/I, three_state_enable/disable timing, power_tout related:EN]
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Z  (output, tri-state — Hi-Z when EN=0)
+    #     i0 = I  (data input)
+    #     i1 = EN (enable, active-high — output drives when EN=1)
+    #   ports_dict example: {"I":"i0","EN":"i1","Z":"o0",...}
     "BUFZ":{
       "logic_type":"comb",
       "three_state":"(!i1)",
@@ -102,6 +107,11 @@ def get_logic_dict():
     #   timing(related:I, combinational, when:"EN") sense:negative_unate
     #   timing(related:EN, three_state_enable, sense:positive_unate)
     #   timing(related:EN, three_state_disable, sense:negative_unate)
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = ZN (output, tri-state, inverted — Hi-Z when EN=0)
+    #     i0 = I  (data input)
+    #     i1 = EN (enable, active-high — output drives when EN=1)
+    #   ports_dict example: {"I":"i0","EN":"i1","ZN":"o0",...}
     "INVZ":{
       "logic_type":"comb",
       "three_state":"(!i1)",
@@ -139,6 +149,11 @@ def get_logic_dict():
                            ,meas_types=["leakage"], tmg_sense="non", arc_oirc=["s","s","s",""], tmg_when="i0&i1", specify=""),
              ]
     },
+    #---------------------------------------------------------------------------------------
+    # HOLD: bus keeper (bidirectional pin Z, weak driver maintains last value).
+    #   Pin mapping (charao internal logic ports):
+    #     b0 = Z (bidirectional, bus_hold driver_type — weak0/weak1 self-loop)
+    #   ports_dict example: {"Z":"b0",...}
     "HOLD":{
       "logic_type":"comb",
       "three_state":"1",

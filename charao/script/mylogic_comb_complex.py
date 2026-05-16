@@ -34,6 +34,14 @@ from .myExpectCell import MyExpectCell
 ###############################################################################
 def get_logic_dict():
   return {
+    #---------------------------------------------------------------------------------------
+    # AOI21: AND-OR-Invert 2-1 (o0 = !((i0 & i1) | i2)).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y  (output, inverted)
+    #     i0 = A1 (AND pair)
+    #     i1 = A2 (AND pair)
+    #     i2 = B  (OR-only input)
+    #   ports_dict example: {"A1":"i0","A2":"i1","B":"i2","Y":"o0",...}
     "AOI21":{"logic_type":"comb",
             "functions":{"o0":"!((i0&i1)|i2)"},
             "expect":
@@ -85,6 +93,14 @@ def get_logic_dict():
             ]
     },
 
+    #---------------------------------------------------------------------------------------
+    # OAI21: OR-AND-Invert 2-1 (o0 = !((i0 | i1) & i2)).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y  (output, inverted)
+    #     i0 = A1 (OR pair)
+    #     i1 = A2 (OR pair)
+    #     i2 = B  (AND-only input)
+    #   ports_dict example: {"A1":"i0","A2":"i1","B":"i2","Y":"o0",...}
     "OAI21":{"logic_type":"comb",
             "functions":{"o0":"!((i0|i1)&i2)"},
             "expect":
@@ -137,6 +153,15 @@ def get_logic_dict():
             ]
     },
 
+    #---------------------------------------------------------------------------------------
+    # OAI31: OR-AND-Invert 3-1 (o0 = !((i0 | i1 | i2) & i3)).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y  (output, inverted)
+    #     i0 = A1 (OR triple)
+    #     i1 = A2 (OR triple)
+    #     i2 = A3 (OR triple)
+    #     i3 = B  (AND-only input)
+    #   ports_dict example: {"A1":"i0","A2":"i1","A3":"i2","B":"i3","Y":"o0",...}
     "OAI31":{"logic_type":"comb",
             "functions":{"o0":"!((i0|i1|i2)&i3)"},
             "expect":
@@ -233,6 +258,15 @@ def get_logic_dict():
             ]
     },
 
+    #---------------------------------------------------------------------------------------
+    # AOI211: AND-OR-Invert 2-1-1 (o0 = !((i0 & i1) | i2 | i3)).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y  (output, inverted)
+    #     i0 = A1 (AND pair)
+    #     i1 = A2 (AND pair)
+    #     i2 = B  (OR-only input)
+    #     i3 = C  (OR-only input)
+    #   ports_dict example: {"A1":"i0","A2":"i1","B":"i2","C":"i3","Y":"o0",...}
     "AOI211":{"logic_type":"comb",
             "functions":{"o0":"!((i0&i1)|i2|i3)"},
             "expect":
@@ -325,6 +359,15 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["d"],"i":["1","1","1","1"]},mondrv_oirc=["0","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1&i2&i3", specify=""),
             ]
     },
+    #---------------------------------------------------------------------------------------
+    # OAI211: OR-AND-Invert 2-1-1 (o0 = !((i0 | i1) & i2 & i3)).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y  (output, inverted)
+    #     i0 = A1 (OR pair)
+    #     i1 = A2 (OR pair)
+    #     i2 = B  (AND-only input)
+    #     i3 = C  (AND-only input)
+    #   ports_dict example: {"A1":"i0","A2":"i1","B":"i2","C":"i3","Y":"o0",...}
     "OAI211":{"logic_type":"comb",
             "functions":{"o0":"!((i0|i1)&i2&i3)"},
             "expect":
@@ -417,6 +460,15 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["d"],"i":["1","1","1","1"]},mondrv_oirc=["0","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1&i2&i3", specify=""),
             ]
     },
+    #---------------------------------------------------------------------------------------
+    # AOI22: AND-OR-Invert 2-2 (o0 = !((i0 & i1) | (i2 & i3))).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y  (output, inverted)
+    #     i0 = A1 (AND pair 0)
+    #     i1 = A2 (AND pair 0)
+    #     i2 = B1 (AND pair 1)
+    #     i3 = B2 (AND pair 1)
+    #   ports_dict example: {"A1":"i0","A2":"i1","B1":"i2","B2":"i3","Y":"o0",...}
     "AOI22":{"logic_type":"comb",
             "functions":{"o0":"!((i0&i1)|(i2&i3))"},
             "expect":
@@ -509,6 +561,15 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["d"],"i":["1","1","1","1"]},mondrv_oirc=["0","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1&i2&i3", specify=""),
             ]
     },
+    #---------------------------------------------------------------------------------------
+    # OAI22: OR-AND-Invert 2-2 (o0 = !((i0 | i1) & (i2 | i3))).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y  (output, inverted)
+    #     i0 = A1 (OR pair 0)
+    #     i1 = A2 (OR pair 0)
+    #     i2 = B1 (OR pair 1)
+    #     i3 = B2 (OR pair 1)
+    #   ports_dict example: {"A1":"i0","A2":"i1","B1":"i2","B2":"i3","Y":"o0",...}
     "OAI22":{"logic_type":"comb",
             "functions":{"o0":"!((i0|i1)&(i2|i3))"},
             "expect":
@@ -601,6 +662,16 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["d"],"i":["1","1","1","1"]},mondrv_oirc=["0","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1&i2&i3", specify=""),
             ]
     },
+    #---------------------------------------------------------------------------------------
+    # AOI221: AND-OR-Invert 2-2-1 (o0 = !((i0 & i1) | (i2 & i3) | i4)).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y  (output, inverted)
+    #     i0 = A1 (AND pair 0)
+    #     i1 = A2 (AND pair 0)
+    #     i2 = B1 (AND pair 1)
+    #     i3 = B2 (AND pair 1)
+    #     i4 = C  (OR-only input)
+    #   ports_dict example: {"A1":"i0","A2":"i1","B1":"i2","B2":"i3","C":"i4","Y":"o0",...}
     "AOI221":{"logic_type":"comb",
             "functions":{"o0":"!((i0&i1)|(i2&i3)|i4)"},
             "expect":
@@ -806,6 +877,16 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["d"],"i":["1","1","1","1","1"]},mondrv_oirc=["0","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1&i2&i3&i4", specify=""),
             ]
     },
+    #---------------------------------------------------------------------------------------
+    # OAI221: OR-AND-Invert 2-2-1 (o0 = !((i0 | i1) & (i2 | i3) & i4)).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y  (output, inverted)
+    #     i0 = A1 (OR pair 0)
+    #     i1 = A2 (OR pair 0)
+    #     i2 = B1 (OR pair 1)
+    #     i3 = B2 (OR pair 1)
+    #     i4 = C  (AND-only input)
+    #   ports_dict example: {"A1":"i0","A2":"i1","B1":"i2","B2":"i3","C":"i4","Y":"o0",...}
     "OAI221":{"logic_type":"comb",
             "functions":{"o0":"!((i0|i1)&(i2|i3)&i4)"},
             "expect":
@@ -1011,6 +1092,16 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["d"],"i":["1","1","1","1","1"]},mondrv_oirc=["0","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1&i2&i3&i4", specify=""),
             ]
     },
+    #---------------------------------------------------------------------------------------
+    # OAI32: OR-AND-Invert 3-2 (o0 = !((i0 | i1 | i2) & (i3 | i4))).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y  (output, inverted)
+    #     i0 = A1 (OR triple)
+    #     i1 = A2 (OR triple)
+    #     i2 = A3 (OR triple)
+    #     i3 = B1 (OR pair)
+    #     i4 = B2 (OR pair)
+    #   ports_dict example: {"A1":"i0","A2":"i1","A3":"i2","B1":"i3","B2":"i4","Y":"o0",...}
     "OAI32":{"logic_type":"comb",
             "functions":{"o0":"!((i0|i1|i2)&(i3|i4))"},
             "expect":
@@ -1216,6 +1307,18 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["d"],"i":["1","1","1","1","1"]},mondrv_oirc=["0","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1&i2&i3&i4", specify=""),
             ]
     },
+    #---------------------------------------------------------------------------------------
+    # MUX4: 4-to-1 multiplexer
+    #   o0 = (!S1&!S0&I0) | (!S1&S0&I1) | (S1&!S0&I2) | (S1&S0&I3).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y  (output)
+    #     i0 = I0 (data input, selected when S1=0, S0=0)
+    #     i1 = I1 (data input, selected when S1=0, S0=1)
+    #     i2 = I2 (data input, selected when S1=1, S0=0)
+    #     i3 = I3 (data input, selected when S1=1, S0=1)
+    #     i4 = S0 (select bit 0, low-weight)
+    #     i5 = S1 (select bit 1, high-weight)
+    #   ports_dict example: {"I0":"i0","I1":"i1","I2":"i2","I3":"i3","S0":"i4","S1":"i5","Y":"o0",...}
     "MUX4":{"logic_type":"comb",
             "functions":{"o0":"(!i5&!i4&i0)|(!i5&i4&i1)|(i5&!i4&i2)|(i5&i4&i3)"},
             "expect":
@@ -1678,6 +1781,17 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["u"],"i":["1","1","1","1","1","1"]},mondrv_oirc=["1","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1&i2&i3&i4&i5", specify=""),
             ]
     },
+    #---------------------------------------------------------------------------------------
+    # OAI33: OR-AND-Invert 3-3 (o0 = !((i0 | i1 | i2) & (i3 | i4 | i5))).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y  (output, inverted)
+    #     i0 = A1 (OR triple 0)
+    #     i1 = A2 (OR triple 0)
+    #     i2 = A3 (OR triple 0)
+    #     i3 = B1 (OR triple 1)
+    #     i4 = B2 (OR triple 1)
+    #     i5 = B3 (OR triple 1)
+    #   ports_dict example: {"A1":"i0","A2":"i1","A3":"i2","B1":"i3","B2":"i4","B3":"i5","Y":"o0",...}
     "OAI33":{"logic_type":"comb",
             "functions":{"o0":"!((i0|i1|i2)&(i3|i4|i5))"},
             "expect":
@@ -2140,6 +2254,17 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["d"],"i":["1","1","1","1","1","1"]},mondrv_oirc=["0","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1&i2&i3&i4&i5", specify=""),
             ]
     },
+    #---------------------------------------------------------------------------------------
+    # AOI222: AND-OR-Invert 2-2-2 (o0 = !((i0 & i1) | (i2 & i3) | (i4 & i5))).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y  (output, inverted)
+    #     i0 = A1 (AND pair 0)
+    #     i1 = A2 (AND pair 0)
+    #     i2 = B1 (AND pair 1)
+    #     i3 = B2 (AND pair 1)
+    #     i4 = C1 (AND pair 2)
+    #     i5 = C2 (AND pair 2)
+    #   ports_dict example: {"A1":"i0","A2":"i1","B1":"i2","B2":"i3","C1":"i4","C2":"i5","Y":"o0",...}
     "AOI222":{"logic_type":"comb",
             "functions":{"o0":"!((i0&i1)|(i2&i3)|(i4&i5))"},
             "expect":
@@ -2602,6 +2727,17 @@ def get_logic_dict():
              MyExpectCell(pin_oirc=["o0","i0","i0",""],ival={"o":["d"],"i":["1","1","1","1","1","1"]},mondrv_oirc=["0","1","1",""],meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s",""],tmg_when="i0&i1&i2&i3&i4&i5", specify=""),
             ]
     },
+    #---------------------------------------------------------------------------------------
+    # OAI222: OR-AND-Invert 2-2-2 (o0 = !((i0 | i1) & (i2 | i3) & (i4 | i5))).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = Y  (output, inverted)
+    #     i0 = A1 (OR pair 0)
+    #     i1 = A2 (OR pair 0)
+    #     i2 = B1 (OR pair 1)
+    #     i3 = B2 (OR pair 1)
+    #     i4 = C1 (OR pair 2)
+    #     i5 = C2 (OR pair 2)
+    #   ports_dict example: {"A1":"i0","A2":"i1","B1":"i2","B2":"i3","C1":"i4","C2":"i5","Y":"o0",...}
     "OAI222":{"logic_type":"comb",
             "functions":{"o0":"!((i0|i1)&(i2|i3)&(i4|i5))"},
             "expect":
@@ -3066,6 +3202,14 @@ def get_logic_dict():
     },
 
     # ADDH (half adder, multi-output): o0 = S = i0^i1, o1 = CO = i0&i1
+    #---------------------------------------------------------------------------------------
+    # ADDH: half adder (o0 = i0 ^ i1, o1 = i0 & i1).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = SUM  (sum output)
+    #     o1 = COUT (carry-out output)
+    #     i0 = A    (operand A)
+    #     i1 = B    (operand B)
+    #   ports_dict example: {"A":"i0","B":"i1","SUM":"o0","COUT":"o1",...}
     "ADDH":{"logic_type":"comb",
             "functions":{"o0":"i0^i1","o1":"i0&i1"},
             "expect":
@@ -3099,6 +3243,15 @@ def get_logic_dict():
     },
 
     # ADDF (full adder, multi-output): o0 = S = i0^i1^i2, o1 = CO = (i0&i1)|(i0&i2)|(i1&i2)
+    #---------------------------------------------------------------------------------------
+    # ADDF: full adder (o0 = i0 ^ i1 ^ i2, o1 = majority(i0,i1,i2)).
+    #   Pin mapping (charao internal logic ports):
+    #     o0 = SUM  (sum output)
+    #     o1 = COUT (carry-out output)
+    #     i0 = A    (operand A)
+    #     i1 = B    (operand B)
+    #     i2 = CIN  (carry-in input)
+    #   ports_dict example: {"A":"i0","B":"i1","CIN":"i2","SUM":"o0","COUT":"o1",...}
     "ADDF":{"logic_type":"comb",
             "functions":{"o0":"i0^i1^i2","o1":"(i0&i1)|(i0&i2)|(i1&i2)"},
             "expect":

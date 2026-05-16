@@ -218,7 +218,8 @@
   ,"run_sim"    : "true"
   ,"num_thread" : 4
   ,"sim_nice"   : 19
-  ,"simulation_timestep"        : 1.0
+  ,"simulation_timestep_max"    : 1.0
+  ,"simulation_timestep_min"    : 0.001
   ,"simulation_slew_min"        : 0.001
   ,"sim_pulse_max"              : 5.0
   ,"sim_prop_max"               : 25.0
@@ -226,6 +227,8 @@
   ,"sim_prop_io_max"            : 30.0
   ,"sim_prop_io_tri_max"        : 30.0
   ,"sim_d2c_max"                : 6.0
+	,"sim_c2d_min"                : 10.0
+	,"sim_c2d_max"                : 200.0
   ,"sim_c2d_max_per_unit"       : 50.0
   ,"sim_segment_timestep_start" : 1.0
   ,"sim_segment_timestep_ratio" : 0.1
