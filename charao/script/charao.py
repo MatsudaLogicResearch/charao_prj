@@ -73,12 +73,13 @@ def main():
   #=====================================================
   # Logic entries/ primitive code
 
-  #--(Base defined: 5 modules — comb_base / comb_complex / comb_tristate / seq / io)
+  #--(Base defined: 6 modules — comb_base / comb_complex / comb_tristate / seq_ff / seq_scan / io)
   modules = [
     "charao.script.mylogic_comb_base",
     "charao.script.mylogic_comb_complex",
     "charao.script.mylogic_comb_tristate",
     "charao.script.mylogic_seq_ff",
+    "charao.script.mylogic_seq_scan",
     "charao.script.mylogic_io",
   ]
   logic_dict = {}

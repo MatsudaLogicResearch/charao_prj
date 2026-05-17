@@ -64,7 +64,35 @@
   {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["power_tin","10x0","d000"],["passive","10x0","d00"]],
    "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dffnrsnq_1","logic":"DFF_NC_NR_NS","area":94.3936,
    "primitive":"udp_iq_ff_hn",
-   "ports_dict":{"D":"i0","RN":"r0","SETN":"s0","CLKN":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}}
+   "ports_dict":{"D":"i0","RN":"r0","SETN":"s0","CLKN":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- SDFF posedge clock (no reset/set, Q only, ISS-00086 Phase B) ----
+  // SPICE port order: D SE SI CLK Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["power_tin","10x0","d000"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__sdffq_1","logic":"SDFF_PC","area":83.4176,
+   "primitive":"udp_iq_ff_n",
+   "ports_dict":{"D":"i0","SE":"i2","SI":"i1","CLK":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- SDFF posedge clock + active-low reset, Q only (ISS-00086 Phase B) ----
+  // SPICE port order: D RN SE SI CLK Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["power_tin","10x0","d000"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__sdffrnq_1","logic":"SDFF_PC_NR","area":94.3936,
+   "primitive":"udp_iq_ff_n",
+   "ports_dict":{"D":"i0","RN":"r0","SE":"i2","SI":"i1","CLK":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- SDFF posedge clock + active-low set, Q only (ISS-00086 Phase B) ----
+  // SPICE port order: D SE SETN SI CLK Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["power_tin","10x0","d000"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__sdffsnq_1","logic":"SDFF_PC_NS","area":98.784,
+   "primitive":"udp_iq_ff_n",
+   "ports_dict":{"D":"i0","SE":"i2","SETN":"s0","SI":"i1","CLK":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- SDFF posedge clock + active-low reset + active-low set, Q only (ISS-00086 Phase B) ----
+  // SPICE port order: D RN SE SETN SI CLK Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["power_tin","10x0","d000"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__sdffrsnq_1","logic":"SDFF_PC_NR_NS","area":105.3696,
+   "primitive":"udp_iq_ff_hn",
+   "ports_dict":{"D":"i0","RN":"r0","SE":"i2","SETN":"s0","SI":"i1","CLK":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}}
 
 ]
 }

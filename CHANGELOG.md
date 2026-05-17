@@ -4,6 +4,30 @@
 
 ---
 
+## [0.9.14a14] 2026-05-17
+
+Alpha pre-release. ISS-00086 Phase B 完了: SDFF 4 family 実装 (sdffq/sdffrnq/sdffsnq/sdffrsnq × _1)。
+
+### Added
+- (ISS-00086 Phase B) `charao/script/mylogic_seq_scan.py`: 新規ファイル、SDFF 4 family の Logic 定義
+  - SDFF_PC / SDFF_PC_NR / SDFF_PC_NS / SDFF_PC_NR_NS
+  - vcode は orig sdff*_func 準拠 (MUX2 OR-of-3-ANDs + udp_iq_ff_n/hn + Q invert)
+  - expect 群は DFF_PC* pattern 継承 + ival["i"] 3 要素化 (SE=0/SI=0 functional mode 固定)
+  - primitive は mylogic_seq_ff.py の 4 種 (udp_iq_ff_n/hn) を共有 (新規 primitive 不要)
+- `sample/target/gf180/fd/mcuC7t20240817/std_seq.jsonc`: SDFF 4 cell entry 追加 (sdffq_1 / sdffrnq_1 / sdffsnq_1 / sdffrsnq_1)
+- `charao/script/charao.py`: modules リストに `charao.script.mylogic_seq_scan` 追加 (5 modules → 6 modules)
+
+### Verified
+- DFF 8 family + SDFF 4 family × full INDEX × 全 measure × **0 failures** (12 cell regression、所要 約 2 時間)
+- charao 出力 .v の functional logic が orig sdff*_func と完全一致 (MUX2 + primitive + Q invert)
+- charao 出力 .lib の area orig 完全一致、主要値 (MPW / period / setup-hold) は既存 DFF と同等の系統誤差レベル
+- 既存 DFF 8 family への副作用なし
+
+### Known issues
+- (ISS-00086B) orig 互角化 (SE/SI 別 when 計測): Phase A で対応予定。Phase B 現状は SE=0/SI=0 functional mode のみ → orig の when 構造 (leakage 16 / internal_power 8 等) と 1:1 比較不可
+
+---
+
 ## [0.9.14a13] 2026-05-16
 
 Alpha pre-release. a09〜a13 統合 entry（a09〜a12 は commit のみで CHANGELOG entry が omit されていた経緯あり）。ISS-00077 / 00080 / 00081 / 00083〜00085 / 00087 / 00089 解決、ISS-00088 検出。
