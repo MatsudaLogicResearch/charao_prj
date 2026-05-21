@@ -73,13 +73,14 @@ def main():
   #=====================================================
   # Logic entries/ primitive code
 
-  #--(Base defined: 6 modules — comb_base / comb_complex / comb_tristate / seq_ff / seq_scan / io)
+  #--(Base defined: 7 modules — comb_base / comb_complex / comb_tristate / seq_ff / seq_scan / seq_lat / io)
   modules = [
     "charao.script.mylogic_comb_base",
     "charao.script.mylogic_comb_complex",
     "charao.script.mylogic_comb_tristate",
     "charao.script.mylogic_seq_ff",
     "charao.script.mylogic_seq_scan",
+    "charao.script.mylogic_seq_lat",
     "charao.script.mylogic_io",
   ]
   logic_dict = {}
@@ -268,26 +269,31 @@ def main():
 
       #
       targetCell = Mlc(mls=targetLib, **info)
-      targetCell.set_spice_path(path_cell["spice_path"]) 
-      targetCell.set_supress_message() 
-      targetCell.add_ff()
+      targetCell.set_spice_path(path_cell["spice_path"])
+      targetCell.set_supress_message()
+      _ltype = targetLib.logic_dict[targetCell.logic]["logic_type"]
+      if   _ltype == "seq":     targetCell.add_ff()
+      elif _ltype == "seq_lat": targetCell.add_latch()
+      else:
+        print(f"[Error] unknown seq logic_type={_ltype} for cell={targetCell.cell}")
+        my_exit()
       targetCell.add_template()
-      targetCell.chk_netlist() 
+      targetCell.chk_netlist()
       targetCell.chk_ports()
-      targetCell.add_model() 
+      targetCell.add_model()
       targetCell.add_function()
       targetCell.add_vcode()
 
       ## characterize
       harnessList = characterizeFiles(targetLib, targetCell)
       #os.chdir("../")
-      
+
       ## export
-      exportFiles(targetCell=targetCell, harnessList=harnessList) 
-      exportDoc(targetCell=targetCell, harnessList=harnessList) 
+      exportFiles(targetCell=targetCell, harnessList=harnessList)
+      exportDoc(targetCell=targetCell, harnessList=harnessList)
       num_gen_file += 1
 
-      
+
   #--- io_xxx.jsonc
   for jsonc in json_group_list:
 
@@ -380,6 +386,8 @@ def characterizeFiles(targetLib, targetCell):
     if   logic_type  == "comb":
       rslt=runExpectation(targetLib, targetCell, targetLib.logic_dict[targetCell.logic]["expect"])
     elif logic_type  == "seq":
+      rslt=runExpectation(targetLib, targetCell, targetLib.logic_dict[targetCell.logic]["expect"])
+    elif logic_type  == "seq_lat":
       rslt=runExpectation(targetLib, targetCell, targetLib.logic_dict[targetCell.logic]["expect"])
     elif logic_type  == "io":
       rslt=runExpectation(targetLib, targetCell, targetLib.logic_dict[targetCell.logic]["expect"])

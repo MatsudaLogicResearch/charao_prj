@@ -99,6 +99,7 @@ class MyConditionsAndResults(BaseModel):
   target_clkport_val    : str = ""
 
   clk_role              : str = "nouse"
+  clk_init              : str = "pulse"   # pulse (default) or stable (for LAT combinational arc; auto-detect by islatch + clk_role="nouse")
   stable_inport_val      : dict[str,str] = Field(default_factory=dict); ## {"i0":"1"}
   nontarget_outport      : list[str] = Field(default_factory=list)
 
@@ -380,6 +381,34 @@ class MyConditionsAndResults(BaseModel):
 
     #---- role
     self.clk_role= "related" if self.mec.pin_oirc[2]=="c0" else "input" if self.mec.pin_oirc[1] =="c0" else "nouse"
+    #---- init mode (SPEC_seq_lat.md §5): LAT は t_init* の初期状態で 3 段判定
+    #----   1) RN/SETN active        → stable（Q は reset/set で初期化）
+    #----   2) inactive & E transparent → stable（latch transparent、 D で Q 初期化）
+    #----   3) inactive & E not-transparent → pulse（latch closed、 init phase の E↑ で Q 初期化）
+    #---- 極性はハードコードせず logic 名サフィックスから決定（charao は任意プロセス対応）：
+    #----   _PE/_NE: enable 極性、 _PR/_NR: reset 極性、 _PS/_NS: set 極性
+    if self.mlc.islatch:
+      name = self.mlc.logic
+      ival = self.mec.ival
+      #-- 極性: transparent / active になる端子レベルを logic 名から決定（None = その端子なし）
+      e_on = "1" if "_PE" in name else "0" if "_NE" in name else "1"
+      r_on = "0" if "_NR" in name else "1" if "_PR" in name else None
+      s_on = "0" if "_NS" in name else "1" if "_PS" in name else None
+      #-- t_init* の端子初期値（ival）
+      c_init = ival["c"][0] if ("c" in ival and ival["c"]) else None
+      r_init = ival["r"][0] if ("r" in ival and ival["r"]) else None
+      s_init = ival["s"][0] if ("s" in ival and ival["s"]) else None
+      reset_active  = (r_on is not None and r_init == r_on)
+      set_active    = (s_on is not None and s_init == s_on)
+      e_transparent = (c_init == e_on)
+      if reset_active or set_active:
+        self.clk_init = "stable"     # 段1: RN/SETN active
+      elif e_transparent:
+        self.clk_init = "stable"     # 段2: inactive & E transparent
+      else:
+        self.clk_init = "pulse"      # 段3: inactive & E not-transparent
+    else:
+      self.clk_init = "pulse"
 
     
   def set_stable_inport(self):

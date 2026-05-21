@@ -111,10 +111,18 @@ def runExpectation(targetLib:Mls, targetCell:Mlc, expectationdictList:List[Mec])
         rslt_Harness = runSpicePowerTinMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
 
       elif mt in ["setup_rising","setup_falling","recovery_rising", "recovery_falling"]:
-        rslt_Harness = runSpiceSetupMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+        # ISS-00090: mt は DFF/LAT 共通、 cell の islatch で harness を切り分け
+        if targetCell.islatch:
+          rslt_Harness = runSpiceLatSetupMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+        else:
+          rslt_Harness = runSpiceSetupMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
 
       elif mt in ["hold_rising","hold_falling","removal_rising","removal_falling"]:
-        rslt_Harness = runSpiceHoldMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+        # ISS-00090: mt は DFF/LAT 共通、 cell の islatch で harness を切り分け
+        if targetCell.islatch:
+          rslt_Harness = runSpiceLatHoldMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+        else:
+          rslt_Harness = runSpiceHoldMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
 
       elif mt in ["passive"]:
         rslt_Harness = runSpicePassiveMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
@@ -424,6 +432,7 @@ def runSpiceDelaySingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
   param = Mtp(
      cap          = float("{:.5g}".format(cap  * h.mls.capacitance_mag))
     ,clk_role     = h.clk_role
+    ,clk_init     = h.clk_init
     ,pullres_role = pullres_role
     ,pullres_gate = pullres_gate
     ,meas_energy  = 0
@@ -476,7 +485,7 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, param:Mtp) ->dict:
     spicelis = spicelis[:-3]+"mt0" 
 
   # read results
-  res_list=["prop_in_out","trans_out"]
+  res_list=["prop_rel_out","trans_out"]
   res=dict()
   with open(spicelis,'r') as f:
     
@@ -501,7 +510,7 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, param:Mtp) ->dict:
 
   #-- result
   rslt=dict()
-  rslt["prop"] =float(res["prop_in_out"])
+  rslt["prop"] =float(res["prop_rel_out"])
   rslt["trans"]=float(res["trans_out"])
 
   
@@ -540,6 +549,7 @@ def runSpicePowerToutSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_s
   param = Mtp(
      cap          = float("{:.5g}".format(index2_load * h.mls.capacitance_mag))
     ,clk_role     = h.clk_role
+    ,clk_init     = h.clk_init
     ,pullres_role = pullres_role
     ,meas_energy  = 0          # 各 sim で更新
     ,time_energy  = [0,0]      # 各 sim で更新
@@ -573,17 +583,25 @@ def runSpicePowerToutSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_s
     param.compute_timing()
     rslt1 = genFileLogic_PowerToutTrial1x(targetHarness=h, spicef=spicefoe1, param=param)
 
-    ## 2nd trial: energy measure (meas_energy=2, time_energy=[estart,eend], timestep_tmax ratio=4)
+    ## 2nd trial: energy measure (meas_energy=2)
     estart = rslt1["estart"]
     eend   = rslt1["eend"]
-    tslew_rel_s = _tslew_from_template(index1_slope, h.mls)
-    tsim_end2 = max(eend, estart + tslew_rel_s) + 1e-9
     param.meas_energy   = 2
-    param.time_energy   = [estart, eend]
+    ## ISS-00094/00095: i_*_leak の AVG 区間（_t_in0 直前の 100*tslew_min 幅）に複数ステップが
+    ##   入るよう _tmax を tslew_min*20（区間/5、 約 5 点）以下に抑える。 ただし基本ステップ
+    ##   timestep_tstep を下限とする（_tmax < timestep_tstep だと ngspice .tran が
+    ##   「Timestep too small」 で収束破綻するため）。
+    param.timestep_tmax = float("{:.5g}".format(max(timestep_tstep * h.mls.time_mag, min(4*timestep_tstep * h.mls.time_mag, param.tslew_min * 20))))
+    param.compute_timing()                       # t_in0/t_in1/t_rel0/t_rel1 確定（tsim_end 非依存）
+    ## tsim_end は compute_timing 結果（t_rel1）を参照して算出（出力遷移 eend も考慮）
+    tsim_end2 = max(eend, param.t_rel1) + 1e-9
     param.tsim_end      = tsim_end2
     param.tpulse_rel    = tsim_end2
-    param.timestep_tmax = float("{:.5g}".format(4*timestep_tstep * h.mls.time_mag))
-    param.compute_timing()
+    param.compute_timing()                       # tsim_end 反映（t_clk6/t_clk7 再計算）
+    ## ISS-00094: energy 区間を .meas WHEN 依存（[estart,eend]）でなく既知時刻ベースに。
+    ##   min(t_in0,t_rel0) 〜 max(t_in1,t_rel1,eend)（Liberty internal power の「1 スイッチング
+    ##   イベントの全消費エネルギー」 を捕捉する区間）。 t_in/t_rel は compute_timing 済の既知時刻。
+    param.time_energy   = [min(param.t_in0, param.t_rel0), max(param.t_in1, param.t_rel1, eend)]
     rslt2 = genFileLogic_PowerToutTrial1x(targetHarness=h, spicef=spicefoe2, param=param)
 
     print(f'  [INFO] pleak={rslt2["pleak"]}, load={index2_load}, slope={index1_slope}')
@@ -620,13 +638,16 @@ def runSpicePowerTinSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_sl
   param = Mtp(
      cap          = float("{:.5g}".format(0.0 * h.mls.capacitance_mag))
     ,clk_role     = h.clk_role
+    ,clk_init     = h.clk_init
     ,pullres_role = "nouse"
     ,meas_energy  = 5
     ,time_energy  = [0,0]    # compute_timing 後に [t_rel0, t_rel0 + tslew_rel + 1e-9] で更新
     ,meas_o_max_min=0
     ,tslew_min    = float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
     ,timestep     = float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
-    ,timestep_tmax= float("{:.5g}".format(4*timestep_tstep * h.mls.time_mag))
+    ## ISS-00094/00095: i_*_leak の AVG 区間（100*tslew_min）に複数ステップが入るよう
+    ##   _tmax を tslew_min*20 以下に抑える（基本ステップ timestep_tstep を下限）。
+    ,timestep_tmax= float("{:.5g}".format(max(timestep_tstep * h.mls.time_mag, min(4*timestep_tstep * h.mls.time_mag, tslew_min_s * h.mls.time_mag * 20))))
     ,tsim_end     = 1e-6      # compute_timing 後に確定
     ,tdelay_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
@@ -951,6 +972,7 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
   param = Mtp(
     cap           = 0.0
     ,clk_role     =h.clk_role
+    ,clk_init     =h.clk_init
     ,meas_energy  =0
     ,time_energy  =[0,0]
     ,meas_o_max_min=0
@@ -1010,8 +1032,8 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
 
         rslt=genFileLogic_Setup1x(targetHarness=h, spicef=spicefo, param=param)
 
-        #- check prop_in_out
-        prop_last=abs(rslt["prop_in_out"])
+        #- check prop_rel_out
+        prop_last=abs(rslt["prop_rel_out"])
         setup_last=rslt["setup_in_rel"]
 
         prop_min=min(prop_min, prop_last)
@@ -1072,10 +1094,10 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
     spicelis = spicelis[:-3]+"mt0" 
 
   # read results(set default value)
-  res_list=["chg_out","setup_in_rel","prop_in_out"]
+  res_list=["chg_out","setup_in_rel","prop_rel_out"]
   res={"chg_out"     :1,
        "setup_in_rel":1,
-       "prop_in_out" :1}
+       "prop_rel_out" :1}
   
   with open(spicelis,'r') as f:
     
@@ -1084,7 +1106,7 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
         inline = re.sub(r'\=',' ',inline)
       
       # search measure
-      #for key in ["chg_out","setup_in_rel","hold_rel_in","prop_in_out"]:
+      #for key in ["chg_out","setup_in_rel","hold_rel_in","prop_rel_out"]:
       for key in res_list:
         if((re.search(key, inline, re.IGNORECASE))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
           sparray = re.split(" +", inline) # separate words with spaces (use re.split)
@@ -1097,10 +1119,253 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
   rslt={
     "chg_out"      :float(res["chg_out"]),
     "setup_in_rel" :float(res["setup_in_rel"]),
-    "prop_in_out"  :float(res["prop_in_out"])}
+    "prop_rel_out"  :float(res["prop_rel_out"])}
 
   return (rslt)
 
+
+#--------------------------------------------------------------------------------------------------
+def runSpiceLatSetupMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
+  """ISS-00090 Phase 1：LAT 用 setup/recovery harness。 runSpiceSetupMultiThread のコピーベース。
+  違いは runSpiceLatSetupSingle を呼ぶ点のみ（LAT 固有の clk_init / prop 参照は Single 側で処理）。
+  """
+
+  ## spice file name (ISS-00079: sim ごとに dir 分離、 第 1,2 層は _build_spicef_base で作成)
+  spicef = _build_spicef_base(mls, mlc, mec, num)
+
+  # Limit number of threads
+  poolg_sema = threading.BoundedSemaphore(mls.num_thread)
+  print("Num threads for simulation:"+str(mls.num_thread))
+
+  ###################################################################
+  #-- for setup (LAT)
+  thread_id = 0
+  threadlist = list()
+
+  h_const = Mcar(mls=mls, mlc=mlc, mec=mec)
+  h_const.set_update()
+
+  #------ get slopes/slopes
+  kind="const"
+  temp=mlc.template[kind]
+  if not temp:
+    print(f"[Error] not defined template={kind} in cell_xx.jsonc .")
+    my_exit()
+
+  index1_slopes_const  =temp.index_1
+  index2_slopes_rel=temp.index_2
+  if mls.template_index1_only:
+    index1_slopes_const   = [index1_slopes_const[i]   for i in mls.template_index1_only if i < len(index1_slopes_const)]
+  if mls.template_index2_only:
+    index2_slopes_rel = [index2_slopes_rel[i] for i in mls.template_index2_only if i < len(index2_slopes_rel)]
+
+  h_const.template_kind  = kind
+  h_const.template       = temp
+
+  if len(index1_slopes_const)<1:
+    print(f"[Error] slope for constraint(index_1) size is 0 for template.")
+    my_exit()
+
+  if len(index2_slopes_rel)<1:
+    print(f"[Error] slope for related  (index_2) size is 0 for template.")
+    my_exit()
+
+  #------ search setup
+  for index2_slope_rel in index2_slopes_rel:
+    for index1_slope_const in index1_slopes_const:
+      thread = threading.Thread(target=runSpiceLatSetupSingle,
+                                kwargs={"poolg_sema":poolg_sema,
+                                        "targetHarness":h_const,
+                                        "spicef":spicef,
+                                        "index1_slope_const":index1_slope_const,
+                                        "index2_slope_rel":index2_slope_rel},
+                                name="%d" % thread_id)
+
+      threadlist.append(thread)
+      thread_id += 1
+
+  for thread in threadlist:
+    thread.start()
+
+  for thread in threadlist:
+    thread.join()
+
+  #--- generate lut table
+  h_const.set_lut(value_name="setup_hold")
+
+  #------ update max_trans_in
+  mlc.update_max_trans4in(port_name=h_const.target_relport, new_value=max(index2_slopes_rel))
+
+  ###################################################################
+  return [h_const]
+
+#--------------------------------------------------------------------------------------------------
+def runSpiceLatSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_const:float, index2_slope_rel:float):
+  """ISS-00090 Phase 1：LAT 用 setup/recovery secant。 runSpiceSetupSingle のコピーベース。
+  DFF 版との違い 2 点：
+   (a) clk_init は myConditionsAndResults の t_init* 基準判定（h.clk_init、 SPEC_seq_lat §5）に
+       従う。 setup/recovery は t_init* で E=H（または RN/SETN active）のため "stable" に決まり、
+       VCLK は DC stable（init phase の pulse 振動なし、 closure edge は VREL が担当）。
+   (b) prop の参照を prop_in_out（VIN→VOUT = D2Q）に — degradation 判定を D2Q delay で行う。
+       genFileLogic_LatSetup1x が prop_in_out を読む。
+  """
+  h=targetHarness
+  arc_oirc = h.mec.arc_oirc
+
+  #-- sim_c2d_max 実効値（charao_run 内で clamp 後の値）
+  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min)
+  sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
+
+  #-- timestep （CLK slew 由来）
+  slope          = index2_slope_rel
+  timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
+  timestep_tmax  = 20 * timestep_tstep
+
+  #-- param 早期 instantiate（setup: tdelay_in = sim_c2d_max 1倍）
+  param = Mtp(
+    cap           = 0.0
+    ,clk_role     =h.clk_role
+    ,clk_init     =h.clk_init   # SPEC_seq_lat §5: clk_init は myConditionsAndResults で t_init* 基準判定
+    ,meas_energy  =0
+    ,time_energy  =[0,0]
+    ,meas_o_max_min=0
+    ,tslew_min    =float("{:.5g}".format(h.mls.simulation_slew_min * h.mls.time_mag))
+    ,timestep     =float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
+    ,timestep_tmax=float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
+    ,tsim_end     =1.0E-6
+    ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
+    ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
+    ,tdelay_in    =float("{:.5g}".format(_tslew_from_template(index2_slope_rel, h.mls) + sim_c2d_max * h.mls.time_mag))
+    ,tslew_in     =_tslew_from_template(index1_slope_const, h.mls)
+    ,tdelay_rel   =float("{:.5g}".format(h.mls.sim_d2c_max  * h.mls.time_mag))
+    ,tslew_rel    =_tslew_from_template(index2_slope_rel, h.mls)
+    ,tpulse_rel   =1.0E-6
+    ,tsweep_rel   =0
+  )
+  param.set_common_value(harness=h, arc_oirc=arc_oirc)
+  param.compute_timing()
+
+  segstep_min  = h.mls.sim_segment_timestep_min * h.mls.time_mag
+
+  with poolg_sema:
+
+    seg_start  = 0.0
+    seg_end    = -param.tsweep_for_rel0_at((param.t_init3 + param.t_in0) / 2)
+
+    ratio      = h.mls.sim_segment_timestep_ratio
+    threshold  = h.mls.sim_time_const_threshold * h.mls.time_mag
+
+    tsweep_pass=seg_start
+    setup_pass =0
+
+    tsim_end=1.0E-6
+    prop_min=1.0
+
+    segstep = h.mls.sim_segment_timestep_start * h.mls.time_mag
+
+    cnt=0
+    while segstep>= segstep_min:
+      cnt=cnt+1
+
+      tsweep_list=np.arange(seg_start, seg_end, segstep)
+
+      #-- search setup and check trans while prop is valid
+      for id,tsweep in enumerate(tsweep_list):
+
+        spicefo  = _make_sim_path(f"{spicef}_c{index1_slope_const}_r{index2_slope_rel}_s{cnt*100+id}")
+
+        #-- ISS-00080: param を更新して genFileLogic に渡す
+        param.tsweep_rel = tsweep * -1.0
+        param.tsim_end   = tsim_end
+        param.tpulse_rel = tsim_end
+        param.compute_timing()
+
+        rslt=genFileLogic_LatSetup1x(targetHarness=h, spicef=spicefo, param=param)
+
+        #- check prop_in_out (D2Q delay)
+        prop_last=abs(rslt["prop_in_out"])
+        setup_last=rslt["setup_in_rel"]
+
+        prop_min=min(prop_min, prop_last)
+
+        #- check metastable
+        if prop_last > prop_min + threshold:
+          break;
+
+        #- keep successfull result
+        tsim_end=rslt["chg_out"] + 10e-9
+        tsweep_pass=tsweep
+        setup_pass =setup_last
+
+      #--
+      if segstep <= segstep_min:
+        break;
+
+      #-- update step/list range
+      segstep_old=segstep
+      segstep    =segstep*ratio
+
+      seg_start = tsweep_pass - 2*segstep
+      seg_end   = tsweep_pass + 1.0*segstep_old
+
+    #-- result in targetHarness
+    with h._lock:
+      if h.measure_type in ["setup_rising","setup_falling","recovery_rising","recovery_falling"]:
+        h.dict_list2["setup_hold" ][index1_slope_const][index2_slope_rel] = setup_pass
+
+      else:
+        print(f"[Error] not support measure_type={h.measure_type}")
+        my_exit()
+
+
+#--------------------------------------------------------------------------------------------------
+def genFileLogic_LatSetup1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
+  """ISS-00090 Phase 1：LAT 用 setup の testbench 生成 + spice 実行 + 結果 read。
+  genFileLogic_Setup1x のコピーベース。 違いは prop 参照を prop_in_out（VIN→VOUT = D2Q）にする点。
+  """
+  # rename
+  h=targetHarness
+
+  #-- generate testbench
+  rendered = tb_template.render(param=param)
+  with open(spicef, 'w') as f:
+    f.write(rendered)
+  param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
+  print(f"  [INFO] generate tb={spicef}")
+
+  #-- execute spice
+  spicelis=h.mls.exec_spice(spicef=spicef)
+
+  #-- read result
+  # read .mt0 for Xyce
+  if(re.search("Xyce", h.mls.simulator)):
+    spicelis = spicelis[:-3]+"mt0"
+
+  # read results(set default value)
+  res_list=["chg_out","setup_in_rel","prop_in_out"]
+  res={"chg_out"     :1,
+       "setup_in_rel":1,
+       "prop_in_out" :1}
+
+  with open(spicelis,'r') as f:
+
+    for inline in f:
+      if(re.search("hspice", h.mls.simulator)):
+        inline = re.sub(r'\=',' ',inline)
+
+      # search measure
+      for key in res_list:
+        if((re.search(key, inline, re.IGNORECASE))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
+          sparray = re.split(" +", inline) # separate words with spaces (use re.split)
+          res[key]= "{:e}".format(float(sparray[2].strip()))
+
+  # result
+  rslt={
+    "chg_out"      :float(res["chg_out"]),
+    "setup_in_rel" :float(res["setup_in_rel"]),
+    "prop_in_out"  :float(res["prop_in_out"])}
+
+  return (rslt)
 
 
 #--------------------------------------------------------------------------------------------------
@@ -1197,6 +1462,7 @@ def runSpiceHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_
   param = Mtp(
     cap           = 0.0
     ,clk_role     =h.clk_role
+    ,clk_init     =h.clk_init
     ,meas_energy  =0
     ,time_energy  =[0,0]
     ,meas_o_max_min=1
@@ -1357,6 +1623,196 @@ def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
   return (rslt)
 
 #--------------------------------------------------------------------------------------------------
+def runSpiceLatHoldMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
+  """ISS-00090 Phase 1：LAT 用 hold/removal harness。 runSpiceHoldMultiThread のコピーベース。
+  違いは runSpiceLatHoldSingle を呼ぶ点のみ（LAT 固有の clk_init は Single 側で処理）。
+  """
+
+  ## spice file name (ISS-00079: sim ごとに dir 分離、 第 1,2 層は _build_spicef_base で作成)
+  spicef = _build_spicef_base(mls, mlc, mec, num)
+
+  # Limit number of threads
+  poolg_sema = threading.BoundedSemaphore(mls.num_thread)
+  print("Num threads for simulation:"+str(mls.num_thread))
+
+  ###################################################################
+  #-- for hold (LAT)
+  thread_id = 0
+  threadlist = list()
+
+  h_const = Mcar(mls=mls, mlc=mlc, mec=mec)
+  h_const.set_update()
+
+  #------ get slopes/slopes
+  kind="const"
+  temp=mlc.template[kind]
+  if not temp:
+    print(f"[Error] not defined template={kind} in cell_xx.jsonc .")
+    my_exit()
+
+  index1_slopes_const  =temp.index_1
+  index2_slopes_rel=temp.index_2
+  if mls.template_index1_only:
+    index1_slopes_const   = [index1_slopes_const[i]   for i in mls.template_index1_only if i < len(index1_slopes_const)]
+  if mls.template_index2_only:
+    index2_slopes_rel = [index2_slopes_rel[i] for i in mls.template_index2_only if i < len(index2_slopes_rel)]
+
+  h_const.template_kind  = kind
+  h_const.template       = temp
+
+  if len(index1_slopes_const)<1:
+    print(f"[Error] slope for constraint(index_1) size is 0 for template.")
+    my_exit()
+
+  if len(index2_slopes_rel)<1:
+    print(f"[Error] slope for related  (index_2) size is 0 for template.")
+    my_exit()
+
+  #------ search hold
+  for index2_slope_rel in index2_slopes_rel:
+    for index1_slope_const in index1_slopes_const:
+      thread = threading.Thread(target=runSpiceLatHoldSingle,
+                                kwargs={"poolg_sema":poolg_sema,
+                                        "targetHarness":h_const,
+                                        "spicef":spicef,
+                                        "index1_slope_const":index1_slope_const,
+                                        "index2_slope_rel":index2_slope_rel},
+                                name="%d" % thread_id)
+
+      threadlist.append(thread)
+      thread_id += 1
+
+  for thread in threadlist:
+    thread.start()
+
+  for thread in threadlist:
+    thread.join()
+
+  #--- generate lut table
+  h_const.set_lut(value_name="setup_hold")
+
+  ###################################################################
+  return [h_const]
+
+#--------------------------------------------------------------------------------------------------
+def runSpiceLatHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_const:float, index2_slope_rel:float):
+  """ISS-00090 Phase 1：LAT 用 hold/removal secant。 runSpiceHoldSingle のコピーベース。
+  clk_init は myConditionsAndResults の t_init* 基準判定（h.clk_init、 SPEC_seq_lat §5）に従う。
+  hold/removal は t_init* で E=H（または RN/SETN active）のため "stable" に決まり、 VCLK は
+  init phase の pulse を抑制し closure edge は保持（jp2 の stable 分岐は t_clk0,1,2 を初期値
+  固定、 t_clk3..7 の closure edge は出力）。
+  metastable 判定（o_max_v/o_min_v）と genFileLogic_Hold1x は DFF 版と共用。
+  """
+  h=targetHarness
+  arc_oirc = h.mec.arc_oirc
+
+  #-- sim_c2d_max 実効値
+  sim_c2d_max = max(h.mls.sim_c2d_max_per_unit * 0.1, h.mls.sim_c2d_min)
+  sim_c2d_max = min(sim_c2d_max, h.mls.sim_c2d_max)
+
+  #-- timestep
+  slope          = index2_slope_rel
+  tslew_min_s    = h.mls.simulation_slew_min
+  timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
+  timestep_tmax  = 20 * timestep_tstep
+
+  #-- param 早期 instantiate（hold: meas_o_max_min=1）
+  param = Mtp(
+    cap           = 0.0
+    ,clk_role     =h.clk_role
+    ,clk_init     =h.clk_init   # SPEC_seq_lat §5: clk_init は myConditionsAndResults で t_init* 基準判定
+    ,meas_energy  =0
+    ,time_energy  =[0,0]
+    ,meas_o_max_min=1
+    ,tslew_min    =float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
+    ,timestep     =float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
+    ,timestep_tmax=float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
+    ,tsim_end     =1e-6
+    ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
+    ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
+    ,tdelay_in    =float("{:.5g}".format(_tslew_from_template(index2_slope_rel, h.mls) + sim_c2d_max * h.mls.time_mag))
+    ,tslew_in     =_tslew_from_template(index1_slope_const, h.mls)
+    ,tdelay_rel   =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
+    ,tslew_rel    =_tslew_from_template(index2_slope_rel, h.mls)
+    ,tpulse_rel   =1e-6
+    ,tsweep_rel   =0
+  )
+  param.set_common_value(harness=h, arc_oirc=arc_oirc)
+  param.compute_timing()
+  tsim_end = param.t_rel1 + 1e-9
+  param.tsim_end   = tsim_end
+  param.tpulse_rel = tsim_end
+  param.compute_timing()
+
+  segstep_min  = h.mls.sim_segment_timestep_min * h.mls.time_mag
+
+  with poolg_sema:
+    seg_start  = param.tsweep_for_rel0_at((param.t_init3 + param.t_in0) / 2)
+    seg_end    = 0
+
+    ratio      = h.mls.sim_segment_timestep_ratio
+    threshold_high  = h.mls.hold_meas_high_threshold * h.mls.vdd_voltage
+    threshold_low   = h.mls.hold_meas_low_threshold  * h.mls.vdd_voltage
+    ival_o          = h.target_outport_val
+
+    tsweep_pass=seg_start
+    hold_pass  =0
+
+    segstep = h.mls.sim_segment_timestep_start * h.mls.time_mag
+
+    cnt=0
+    while segstep>= segstep_min:
+      cnt=cnt+1
+
+      tsweep_list=np.arange(seg_start, seg_end, segstep)
+
+      #-- search hold and check v_
+      for id,tsweep in enumerate(tsweep_list):
+
+        spicefo  = _make_sim_path(f"{spicef}_c{index1_slope_const}_r{index2_slope_rel}_s{cnt*100+id}")
+
+        #-- ISS-00080: param を更新して genFileLogic に渡す（hold は tsweep 正方向）
+        param.tsweep_rel = tsweep * 1.0
+        param.compute_timing()
+
+        rslt=genFileLogic_Hold1x(targetHarness=h, spicef=spicefo, param=param)
+
+        #-- get result
+        hold_last =rslt["hold_rel_in"]
+
+        #- check metastable(outport=stable)
+        if   (ival_o=="0" ) and (threshold_low < rslt["o_max_v"]):
+            break
+        elif (ival_o=="1" ) and (threshold_high > rslt["o_min_v"]):
+            break
+
+        #- keep successfull result
+        tsweep_pass=tsweep
+        hold_pass  =hold_last
+
+      #--
+      if segstep <= segstep_min:
+        break
+
+      #-- update step/list range
+      segstep_old=segstep
+      segstep    =segstep*ratio
+
+      seg_start = tsweep_pass - 2*segstep
+      seg_end   = tsweep_pass + 1.0*segstep_old
+
+    #-- result in targetHarness
+    with h._lock:
+      if  h.measure_type in ["hold_rising","hold_falling","removal_rising","removal_falling"]:
+        h.dict_list2["setup_hold" ][index1_slope_const][index2_slope_rel] = hold_pass
+      else:
+        print(f"[Error] not support measure_type={h.measure_type}")
+        my_exit()
+
+    #--
+    print(f"  [INFO] hold={hold_pass}")
+
+#--------------------------------------------------------------------------------------------------
 def runSpicePassiveMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
 
   ## spice file name (ISS-00079: sim ごとに dir 分離、 第 1,2 層は _build_spicef_base で作成)
@@ -1438,12 +1894,15 @@ def runSpicePassiveSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slo
   slope          = index1_slope_in
   tslew_min_s    = h.mls.simulation_slew_min
   timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
-  timestep_tmax  = 20 * timestep_tstep
+  ## ISS-00094/00095: i_*_leak の AVG 区間（100*tslew_min）に複数ステップが入るよう
+  ##   _tmax を tslew_min*20 以下に抑える（基本ステップ timestep_tstep を下限）。
+  timestep_tmax  = max(timestep_tstep, min(20 * timestep_tstep, tslew_min_s * 20))
 
   #-- param 早期 instantiate（passive: meas_energy=4、 tsim_end/time_energy は compute_timing 後に確定）
   param = Mtp(
      cap          =0.0
     ,clk_role     =h.clk_role
+    ,clk_init     =h.clk_init
     ,meas_energy  =4
     ,time_energy  =[0, 0]     # compute_timing 後に [t_rel0, t_rel1 + 2ns] で確定
     ,meas_o_max_min=0
@@ -1645,6 +2104,7 @@ def runSpiceMinPulseSingle(poolg_sema, targetHarness:Mcar, spicef:str):
   param = Mtp(
     cap           = 0.0
     ,clk_role     =h.clk_role
+    ,clk_init     =h.clk_init
     ,meas_energy  =0
     ,time_energy  =[0,0]
     ,meas_o_max_min=0
@@ -1695,7 +2155,7 @@ def runSpiceMinPulseSingle(poolg_sema, targetHarness:Mcar, spicef:str):
 
         rslt=genFileLogic_MinPulse1x(targetHarness=h, spicef=spicefo, param=param)
 
-        prop_last=abs(rslt["prop_in_out"])
+        prop_last=abs(rslt["prop_rel_out"])
         prop_min=min(prop_min, prop_last)
 
         if prop_last > prop_min + threshold:
@@ -1740,7 +2200,7 @@ def genFileLogic_MinPulse1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
   res={"chg_out"     :1,
        "setup_in_rel":1,
        "hold_rel_in" :1,
-       "prop_in_out" :1}
+       "prop_rel_out" :1}
   
   with open(spicelis,'r') as f:
     
@@ -1749,7 +2209,7 @@ def genFileLogic_MinPulse1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
         inline = re.sub(r'\=',' ',inline)
       
       # search measure
-      for key in ["chg_out","setup_in_rel","hold_rel_in","prop_in_out"]:
+      for key in ["chg_out","setup_in_rel","hold_rel_in","prop_rel_out"]:
         if((re.search(key, inline, re.IGNORECASE))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
           sparray = re.split(" +", inline) # separate words with spaces (use re.split)
           res[key]= "{:e}".format(float(sparray[2].strip()))
@@ -1760,7 +2220,7 @@ def genFileLogic_MinPulse1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
   # hold result
   rslt={
     "chg_out"      :float(res["chg_out"]),
-    "prop_in_out"  :float(res["prop_in_out"]),
+    "prop_rel_out"  :float(res["prop_rel_out"]),
     "pulse"        :param.tslew_in + param.tpulse_rel}
 
   return (rslt)
@@ -1838,12 +2298,13 @@ def runSpiceLeakageSingle(poolg_sema, targetHarness:Mcar, spicef:str):
   timestep_tstep = h.mls.simulation_timestep_min
   timestep_tmax  = 20 * timestep_tstep
 
-  #-- is_dtp: FF でない (= isflop==0) → 短い init で OK
-  is_dtp = (h.mlc.isflop == 0)
+  #-- is_dtp: FF でない (= not isflop) → 短い init で OK
+  is_dtp = (not h.mlc.isflop)
 
   param = Mtp(
      cap          = 0.0
     ,clk_role     = h.clk_role
+    ,clk_init     = h.clk_init
     ,pullres_role = "nouse"
     ,meas_energy  = 3
     ,time_energy  = [0, 0]    # compute_timing 後に [t_in0, t_in1] で確定

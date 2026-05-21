@@ -138,6 +138,21 @@ def get_logic_dict():
                # I=0: ZN was 1 -> ext pull-down -> ZN fall
                MyExpectCell(pin_oirc=["o0","i0","i1",""], ival={"o":["1"],"i":["0","1"]}, mondrv_oirc=["0","0","0",""]
                            ,meas_types=["three_state_disable"], tmg_sense="neg", arc_oirc=["f","s","f",""], tmg_when="", specify=""),
+               #--- power_tin pin(EN) when:"!I" (i0=0): EN rise/fall, I=0 stable → ZN=!I=1 (active)
+               MyExpectCell(pin_oirc=["o0","i1","i1",""], ival={"o":["1"],"i":["0","0"]}, mondrv_oirc=["1","1","1",""]
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["s","r","r",""], tmg_when="!i0", specify=""),
+               MyExpectCell(pin_oirc=["o0","i1","i1",""], ival={"o":["1"],"i":["0","1"]}, mondrv_oirc=["1","0","0",""]
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["s","f","f",""], tmg_when="!i0", specify=""),
+               #--- power_tin pin(EN) when:"I" (i0=1): EN rise/fall, I=1 stable → ZN=!I=0 (active)
+               MyExpectCell(pin_oirc=["o0","i1","i1",""], ival={"o":["0"],"i":["1","0"]}, mondrv_oirc=["0","1","1",""]
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["s","r","r",""], tmg_when="i0", specify=""),
+               MyExpectCell(pin_oirc=["o0","i1","i1",""], ival={"o":["0"],"i":["1","1"]}, mondrv_oirc=["0","0","0",""]
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["s","f","f",""], tmg_when="i0", specify=""),
+               #--- power_tin pin(I) when:"!EN" (i1=0, output Hi-Z): I rise/fall in disabled state
+               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["b"],"i":["0","0"]}, mondrv_oirc=["b","1","1",""]
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["s","r","r",""], tmg_when="!i1", specify=""),
+               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["b"],"i":["1","0"]}, mondrv_oirc=["b","0","0",""]
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["s","f","f",""], tmg_when="!i1", specify=""),
                #--- leakage (4 conditions: !EN&!I / EN&!I / !EN&I / EN&I)
                MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["d"],"i":["0","0"]}, mondrv_oirc=["0","0","0",""]
                            ,meas_types=["leakage"], tmg_sense="non", arc_oirc=["s","s","s",""], tmg_when="!i0&!i1", specify=""),

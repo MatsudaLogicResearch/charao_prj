@@ -78,7 +78,9 @@ comb / tristate cell では [3] = `""`、 seq では [3] = `"c0"`。
 | `preset` | async set arc (SETN fall → Q rise) |
 | `recovery_rising` / `recovery_falling` | RN/SETN release to CLK edge |
 | `removal_rising` / `removal_falling` | CLK edge after RN/SETN release |
-| `passive` | input pin internal power (data / clk / reset / set) |
+| `power_tout` | 出力遷移時の internal power（各 timing arc entry の `meas_types` に併載）|
+| `power_tin` | 入力遷移時の internal power（出力遷移を伴わない入力遷移）|
+| `passive` | input pin の容量計測（capacitance） |
 | `min_pulse_width_high` | CLK の最小 H pulse 幅（posedge cell） |
 | `min_pulse_width_low` | CLKN / RN / SETN の最小 L pulse 幅 |
 | `leakage` | 静止状態の各 conditions（2^N 通り） |

@@ -4,6 +4,41 @@
 
 ---
 
+## [0.9.14a16] 2026-05-21
+
+Alpha pre-release. LAT（level-sensitive latch）対応一式: 4 family 実装、measure 仕様（SPEC_seq_lat.md）策定、clk_init 判定の一元化、大 input slew での internal_power 0 値修正。
+
+### Added
+- (ISS-00070) `charao/script/mylogic_seq_lat.py`: 新規。LAT 4 family（LATCH_PE / _NR / _NS / _NR_NS）の Logic 定義
+- (ISS-00070) `charao/script/myExportLib.py`: latch グループ出力サポート（level-sensitive latch の .lib block）
+- (ISS-00070) `charao/script/myLogicCell.py`: `islatch` フラグと latch dict を追加
+- (ISS-00070) `sample/target/gf180/fd/mcuC7t20240817/std_seq.jsonc`: LAT 4 cell entry 追加（latq_1 / latrnq_1 / latsnq_1 / latrsnq_1）
+- (ISS-00070) `charao/script/charao.py`: modules リストに `charao.script.mylogic_seq_lat` 追加
+- (ISS-00090) `charao/script/charao_run.py`: LAT setup/hold 用 sim 関数群（`runSpiceLatSetupSingle` / `runSpiceLatHoldSingle` 等）と single-fall testbench 対応。`prop_in_out`→`prop_rel_out` リネーム + 新 `prop_in_out` 追加
+- (ISS-00090) `charao/script/myTbParam.py` / `charao/script/temp_testbench.sp.jp2`: level-sensitive latch testbench 対応
+- `docs/SPEC_seq_lat.md`: 新規。LAT measure 仕様書（measure 12 項目、clk_init 3 段判定原則、passive / leakage 条件、§7 実装記録）
+
+### Changed
+- (ISS-00092, §7-2) `charao/script/myConditionsAndResults.py` `set_target_clkport`: latch の clk_init を logic 名の極性サフィックス（`_PE`/`_NE`, `_PR`/`_NR`, `_PS`/`_NS`）パースで 3 段判定（① RN/SETN active→stable ② inactive かつ E 透過→stable ③ それ以外→pulse）。`*Single()` 個別指定から一元管理へ
+- (§7-2) `charao/script/charao_run.py` `runSpiceLatSetupSingle` / `runSpiceLatHoldSingle`: clk_init の固定指定を `h.clk_init` 参照に変更
+- (§7-3) `charao/script/mylogic_seq_lat.py`: leakage E=H entry の arc を s 化（`arc_oirc` 末尾を r→s、ival c=0→1、4 family）、passive / leakage entry を 3 条件化
+- (§7-3) `charao/script/mylogic_comb_tristate.py`: INVZ の power_tin entry 6 個を追加（ZN=!I 極性）
+- `charao/script/myExportDoc.py`: latch セルの .md 出力対応
+- `docs/SPEC_seq_ff.md` / `docs/SPEC_internal_power.md` / `docs/SPEC_three_state.md`: コードとの整合性を修正
+
+### Fixed
+- (ISS-00093) `charao/script/myExportLib.py`: min_pulse_width の timing_type をクォート付きに統一（`timing_type : "min_pulse_width";`）
+- (ISS-00094) `charao/script/charao_run.py` `runSpicePowerToutSingle`: 大 input slew で `.tran` の最大ステップが i_*_leak の AVG 区間幅（`100*tslew_min`）を超え、leakage measure が「out of interval」で失敗 → power 0 になる問題。2nd trial の `timestep_tmax` を `timestep_tstep` 下限つきでクランプ、energy 区間 / `tsim_end` を `compute_timing()` 既知時刻参照に変更
+- (ISS-00095) `charao/script/charao_run.py` `runSpicePowerTinSingle` / `runSpicePassiveSingle`: ISS-00094 と同一原因の passive / power_tin の energy 0 値。`timestep_tmax` を同様にクランプ（`timestep_tstep` 下限が無いと収束破綻するため下限を併設）
+
+### Removed
+- `charao/script/mylogic_seq_lat.py`: 未使用の `LATCH_PE_PR_NS` 定義を削除
+
+### Verified
+- latrsnq_1 full INDEX: **0 failures**、0 値ブロック数 0（大 slew の power 0 値が完全解消）
+
+---
+
 ## [0.9.14a14] 2026-05-17
 
 Alpha pre-release. ISS-00086 Phase B 完了: SDFF 4 family 実装 (sdffq/sdffrnq/sdffsnq/sdffrsnq × _1)。

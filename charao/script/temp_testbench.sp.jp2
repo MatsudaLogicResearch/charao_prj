@@ -192,7 +192,12 @@ VREL VREL 0 DC {_vss_vin}
 
 *** VCLK
 {% if   param.val0_oirc[3] == "0" %}
+ {%- if param.clk_init == "stable" %}
+VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk} 
+ {%- else %}
 VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk} {_t_clk0} {_vss_vclk} {_t_clk1} {_vdd_vclk} {_t_clk2} {_vdd_vclk}
+ {%- endif %}
+
  {%- if (param.clk_role == "related") %}
 +               {_t_clk3} {_vss_vclk} {_t_clk4} {_vss_vclk} {_t_clk5} {_vdd_vclk} {_t_clk6} {_vdd_vclk} {_t_clk7} {_vss_vclk})
  {%- elif (param.clk_role == "input") and (param.arc_oirc[3]=="rise") %}
@@ -204,8 +209,13 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk} {_t_clk0} {_vss_vclk} {_t_clk1} {_vdd_v
  {%- endif %}
 
 {% else %}
+ {%- if param.clk_init == "stable" %}
+VCLK VCLK 0 PWL({_tslew_min} {_vdd_vclk}
+ {%- else %}
 VCLK VCLK 0 PWL({_tslew_min} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vclk} {_t_clk2} {_vss_vclk}
- {%- if (param.clk_role == "related")  %}
+ {%- endif %}
+
+{%- if (param.clk_role == "related")  %}
 +               {_t_clk3} {_vdd_vclk} {_t_clk4} {_vdd_vclk} {_t_clk5} {_vss_vclk} {_t_clk6} {_vss_vclk} {_t_clk7} {_vdd_vclk})
  {%- elif (param.clk_role == "input") and (param.arc_oirc[3]=="fall") %}
 +               {_t_clk3} {_vdd_vclk} {_t_clk4} {_vdd_vclk} {_t_clk5} {_vss_vclk} {_t_clk6} {_vss_vclk} {_t_clk7} {_vdd_vclk})
@@ -223,21 +233,28 @@ VCLK VCLK 0 PWL({_tslew_min} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_v
 {%- if   param.arc_oirc[0] in ["rise","fall"] %}
 *** output change time
 .MEASURE TRAN chg_out
-+ WHEN v(VOUT)={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0 - 2*_tslew_min}
++ WHEN v(VOUT)={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={min(_t_rel0,_t_in0) - 2*_tslew_min}
 {%- endif %}
 
 {%- if   (param.arc_oirc[0] in ["rise","fall"]) and (param.arc_oirc[2] in ["rise","fall"]) %}
-*** Prop delay 
+*** Prop delay (rel->out)
+.MEASURE TRAN prop_rel_out
++ TRIG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
++ TARG v(VOUT) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
+{%- endif %}
+
+{%- if   (param.arc_oirc[0] in ["rise","fall"]) and (param.arc_oirc[1] in ["rise","fall"]) %}
+*** Prop delay (in->out) -- 汎用 in->out delay。 現状 lat_setup/lat_hold で使用、 combinational delay にも適用可
 .MEASURE TRAN prop_in_out
-+ TRIG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_rel0 - 2*_tslew_min}
-+ TARG v(VOUT) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0 - 2*_tslew_min}
++ TRIG v(VIN)  VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc[1]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
++ TARG v(VOUT) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
 {%- endif %}
 
 {%- if  param.arc_oirc[0] in ["rise","fall"] %}
-*** Trans delay 
+*** Trans delay
 .MEASURE TRAN trans_out
-+ TRIG v(VOUT) VAL={{param.tran_v0_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0 - 2*_tslew_min}
-+ TARG v(VOUT) VAL={{param.tran_v1_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0 - 2*_tslew_min}
++ TRIG v(VOUT) VAL={{param.tran_v0_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={min(_t_rel0,_t_in0) - 2*_tslew_min}
++ TARG v(VOUT) VAL={{param.tran_v1_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={min(_t_rel0,_t_in0) - 2*_tslew_min}
 {%- endif %}
 
 {%-if (param.arc_oirc[1] in ["rise","fall"]) and (param.arc_oirc[2] in ["rise","fall"])%}

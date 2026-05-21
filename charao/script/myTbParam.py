@@ -44,6 +44,7 @@ class MyTbParam:
   val0_oirc    :list[str]=Field(default_factory=list);
 
   clk_role     :str        ="nouse"; # nouse/related/input
+  clk_init     :str        ="pulse"; # pulse (default) or stable (for LAT combinational arc)
   pullres_role :str        ="nouse"; # nosue/up/down/up_ngate/up_pgate/down_ngate/down_pgate
   meas_energy  :int        =0;  # 0:No Meas for Energy/ 1:Meas Only Time/ 2:Meas all
   time_energy  :list[float]=Field(default_factory=list); #[start,end]

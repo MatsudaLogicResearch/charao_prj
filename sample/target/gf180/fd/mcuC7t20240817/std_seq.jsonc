@@ -92,7 +92,35 @@
   {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["power_tin","10x0","d000"],["passive","10x0","d00"]],
    "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__sdffrsnq_1","logic":"SDFF_PC_NR_NS","area":105.3696,
    "primitive":"udp_iq_ff_hn",
-   "ports_dict":{"D":"i0","RN":"r0","SE":"i2","SETN":"s0","SI":"i1","CLK":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}}
+   "ports_dict":{"D":"i0","RN":"r0","SE":"i2","SETN":"s0","SI":"i1","CLK":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- LATCH pos-level enable (no reset/set, Q only, ISS-00070 LAT Phase B) ----
+  // SPICE port order: D E Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["power_tin","10x0","d000"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__latq_1","logic":"LATCH_PE","area":43.904,
+   "primitive":"udp_iq_latch_n",
+   "ports_dict":{"D":"i0","E":"c0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- LATCH pos-level enable + active-low reset (ISS-00070 LAT Phase B) ----
+  // SPICE port order: D E RN Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["power_tin","10x0","d000"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__latrnq_1","logic":"LATCH_PE_NR","area":48.2944,
+   "primitive":"udp_iq_latch_n",
+   "ports_dict":{"D":"i0","E":"c0","RN":"r0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- LATCH pos-level enable + active-low set (ISS-00070 LAT Phase B) ----
+  // SPICE port order: D E SETN Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["power_tin","10x0","d000"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__latsnq_1","logic":"LATCH_PE_NS","area":46.0992,
+   "primitive":"udp_iq_latch_n",
+   "ports_dict":{"D":"i0","E":"c0","SETN":"s0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- LATCH pos-level enable + active-low reset + active-low set (ISS-00070 LAT Phase B) ----
+  // SPICE port order: D E RN SETN Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"],["power_tin","10x0","d000"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__latrsnq_1","logic":"LATCH_PE_NR_NS","area":52.6848,
+   "primitive":"udp_iq_latch_hn",
+   "ports_dict":{"D":"i0","E":"c0","RN":"r0","SETN":"s0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}}
 
 ]
 }

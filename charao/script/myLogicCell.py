@@ -51,6 +51,7 @@ class MyLogicCell(BaseModel):
   functions : Dict[str,str] = Field(default_factory=dict); ## cell function
   vcode     : str = None;     ## verilog code
   ff        : Dict[str,str] = Field(default_factory=dict); ## ff infomation
+  latch     : Dict[str,str] = Field(default_factory=dict); ## latch infomation (ISS-00070 LAT)
   #io        : Dict[str,str] = Field(default_factory=dict); ## io infomation
   #pin       : Dict[str,str] = Field(default_factory=dict); ## pin infomation for IO cell
   ports_dict: Dict[str,str] = Field(default_factory=dict); ## spice-port/name mapper
@@ -96,8 +97,9 @@ class MyLogicCell(BaseModel):
 
   isexport            : int = 0;   ## exported or not
   isexport2doc        : int = 0; ## exported to doc or not
-  isflop              : int = 0;     ## DFF or not
-  isio                : int = 0;     ## IO or not
+  isflop              : bool = False;  ## DFF or not
+  islatch             : bool = False;  ## LATCH or not (ISS-00070 LAT)
+  isio                : bool = False;  ## IO or not
   pleak_icrs   : dict[str,float] = Field(default_factory=dict);## leakage power with input condition. pleak_icrs={"condition",val}
   pleak_cell   : float=0.0;          ## cell leakage power
 
@@ -338,14 +340,22 @@ class MyLogicCell(BaseModel):
       my_exit();
 
     self.ff = self.mls.logic_dict[self.logic]["ff"]
-    self.isflop=1
+    self.isflop=True
+
+  def add_latch(self):
+    if not self.logic in self.mls.logic_dict.keys():
+      print(f"[Error] logic="+self.logic + " is not exist in MyExpectCell.py.");
+      my_exit();
+
+    self.latch = self.mls.logic_dict[self.logic]["latch"]
+    self.islatch=True
 
   def add_io(self):
     if not self.logic in self.mls.logic_dict.keys():
       print(f"[Error] logic="+self.logic + " is not exist in MyExpectCell.py.");
       my_exit();
 
-    self.isio=1
+    self.isio=True
 
   ## average of cin in all harness.dict_list2["cin"]["index_2"]["index_1"]
   def set_cin_avg(self, harnessList:list["Mcar"]):

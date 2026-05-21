@@ -172,6 +172,19 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
         outlines.append(f'|Preset | {targetCell.replace_by_portmap(targetCell.ff["preset"])} |')
       outlines.append(f'')
 
+    elif targetCell.islatch:
+      outlines.append(f'### LATCH GROUP')
+      outlines.append(f'| Attribute| Expression |')
+      outlines.append(f'|----|----|')
+      outlines.append(f'|Latch     | {targetCell.replace_by_portmap(targetCell.latch["out"])} |')
+      outlines.append(f'|Enable    | {targetCell.replace_by_portmap(targetCell.latch["enable"])} |')
+      outlines.append(f'|Data In   | {targetCell.replace_by_portmap(targetCell.latch["data_in"])} |')
+      if "clear" in targetCell.latch.keys():
+        outlines.append(f'|Clear | {targetCell.replace_by_portmap(targetCell.latch["clear"])} |')
+      if "preset" in targetCell.latch.keys():
+        outlines.append(f'|Preset | {targetCell.replace_by_portmap(targetCell.latch["preset"])} |')
+      outlines.append(f'')
+
     ##-------------------------------------------------
     if targetCell.functions:
       outlines.append(f'### FUNCTIONS')

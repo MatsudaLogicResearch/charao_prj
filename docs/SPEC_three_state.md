@@ -14,7 +14,7 @@
 | Tri-state buffer/inverter | `bufz_*`, `invz_*` | `pin(Z) direction:output`, `three_state:"(!EN)"` + 3 種の timing arc |
 
 両者とも internal driver が disable 状態で出力を Hi-Z にする点は共通だが、Liberty の `pin` direction が
-異なるため、 charao の MyExpectCell の `pin_oir` の扱い（biport: `b0` / output: `o0`）と Liberty 出力経路
+異なるため、 charao の MyExpectCell の `pin_oirc` の扱い（biport: `b0` / output: `o0`）と Liberty 出力経路
 （`myExportLib` の biport ループ / outport ループ）が分かれる。
 
 ---
@@ -110,11 +110,11 @@ SW 素子（`SW_NMOS`/`SW_PMOS`）が pullres を切り離す挙動を再現す�
 ### 4.1 biport 系（HOLD）
 
 ```python
-# power_tin: biport 駆動 (Z = b0)
-MyExpectCell(pin_oir=["b0","b0","b0"], ival={"o":[],"i":[],"b":["0"]}, mondrv_oir=["1","1","1"]
-            ,meas_types=["power_tin"], tmg_sense="non", arc_oir=["r","r","r"], tmg_when="", specify=""),
-MyExpectCell(pin_oir=["b0","b0","b0"], ival={"o":[],"i":[],"b":["1"]}, mondrv_oir=["0","0","0"]
-            ,meas_types=["power_tin"], tmg_sense="non", arc_oir=["f","f","f"], tmg_when="", specify=""),
+# power_tin: biport 駆動 (Z = b0)。 pin_oirc/mondrv_oirc/arc_oirc は 4 要素（[3]=clock/control、 tristate は ""）
+MyExpectCell(pin_oirc=["b0","b0","b0",""], ival={"o":[],"i":[],"b":["0"]}, mondrv_oirc=["1","1","1",""]
+            ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["r","r","r",""], tmg_when="", specify=""),
+MyExpectCell(pin_oirc=["b0","b0","b0",""], ival={"o":[],"i":[],"b":["1"]}, mondrv_oirc=["0","0","0",""]
+            ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["f","f","f",""], tmg_when="", specify=""),
 # leakage: when:"!b0" / "b0"
 ```
 
@@ -126,12 +126,12 @@ MyExpectCell(pin_oir=["b0","b0","b0"], ival={"o":[],"i":[],"b":["1"]}, mondrv_oi
 
 | 観点 | 設定 |
 |---|---|
-| pin_oir | `["o0","i0","i1"]`（output / data / control） |
-| arc_oir | `[output_dir, "s", "r"]`（control rise） |
+| pin_oirc | `["o0","i0","i1",""]`（output / data / control / [3]=空）|
+| arc_oirc | `[output_dir, "s", "r", ""]`（control rise）|
 | tmg_sense | `"pos"`（positive_unate） |
 | tmg_when | `""`（fall/rise pair で 1 group） |
 | ival.o | initial 値 = 反対極性（ext drive を 0 or 1 と仮定） |
-| mondrv_oir | 終状態 = active 値 |
+| mondrv_oirc | 終状態 = active 値 |
 
 **fall/rise pair は same when 内で 2 entries 必要**（when 別に分けると group が分裂し
 `len(group)!=2` エラーが出る）。
@@ -140,8 +140,8 @@ MyExpectCell(pin_oir=["b0","b0","b0"], ival={"o":[],"i":[],"b":["1"]}, mondrv_oi
 
 | 観点 | 設定 |
 |---|---|
-| pin_oir | `["o0","i0","i1"]` |
-| arc_oir | `[output_dir, "s", "f"]`（control fall） |
+| pin_oirc | `["o0","i0","i1",""]` |
+| arc_oirc | `[output_dir, "s", "f", ""]`（control fall）|
 | tmg_sense | `"neg"`（negative_unate） |
 | tmg_when | `""` |
 | 必須条件 | cell entry に `oe_infos` が無いと `[ERROR] no oe_infos exist for o0` |
@@ -160,9 +160,9 @@ MyExpectCell(pin_oir=["b0","b0","b0"], ival={"o":[],"i":[],"b":["1"]}, mondrv_oi
 
 | ファイル | 機能 |
 |---|---|
-| `charao_run.py:110` | `mt.startswith("three_state_")` で `runSpiceDelayMultiThread` 呼び出し |
-| `charao_run.py:160` | `replace("three_state_disable","delay_disable")`（1D template kind） |
-| `myConditionsAndResults.py:202,218-221` | `startswith("three_state_")` で measure_type / timing_type 振り分け |
+| `charao_run.py:136` | `mt.startswith("three_state_")` で `runSpiceDelayMultiThread` 呼び出し |
+| `charao_run.py:184` | `replace("three_state_disable","delay_disable")`（1D template kind） |
+| `myConditionsAndResults.py:203,219-222` | `startswith("three_state_")` で measure_type / timing_type 振り分け |
 
 ### 5.2 tb 生成
 
@@ -270,9 +270,10 @@ CELLS="<cell_name>" MODE=local bash debug_run.sh clean run_all lib2csv_charao co
 
 ## 8. 既知の制限事項
 
-- BUFZ/INVZ の **input pin internal_power**（`pin(EN) when:"!I"/"I"`、 `pin(I) when:"!EN"`）は v0.9.14a03 時点で未実装
-- BUFZ/INVZ の **output pin internal_power related:EN（no when）** も未実装
-  → enable/disable arc に紐づく active power、 別 issue で対応予定
+- BUFZ / INVZ の **input pin internal_power**（`pin(EN) when:"!I"/"I"`、 `pin(I) when:"!EN"`）と
+  three_state_enable/disable timing arc は `mylogic_comb_tristate.py` に **実装済み**。
+  INVZ の power_tin entry は ZN=!I 極性で BUFZ と対称（出力 o0 値を反転）。 invz_1 で
+  gf180 オリジナル Liberty と同じ input pin internal_power 構造を出力することを確認済み。
 - 1D template (`delay_disable`) の simulation は load 1 corner で十分だが、 現状は load=0.0 で 1 回だけ sim する fallback で済ませている（最適化済み）
 
 ---

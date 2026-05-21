@@ -177,7 +177,8 @@ Output is stable, so the standard `.MEASURE TRAN ... WHEN V(VOUT)=...` for
 
 - `tb_template` skips `.option autostop` and the `energy_start` / `energy_end` `.MEASURE TRAN` blocks.
 - `q_*` / `i_*` integrations (`q_in_dyn`, `q_rel_dyn`, `i_vdd_leak`, ...) run as in `meas_energy=2`.
-- charao sets `tsim_end = eend + 1ns` where `eend = tdelay_rel + tslew_rel` (input transition window).
+- charao sets `estart = t_rel0` and `eend = t_rel0 + tslew_rel + 1ns` (absolute time anchored
+  at `t_rel0`, not a relative `tdelay_rel + tslew_rel` window); `tsim_end = eend + 1ns`.
 - charao sets `time_energy = [estart, eend]` directly (no SPICE measurement of energy_start/end).
 - `eintl` is then computed by the same min-rail formula as power_tout.
 
@@ -189,7 +190,8 @@ load fixed at 0 pF). The result is stored in `dict_list2["eintl"][slope][0.0]`.
 ## 5. Liberty output (`myExportLib.py`)
 
 - Output pin block: existing logic emits `internal_power()` blocks for harnesses
-  whose `template_kind` is in `("power_tout", "power_c2c", "power_c2i", "power_i2c", "power_i2i")`,
+  whose `template_kind` matches `startswith(("power_tout", "power_c", "power_i"))`
+  (prefix match, covering `power_tout` / `power_c*` / `power_i*`),
   with `related_pin` set to the trigger input.
 - Input pin block: a new section emits `internal_power()` blocks for harnesses
   whose `template_kind == "power_tin"` and `target_inport == port`. `related_pin`
