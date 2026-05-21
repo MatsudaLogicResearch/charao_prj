@@ -4,6 +4,26 @@
 
 ---
 
+## [0.9.14a17] 2026-05-21
+
+Alpha pre-release. ISS-00096 解決: cell 別成果物のマージツール util_merge.py を追加。debug_run.sh のログ運用を改善。
+
+### Added
+- (ISS-00096) `charao/script/util_merge.py`: 新規。`run_each` が cell ごとに出力する .lib/.v/.md を 1 ファイルに統合
+  - 引数 = .lib/.v/.md ファイルリスト（混在可、シェルのワイルドカードで展開）、`--out <prefix>` で `<prefix>.{lib,v,md}` を生成
+  - ヘッダを date 行を除いて全ファイル照合（不一致は最初の差異行を表示して ERROR 停止）、date は引数末尾ファイルのものを採用
+  - .lib=cell ブロック / .v=`` `celldefine ``〜`` `endcelldefine `` / .md=`# Cell Infomation` 以降の `## <cell>` セクションを結合、共通部（library ヘッダ・templates / primitive 定義 / .md frontmatter+settings）は 1 回のみ出力
+  - 1 拡張子 1 file（=1 cell）の群はマージをスキップ（元ファイルをそのまま使えばよいため）
+- `debug_run.sh`: `merge` サブコマンド追加（`${RUN_NAME}/rslt_*/` の .lib/.v/.md → `${RUN_NAME}/merged.{lib,v,md}`）
+
+### Changed
+- `debug_run.sh`: sim 実行中はログを非圧縮 .log に逐次書き込み（`tail -f` で進捗確認可）、取得完了後に gzip 圧縮する方式へ変更（従来は実行中も動的 gzip）
+
+### Verified
+- util_merge.py: round-trip（1 cell split→merge で元と一致）、2-cell マージ、ヘッダ不一致検出（date 以外）、date 末尾採用、1-cell スキップ — 全項目合格
+
+---
+
 ## [0.9.14a16] 2026-05-21
 
 Alpha pre-release. LAT（level-sensitive latch）対応一式: 4 family 実装、measure 仕様（SPEC_seq_lat.md）策定、clk_init 判定の一元化、大 input slew での internal_power 0 値修正。

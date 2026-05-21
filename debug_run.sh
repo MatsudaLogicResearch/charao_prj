@@ -100,13 +100,12 @@ cmd_run_all() {
   local RSLT_PATH="${RUN_NAME:+$RUN_NAME/}rslt"
   local WORK_PATH="${RUN_NAME:+$RUN_NAME/}work"
   rm -rf "$RSLT_PATH" "$WORK_PATH"
-  local LOG="lrpymrpc_debug_batch${RUN_NAME:+_$RUN_NAME}.log.gz"
+  local LOG="lrpymrpc_debug_batch${RUN_NAME:+_$RUN_NAME}.log"
   local RUN_NAME_OPT=""
   [ -n "${RUN_NAME}" ] && RUN_NAME_OPT="--RUN_NAME ${RUN_NAME}"
   local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target sample/target ${CELLS_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${MYLOGIC_USER_OPT}"
   set -x
-  # 動的 gzip 圧縮：sim 中もリアルタイムで .log.gz に書き込み、 画面表示も維持
-  # 読み出しは zcat / zgrep / zless で透過アクセス可
+  # sim 中は非圧縮 .log に逐次書き込み（tail -f で進捗確認可）、 取得完了後に gzip 圧縮
   python -u -m lrPymRPC \
     --SERVER_IP 192.168.168.103 \
     $REPO_ARG \
@@ -115,14 +114,16 @@ cmd_run_all() {
     $SOURCE_MATCH_ARG \
     $RUN_NAME_OPT \
     --RESULT rslt work \
-    --CMD "$CMD" 2>&1 | tee >(gzip --best > "$LOG")
+    --CMD "$CMD" 2>&1 | tee "$LOG"
   { set +x; } 2>/dev/null
   echo ""
   echo "===== summary: failed-spice grep (batch log) ====="
   local n
-  n=$(zgrep -c "Failed to launch spice" "$LOG" 2>/dev/null || true)
+  n=$(grep -c "Failed to launch spice" "$LOG" 2>/dev/null || true)
   [ -z "$n" ] && n=0
   printf "  %-20s : %s failures\n" "batch${RUN_NAME:+_$RUN_NAME}" "$n"
+  # 取得完了後に gzip 圧縮（読み出しは zcat / zgrep / zless で透過アクセス可）
+  gzip -f "$LOG"
 }
 
 cmd_run_each() {
@@ -144,7 +145,7 @@ cmd_run_each() {
     local RSLT_DEST="${RUN_NAME:+$RUN_NAME/}rslt_${short}"
     local WORK_DEST="${RUN_NAME:+$RUN_NAME/}work_${short}"
     rm -rf "$RSLT_PATH" "$WORK_PATH" "$RSLT_DEST" "$WORK_DEST"
-    local LOG="lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log.gz"
+    local LOG="lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log"
     local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target sample/target --cells_only ${full} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${MYLOGIC_USER_OPT}"
     set -x
     python -u -m lrPymRPC \
@@ -155,7 +156,7 @@ cmd_run_each() {
       $SOURCE_MATCH_ARG \
       $RUN_NAME_OPT \
       --RESULT rslt work \
-      --CMD "$CMD" 2>&1 | tee >(gzip --best > "$LOG")
+      --CMD "$CMD" 2>&1 | tee "$LOG"
     { set +x; } 2>/dev/null
     [ -d "$WORK_PATH" ] && mv "$WORK_PATH" "$WORK_DEST"
     [ -d "$RSLT_PATH" ] && mv "$RSLT_PATH" "$RSLT_DEST"
@@ -164,9 +165,13 @@ cmd_run_each() {
   echo "===== summary: failed-spice grep across logs ====="
   for short in $CELLS; do
     local n
-    n=$(zgrep -c "Failed to launch spice" "lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log.gz" 2>/dev/null || true)
+    n=$(grep -c "Failed to launch spice" "lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log" 2>/dev/null || true)
     [ -z "$n" ] && n=0
     printf "  %-20s : %s failures\n" "$short" "$n"
+  done
+  # 取得完了後に gzip 圧縮（読み出しは zcat / zgrep / zless で透過アクセス可）
+  for short in $CELLS; do
+    gzip -f "lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log"
   done
 }
 
@@ -266,15 +271,32 @@ cmd_compare() {
   fi
 }
 
+cmd_merge() {
+  echo "===== merge: per-cell rslt_*/{.lib,.v,.md} -> merged.{lib,v,md} ====="
+  local glob="${RUN_NAME:+$RUN_NAME/}rslt_*"
+  local dirs=( $glob )
+  if [ ! -d "${dirs[0]}" ]; then
+    echo "merge: no ${glob}/ found (run run_each first)" >&2
+    exit 2
+  fi
+  local out="${RUN_NAME:+$RUN_NAME/}merged"
+  set -x
+  python -u -m charao.script.util_merge \
+    ${glob}/*.lib ${glob}/*.v ${glob}/*.md \
+    --out "$out"
+  { set +x; } 2>/dev/null
+}
+
 usage() {
   cat <<EOF
-Usage: $0 <clean|run_all|run_each|lib2csv_orig|lib2csv_charao|compare> ...
+Usage: $0 <clean|run_all|run_each|lib2csv_orig|lib2csv_charao|compare|merge> ...
   clean          : rm -rf rslt* work* lrpymrpc*.log
   run_all        : lrPymRPC charao run (batch: single invocation, single log)
   run_each       : lrPymRPC charao run (per-cell: loop over CELLS, per-cell log/work archive)
   lib2csv_orig   : extract orig .lib -> CSV (${ORIG_CSV_DIR})
   lib2csv_charao : extract charao .lib -> CSV (rslt/ -> tmp/charao_batch, rslt_<cell>/ -> tmp/charao_<cell>; wipes tmp/charao_* first)
   compare        : compare charao CSV vs orig CSV -> tmp/compare_<name>.csv (wipes tmp/compare_* first)
+  merge          : merge per-cell rslt_*/{.lib,.v,.md} -> merged.{lib,v,md} (run_each output)
 
 Env vars (all optional):
   MODE=pip|local            (default: pip)
@@ -306,6 +328,7 @@ for arg in "$@"; do
     lib2csv_orig)   cmd_lib2csv_orig ;;
     lib2csv_charao) cmd_lib2csv_charao ;;
     compare)        cmd_compare ;;
+    merge)          cmd_merge ;;
     *) echo "unknown arg: $arg" >&2; usage ;;
   esac
 done
