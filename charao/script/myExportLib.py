@@ -661,37 +661,33 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
     if port == "c0":
       outlines.append(f'      clock : true;')
 
-    if port in targetCell.min_pulse_width_high.keys():
-      outlines.append(f'      min_pulse_width_high : {f2s_ceil(f=targetCell.min_pulse_width_high[port], sigdigs=sigdigs)};')
-
-    if port in targetCell.min_pulse_width_low.keys():
-      outlines.append(f'      min_pulse_width_low : {f2s_ceil(f=targetCell.min_pulse_width_low[port], sigdigs=sigdigs)};')
-
-    #-- ISS-00081: min_period attribute + timing(min_pulse_width) block 追加（state 別 sim 未実装、 簡易実装）
-    #              min_period = 2 * max(mpw_high, mpw_low)：duty 50% 安全側、 大きい値が conservative
-    #              （独立 full-cycle sim は duty 決定不能のため不可能、 A 方式で確定）
-    #-- ISS-00090: 旧条件「同一 port に high と low 両方」 は CLK pin（DFF）前提で、 LAT のように
-    #   high=E pin / low=RN pin と別 pin に分かれるセルで timing(min_pulse_width) が出力されなかった。
-    #   pin ごとに high または low があれば出力する（high→rise_constraint, low→fall_constraint）。
-    #   min_period は両方ある場合のみ（duty 算出に high/low 双方が必要）。
-    _has_mpwh = port in targetCell.min_pulse_width_high.keys()
-    _has_mpwl = port in targetCell.min_pulse_width_low.keys()
-    if _has_mpwh or _has_mpwl:
-      if _has_mpwh and _has_mpwl:
-        mpw_high = targetCell.min_pulse_width_high[port]
-        mpw_low  = targetCell.min_pulse_width_low[port]
-        outlines.append(f'      min_period : {f2s_ceil(f=2*max(mpw_high, mpw_low), sigdigs=sigdigs)};')
-      outlines.append(f'      timing () {{')
-      outlines.append(f'        timing_type : "min_pulse_width";')
-      if _has_mpwh:
-        outlines.append(f'        rise_constraint(scalar) {{')
-        outlines.append(f'          values("{f2s_ceil(f=targetCell.min_pulse_width_high[port], sigdigs=sigdigs)}");')
-        outlines.append(f'        }}')
-      if _has_mpwl:
-        outlines.append(f'        fall_constraint(scalar) {{')
-        outlines.append(f'          values("{f2s_ceil(f=targetCell.min_pulse_width_low[port], sigdigs=sigdigs)}");')
-        outlines.append(f'        }}')
-      outlines.append(f'      }}')
+    #-- ISS-00082: min_pulse_width を (port,when) 別に出力。
+    #   pin attribute（min_pulse_width_high/low・min_period）は when 横断 max（worst case、 orig も併用）、
+    #   timing(min_pulse_width) block は when ごとに出力（when 空なら従来どおり when 無し block）。
+    #   high/low が別 pin に分かれるセル（LAT: high=E / low=RN）にも対応。min_period は high/low 双方ある時のみ。
+    _mpwh = {k[1]:v for k,v in targetCell.min_pulse_width_high.items() if k[0]==port}  # when -> value
+    _mpwl = {k[1]:v for k,v in targetCell.min_pulse_width_low.items()  if k[0]==port}
+    if _mpwh:
+      outlines.append(f'      min_pulse_width_high : {f2s_ceil(f=max(_mpwh.values()), sigdigs=sigdigs)};')
+    if _mpwl:
+      outlines.append(f'      min_pulse_width_low : {f2s_ceil(f=max(_mpwl.values()), sigdigs=sigdigs)};')
+    if _mpwh or _mpwl:
+      if _mpwh and _mpwl:
+        outlines.append(f'      min_period : {f2s_ceil(f=2*max(max(_mpwh.values()), max(_mpwl.values())), sigdigs=sigdigs)};')
+      for w in sorted(set(_mpwh.keys()) | set(_mpwl.keys())):
+        outlines.append(f'      timing () {{')
+        outlines.append(f'        timing_type : "min_pulse_width";')
+        if w:
+          outlines.append(f'        when  : "{targetCell.replace_by_portmap(w)}";')
+        if w in _mpwh:
+          outlines.append(f'        rise_constraint(scalar) {{')
+          outlines.append(f'          values("{f2s_ceil(f=_mpwh[w], sigdigs=sigdigs)}");')
+          outlines.append(f'        }}')
+        if w in _mpwl:
+          outlines.append(f'        fall_constraint(scalar) {{')
+          outlines.append(f'          values("{f2s_ceil(f=_mpwl[w], sigdigs=sigdigs)}");')
+          outlines.append(f'        }}')
+        outlines.append(f'      }}')
       
     ##-------------------------------------------------------------------------
     ## check timing/power infomation

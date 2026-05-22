@@ -4,6 +4,33 @@
 
 ---
 
+## [0.9.14a18] 2026-05-22
+
+Alpha pre-release. LAT lib の when 整備（ISS-00090 Phase2 / ISS-00100）、 min_pulse_width の when 対応（ISS-00082）、 ival 波形仕様の策定（ISS-00101）。
+
+### Added
+- `docs/SPEC_specify.md`: 新規。 Verilog specify 記述仕様（specify 文の種類、 tmg_when、 ifnone（`;;`）、 .lib timing block との対応）
+- `docs/SPEC_ival.md`: 新規。 ival / arc_oirc 波形仕様（ival 9 値・arc 3 値・期間定義・全条件網羅表。 ISS-00101 — mondrv_oirc/clk_role/clk_init を吸収する波形モデル）
+
+### Changed
+- (ISS-00090 Phase2) `charao/script/mylogic_seq_lat.py`: LAT 4 family の clear/preset を D×E(×RN) の when 別 entry に分割（+ ifnone=timing_default）、 setup_falling/hold_falling に when（RN/SETN/RN&SETN）付与、 min_pulse_width を D 2 分割の when 別に、 power_tin を D×E×RN×SETN の when 別に細分化（pin RN/SETN の power_tin を新規追加）
+- (ISS-00082) `charao/script/myLogicCell.py`: `min_pulse_width_high/low` の key を `(port, when)` タプル化
+- (ISS-00082) `charao/script/charao_run.py`: `set_min_pulse_width` に `when` 引数追加
+- (ISS-00082) `charao/script/myExportLib.py`: min_pulse_width を when 別 `timing(){min_pulse_width}` block で出力（pin attribute は when 横断 max）
+- (ISS-00082) `charao/script/myExportDoc.py`: `.md` の MIN PULSE WIDTH テーブルに When 列を追加
+- (ISS-00082) `charao/script/mylogic_seq_ff.py`: dffq/dffnq の min_pulse_width を D 2 分割（when `!D`/`D`）。 dffrnq の pin(CLK) も同様、 pin(RN) は暫定 4 分割（ISS-00101 待ち）
+
+### Verified
+- LAT 4 family（latq/latrnq/latsnq/latrsnq）の clear/preset/setup/hold/min_pulse_width/power_tin の when 出力が orig vendor lib と when 構成一致、 各 sim 0 failures
+- DFF dffq/dffnq の min_pulse_width when 別出力、 sim 0 failures
+
+### Known issues
+- (ISS-00101) ival 波形仕様の実装（mondrv_oirc/clk_role/clk_init 廃止、 全 mylogic リファクタ + 全セル回帰）は a19 以降
+- (ISS-00082) DFF pin(RN/SETN) の min_pulse_width when 化は ISS-00101 待ち。 dffrnq の pin(RN) entry は暫定 4 分割のまま（min_pulse_width sim 不可の状態）
+- (ISS-00099) `.v` specify の ifnone 位置（timing_when ソート起因）
+
+---
+
 ## [0.9.14a17] 2026-05-21
 
 Alpha pre-release. ISS-00096 解決: cell 別成果物のマージツール util_merge.py を追加。debug_run.sh のログ運用を改善。

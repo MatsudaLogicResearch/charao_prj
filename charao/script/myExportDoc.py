@@ -215,18 +215,21 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
     inports=[p for p in (targetCell.inports + [targetCell.clock] + targetCell.biports) if p is not None]
     
     if targetCell.min_pulse_width_high.keys() or targetCell.min_pulse_width_low.keys():
-        
+
       outlines.append(f'### MIN PULSE WIDTH')
-      outlines.append(f'| Input Pin| Width for L({targetLib.time_unit}) | Width for H({targetLib.time_unit})|')
-      outlines.append(f'|----|----|----|')
-      
-      for port in inports:
+      outlines.append(f'| Input Pin| When | Width for L({targetLib.time_unit}) | Width for H({targetLib.time_unit})|')
+      outlines.append(f'|----|----|----|----|')
+
+      # ISS-00082: min_pulse_width_high/low の key は (port, when)。 (port,when) ごとに 1 行出力
+      mpw_keys = sorted(set(targetCell.min_pulse_width_high.keys()) | set(targetCell.min_pulse_width_low.keys()))
+      for (port, when) in mpw_keys:
         port_name = targetCell.replace_by_portmap(port)
-        val_low = f2s_ceil(f=targetCell.min_pulse_width_low[port] , sigdigs=sigdigs)  if port in targetCell.min_pulse_width_low.keys()  else "-"
-        val_high= f2s_ceil(f=targetCell.min_pulse_width_high[port], sigdigs=sigdigs)  if port in targetCell.min_pulse_width_high.keys() else "-"
- 
+        when_disp = targetCell.replace_by_portmap(when) if when else "-"
+        val_low = f2s_ceil(f=targetCell.min_pulse_width_low[(port,when)] , sigdigs=sigdigs)  if (port,when) in targetCell.min_pulse_width_low  else "-"
+        val_high= f2s_ceil(f=targetCell.min_pulse_width_high[(port,when)], sigdigs=sigdigs)  if (port,when) in targetCell.min_pulse_width_high else "-"
+
         if (val_low !="-")  or (val_high !="-") :
-          outlines.append(f'| {port_name} | {val_low} | {val_high} |')
+          outlines.append(f'| {port_name} | {when_disp} | {val_low} | {val_high} |')
 
       #---
       outlines.append(f'')

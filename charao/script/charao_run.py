@@ -2075,7 +2075,7 @@ def runSpiceMinPulseMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mca
     thread.join() 
 
   #------ set min_pulse
-  mlc.set_min_pulse_width(port_name=h_min_pulse.target_relport, value=h_min_pulse.min_pulse_width, measure_type=h_min_pulse.measure_type)
+  mlc.set_min_pulse_width(port_name=h_min_pulse.target_relport, value=h_min_pulse.min_pulse_width, measure_type=h_min_pulse.measure_type, when=h_min_pulse.timing_when)
     
   ###################################################################
   return [h_min_pulse]

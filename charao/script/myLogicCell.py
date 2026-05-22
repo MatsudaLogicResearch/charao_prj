@@ -103,8 +103,8 @@ class MyLogicCell(BaseModel):
   pleak_icrs   : dict[str,float] = Field(default_factory=dict);## leakage power with input condition. pleak_icrs={"condition",val}
   pleak_cell   : float=0.0;          ## cell leakage power
 
-  min_pulse_width_low : dict[str,float] = Field(default_factory=dict); #mini_pulse_width
-  min_pulse_width_high: dict[str,float] = Field(default_factory=dict); #mini_pulse_width
+  min_pulse_width_low : dict = Field(default_factory=dict); #(port,when) -> float（ISS-00082）
+  min_pulse_width_high: dict = Field(default_factory=dict); #(port,when) -> float（ISS-00082）
   
   supress_msg  : str = None;        ## supress message
 
@@ -429,7 +429,7 @@ class MyLogicCell(BaseModel):
     return(new_str)
 
     
-  def set_min_pulse_width(self, port_name:str, value:float, measure_type:str):
+  def set_min_pulse_width(self, port_name:str, value:float, measure_type:str, when:str=""):
 
     ## check port
     if not port_name in [p for p in (self.inports + [self.clock]) if p is not None]:
@@ -443,9 +443,9 @@ class MyLogicCell(BaseModel):
       
     ## set value
     if measure_type=="min_pulse_width_high":
-      self.min_pulse_width_high[port_name] = value/self.mls.time_mag
+      self.min_pulse_width_high[(port_name,when)] = value/self.mls.time_mag
     else:
-      self.min_pulse_width_low[port_name] = value/self.mls.time_mag
+      self.min_pulse_width_low[(port_name,when)] = value/self.mls.time_mag
       
     ##
     #print(f"[Info] min_pulse_width={value} for {port_name}")

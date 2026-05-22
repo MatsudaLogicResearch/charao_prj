@@ -92,12 +92,16 @@ def get_logic_dict():
                         ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["s","s","r","r"], tmg_when="", specify=""),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"]}, mondrv_oirc=["0","0","0","0"]
                         ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["s","s","f","f"], tmg_when="", specify=""),
-             #--- min_pulse (clk) -- H pulse 完了で L 終了
+             #--- min_pulse_width_high (clk) -- D 2 分割（orig dffq: !D / D）。!D 側は t_init で D=1→Q=1 を作り t_in で D=0
+             MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"]}, mondrv_oirc=["0","0","0","0"]
+                        ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["f","f","r","r"], tmg_when="!i0", specify="$width(posedge c0, 0, 0, notifier);"),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"]}, mondrv_oirc=["1","1","0","0"]
-                        ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
-             #--- min_pulse_low (clk) -- L pulse 計測 (init H -> fall -> L -> rise)
+                        ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="i0", specify="$width(posedge c0, 0, 0, notifier);"),
+             #--- min_pulse_width_low (clk) -- D 2 分割（orig dffq: !D / D）。L pulse 計測 (init H -> fall -> L -> rise)
+             MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"]}, mondrv_oirc=["0","0","1","1"]
+                        ,meas_types=["min_pulse_width_low"],tmg_sense="non",arc_oirc=["r","r","r","f"], tmg_when="!i0", specify="$width(negedge c0, 0, 0, notifier);"),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"]}, mondrv_oirc=["1","1","1","1"]
-                        ,meas_types=["min_pulse_width_low"],tmg_sense="non",arc_oirc=["r","r","r","f"], tmg_when="", specify="$width(negedge c0, 0, 0, notifier);"),
+                        ,meas_types=["min_pulse_width_low"],tmg_sense="non",arc_oirc=["r","r","r","f"], tmg_when="i0", specify="$width(negedge c0, 0, 0, notifier);"),
              #--- leakage (4 conditions: !D&!CLK / !D&CLK / D&!CLK / D&CLK)
              MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d","u"],"i":["0"],"c":["0"]},mondrv_oirc=["0","0","0","0"]
                         ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s","s"],tmg_when="!i0&!c0", specify=""),
@@ -174,12 +178,16 @@ def get_logic_dict():
                         ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["s","s","f","f"], tmg_when="", specify=""),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"]}, mondrv_oirc=["0","0","1","1"]
                         ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["s","s","r","r"], tmg_when="", specify=""),
-             #--- min_pulse_high (clkn) -- H pulse 計測 (init L -> rise -> H pulse -> fall)
+             #--- min_pulse_width_high (clkn) -- D 2 分割（orig dffnq: !D / D）。!D 側は t_init で D=1→Q=1 を作り t_in で D=0
+             MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"]}, mondrv_oirc=["0","0","0","0"]
+                        ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["f","f","r","r"], tmg_when="!i0", specify="$width(posedge c0, 0, 0, notifier);"),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"]}, mondrv_oirc=["1","1","0","0"]
-                        ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
-             #--- min_pulse (clkn) -- L pulse 完了で H 終了
+                        ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="i0", specify="$width(posedge c0, 0, 0, notifier);"),
+             #--- min_pulse_width_low (clkn) -- D 2 分割（orig dffnq: !D / D）。L pulse 完了で H 終了
+             MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"]}, mondrv_oirc=["0","0","1","1"]
+                        ,meas_types=["min_pulse_width_low"],tmg_sense="non",arc_oirc=["f","f","f","f"], tmg_when="!i0", specify="$width(negedge c0, 0, 0, notifier);"),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"]}, mondrv_oirc=["1","1","1","1"]
-                        ,meas_types=["min_pulse_width_low"],tmg_sense="non",arc_oirc=["f","f","f","f"], tmg_when="", specify="$width(negedge c0, 0, 0, notifier);"),
+                        ,meas_types=["min_pulse_width_low"],tmg_sense="non",arc_oirc=["f","f","f","f"], tmg_when="i0", specify="$width(negedge c0, 0, 0, notifier);"),
              #--- leakage (4 conditions: !D&CLKN / !D&!CLKN / D&CLKN / D&!CLKN)  (CLKN polarity reversed vs CLK)
              MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d","u"],"i":["0"],"c":["1"]},mondrv_oirc=["0","0","0","1"]
                         ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s","s"],tmg_when="!i0&c0", specify=""),
@@ -273,15 +281,25 @@ def get_logic_dict():
                         ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["s","s","r","r"], tmg_when="", specify=""),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["0","0","0","0"]
                         ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["s","s","f","f"], tmg_when="", specify=""),
-             #--- min_pulse (clk) -- H pulse 完了で L 終了
+             #--- min_pulse_width_high (clk) -- D 2 分割（orig dffrnq: !D&RN / D&RN）
+             MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["0","0","0","0"]
+                        ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["f","f","r","r"], tmg_when="!i0&r0", specify="$width(posedge c0, 0, 0, notifier);"),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["1","1","0","0"]
-                        ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
-             #--- min_pulse_low (clk) -- L pulse 計測 (init H -> fall -> L -> rise)
+                        ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","r","r"], tmg_when="i0&r0", specify="$width(posedge c0, 0, 0, notifier);"),
+             #--- min_pulse_width_low (clk) -- D 2 分割（orig dffrnq: !D&RN / D&RN）
+             MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["0","0","1","1"]
+                        ,meas_types=["min_pulse_width_low"],tmg_sense="non",arc_oirc=["r","r","r","f"], tmg_when="!i0&r0", specify="$width(negedge c0, 0, 0, notifier);"),
              MyExpectCell(pin_oirc=["o0","i0","c0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["1","1","1","1"]
-                        ,meas_types=["min_pulse_width_low"],tmg_sense="non",arc_oirc=["r","r","r","f"], tmg_when="", specify="$width(negedge c0, 0, 0, notifier);"),
-             #--- min_pulse (reset) -- RN L pulse
+                        ,meas_types=["min_pulse_width_low"],tmg_sense="non",arc_oirc=["r","r","r","f"], tmg_when="i0&r0", specify="$width(negedge c0, 0, 0, notifier);"),
+             #--- min_pulse_width_low (reset) -- RN L pulse。CLK x D の 4 when（orig dffrnq: !CLK&!D / !CLK&D / CLK&!D / CLK&D）
+             MyExpectCell(pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["0"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["0","0","0","0"]
+                        ,meas_types=["min_pulse_width_low"] ,tmg_sense="non",arc_oirc=["f","s","f","s"], tmg_when="!c0&!i0", specify="$width(negedge r0, 0, 0, notifier);"),
              MyExpectCell(pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"r":["1"]}, mondrv_oirc=["0","1","0","0"]
-                        ,meas_types=["min_pulse_width_low"] ,tmg_sense="non",arc_oirc=["f","s","f","s"], tmg_when="", specify="$width(negedge r0, 0, 0, notifier);"),
+                        ,meas_types=["min_pulse_width_low"] ,tmg_sense="non",arc_oirc=["f","s","f","s"], tmg_when="!c0&i0", specify="$width(negedge r0, 0, 0, notifier);"),
+             MyExpectCell(pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["0"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["0","0","0","1"]
+                        ,meas_types=["min_pulse_width_low"] ,tmg_sense="non",arc_oirc=["f","s","f","s"], tmg_when="c0&!i0", specify="$width(negedge r0, 0, 0, notifier);"),
+             MyExpectCell(pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["1"],"r":["1"]}, mondrv_oirc=["0","1","0","1"]
+                        ,meas_types=["min_pulse_width_low"] ,tmg_sense="non",arc_oirc=["f","s","f","s"], tmg_when="c0&i0", specify="$width(negedge r0, 0, 0, notifier);"),
              #--- leakage (8 conditions: i0 x c0 x r0)
              MyExpectCell(pin_oirc=["o0","i0","i0","c0"], ival={"o":["d","u"],"i":["0"],"c":["0"],"r":["0"]}, mondrv_oirc=["0","0","0","0"]
                         ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["s","s","s","s"],tmg_when="!i0&!c0&!r0", specify=""),
