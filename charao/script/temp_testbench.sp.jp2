@@ -127,21 +127,21 @@ VOCAP VOUT WOUT DC 0
 ** DRIVE
 
 **** VOUT
-{% if param.val0_oirc[0] == "u" %}
+{% if param.val_oirc[0] == "u" %}
  .IC V(WOUT)={_vdd_vout}
-{% elif param.val0_oirc[0] == "d" %}
+{% elif param.val_oirc[0] == "d" %}
  .IC V(WOUT)={_vss_vout}
 {% endif %}
 
 **** WOUT pre-charge SW (ISS-00076: SW ON during _t_init0 ~ _t_init3-tslew_min)
 **** ISS-00087: tdelay_in を 1 ns に短縮（pre-force あれば D→Q 待ち padding 不要）するため、 release を _t_init3 に変更。 release から D edge (_t_in0) まで tdelay_in=1 ns の安定期間で Q の internal settle を確保
-{% if param.val0_oirc[0] in ["u","1"] %}
+{% if param.val_oirc[0] in ["u","1"] %}
 .model SW_PRECHARGE SW(Ron=0.1 Roff=1G Vt={{param.prop_vth_oirc[0]}} Vh=0.3)
 VFORCE_VAL VFORCE_VAL 0 DC {_vdd_vout}
 VPC_CTRL   VPC_CTRL   0 PWL(0 {_vss_vout} {_t_init0 - _tslew_min} {_vss_vout} {_t_init0} {_vdd_vout} {_t_init3 - _tslew_min} {_vdd_vout} {_t_init3} {_vss_vout})
 SPRECHARGE WOUT VFORCE_VAL VPC_CTRL 0 SW_PRECHARGE
 .IC V(WOUT)={_vdd_vout}
-{% elif param.val0_oirc[0] in ["d","0"] %}
+{% elif param.val_oirc[0] in ["d","0"] %}
 .model SW_PRECHARGE SW(Ron=0.1 Roff=1G Vt={{param.prop_vth_oirc[0]}} Vh=0.3)
 VFORCE_VAL VFORCE_VAL 0 DC {_vss_vout}
 VPC_CTRL   VPC_CTRL   0 PWL(0 {_vss_vout} {_t_init0 - _tslew_min} {_vss_vout} {_t_init0} {_vdd_vout} {_t_init3 - _tslew_min} {_vdd_vout} {_t_init3} {_vss_vout})
@@ -150,139 +150,133 @@ SPRECHARGE WOUT VFORCE_VAL VPC_CTRL 0 SW_PRECHARGE
 {% endif %}
 
 
-**** VIN
-{% if   param.arc_oirc[1] == "rise" %}
-VIN VIN 0 PWL({_tslew_min} {_vss_vin} {_t_in0} {_vss_vin} {_t_in1} {_vdd_vin} )
-{% elif param.arc_oirc[1] == "fall" %}
-VIN VIN 0 PWL({_tslew_min}  {_vdd_vin} {_t_in0} {_vdd_vin} {_t_in1} {_vss_vin} )
-{% elif param.val0_oirc[1] == "1" %}
-*VIN VIN 0 DC {_vdd_vin}
-VIN VIN 0 PWL({_tslew_min}  {_vdd_vin})
-{% elif param.val0_oirc[1] == "0" %}
-*VIN VIN 0 DC {_vss_vin}
-VIN VIN 0 PWL({_tslew_min}  {_vss_vin})
-{% elif param.val0_oirc[1] == "u" %}
-.IC V(VIN)={_vdd_vin}
-{% elif param.val0_oirc[1] == "d" %}
-.IC V(VIN)={_vss_vin}
-{% else %}
-*.IC V(VIN)={_vss_vin}
+**** VIN  (ISS-00101: arc_oirc[1] 一本化 4 値 0/1/r/f。 SPEC §6.2 通り p/n 不可、 u/d は input 未サポート)
+{%- if   param.arc_oirc[1] == "0" %}
+VIN VIN 0 PWL({_tslew_min} {_vss_vin} {_t_in0} {_vss_vin})
+{%- elif param.arc_oirc[1] == "1" %}
+VIN VIN 0 PWL({_tslew_min} {_vdd_vin} {_t_in0} {_vdd_vin})
+{%- elif param.arc_oirc[1] == "r" %}
+VIN VIN 0 PWL({_tslew_min} {_vss_vin} {_t_in0} {_vss_vin} {_t_in1} {_vdd_vin})
+{%- elif param.arc_oirc[1] == "f" %}
+VIN VIN 0 PWL({_tslew_min} {_vdd_vin} {_t_in0} {_vdd_vin} {_t_in1} {_vss_vin})
+{%- else %}
 VIN VIN 0 DC {_vss_vin}
-{% endif %}
+{%- endif %}
 
-*** VREL (ISS-00085: pulse 機構追加 VCLK と対称、 _t_rel2/3 で ival に戻す round trip)
-{% if   param.arc_oirc[2] == "rise" %}
-VREL VREL 0 PWL({_tslew_min}  {_vss_vrel} {_t_rel0} {_vss_vrel} {_t_rel1} {_vdd_vrel} {_t_rel2} {_vdd_vrel} {_t_rel3} {_vss_vrel})
-{% elif param.arc_oirc[2] == "fall" %}
-VREL VREL 0 PWL({_tslew_min}  {_vdd_vrel} {_t_rel0} {_vdd_vrel} {_t_rel1} {_vss_vrel} {_t_rel2} {_vss_vrel} {_t_rel3} {_vdd_vrel})
-{% elif param.val0_oirc[2] == "1" %}
-*VREL VREL 0 DC {_vdd_vrel}
-VREL VREL 0 PWL({_tslew_min}  {_vdd_vrel} )
-{% elif param.val0_oirc[2] == "0" %}
-*VREL VREL 0 DC {_vss_vrel}
-VREL VREL 0 PWL({_tslew_min}  {_vss_vrel} )
-{% elif param.val0_oirc[2] == "u" %}
-.IC V(VREL) = {_vdd_vrel}
-{% elif param.val0_oirc[2] == "d" %}
-.IC V(VREL) = {_vss_vrel}
-{% else %}
-*.IC V(VREL) = {_vss_vrel}
-VREL VREL 0 DC {_vss_vin}
-{% endif %}
+*** VREL (ISS-00101: arc_oirc[2] 一本化、 6 値 0/1/r/f/p/n 対応。 SPEC §5 通り u/d は不可)
+{%- if   param.arc_oirc[2] == "0" %}
+VREL VREL 0 PWL({_tslew_min} {_vss_vrel} {_t_rel0} {_vss_vrel})
+{%- elif param.arc_oirc[2] == "1" %}
+VREL VREL 0 PWL({_tslew_min} {_vdd_vrel} {_t_rel0} {_vdd_vrel})
+{%- elif param.arc_oirc[2] == "r" %}
+VREL VREL 0 PWL({_tslew_min} {_vss_vrel} {_t_rel0} {_vss_vrel} {_t_rel1} {_vdd_vrel})
+{%- elif param.arc_oirc[2] == "f" %}
+VREL VREL 0 PWL({_tslew_min} {_vdd_vrel} {_t_rel0} {_vdd_vrel} {_t_rel1} {_vss_vrel})
+{%- elif param.arc_oirc[2] == "p" %}
+VREL VREL 0 PWL({_tslew_min} {_vss_vrel} {_t_rel0} {_vss_vrel} {_t_rel1} {_vdd_vrel} {_t_rel2} {_vdd_vrel} {_t_rel3} {_vss_vrel})
+{%- elif param.arc_oirc[2] == "n" %}
+VREL VREL 0 PWL({_tslew_min} {_vdd_vrel} {_t_rel0} {_vdd_vrel} {_t_rel1} {_vss_vrel} {_t_rel2} {_vss_vrel} {_t_rel3} {_vdd_vrel})
+{%- else %}
+VREL VREL 0 DC {_vss_vrel}
+{%- endif %}
 
-*** VCLK
-{% if   param.val0_oirc[3] == "0" %}
- {%- if param.clk_init == "stable" %}
-VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk} 
- {%- else %}
-VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk} {_t_clk0} {_vss_vclk} {_t_clk1} {_vdd_vclk} {_t_clk2} {_vdd_vclk}
- {%- endif %}
+*** VCLK  (ISS-00101: init 部=val_oirc[3] 0/1/p/n/r/f、 計測部=arc_oirc[3] のみ、 clk_role/clk_init 廃止)
+{%- if param.val_oirc[3] != "" %}
+{%- if   param.val_oirc[3] == "0" %}
+VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk} {_t_clk0} {_vss_vclk} {_t_clk1} {_vss_vclk} {_t_clk2} {_vss_vclk} {_t_clk3} {_vss_vclk}
+{%- elif param.val_oirc[3] == "1" %}
+VCLK VCLK 0 PWL({_tslew_min} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vdd_vclk} {_t_clk2} {_vdd_vclk} {_t_clk3} {_vdd_vclk}
+{%- elif param.val_oirc[3] == "p" %}
+VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk} {_t_clk0} {_vss_vclk} {_t_clk1} {_vdd_vclk} {_t_clk2} {_vdd_vclk} {_t_clk3} {_vss_vclk}
+{%- elif param.val_oirc[3] == "n" %}
+VCLK VCLK 0 PWL({_tslew_min} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vclk} {_t_clk2} {_vss_vclk} {_t_clk3} {_vdd_vclk}
+{%- elif param.val_oirc[3] == "r" %}
+VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk} {_t_clk0} {_vss_vclk} {_t_clk1} {_vdd_vclk} {_t_clk2} {_vdd_vclk} {_t_clk3} {_vdd_vclk}
+{%- elif param.val_oirc[3] == "f" %}
+VCLK VCLK 0 PWL({_tslew_min} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vclk} {_t_clk2} {_vss_vclk} {_t_clk3} {_vss_vclk}
+{%- endif %}
 
- {%- if (param.clk_role == "related") %}
-+               {_t_clk3} {_vss_vclk} {_t_clk4} {_vss_vclk} {_t_clk5} {_vdd_vclk} {_t_clk6} {_vdd_vclk} {_t_clk7} {_vss_vclk})
- {%- elif (param.clk_role == "input") and (param.arc_oirc[3]=="rise") %}
-+               {_t_clk3} {_vss_vclk} {_t_clk4} {_vss_vclk} {_t_clk5} {_vdd_vclk} {_t_clk6} {_vdd_vclk} {_t_clk7} {_vss_vclk})
- {%- elif (param.clk_role == "input") and (param.arc_oirc[3]=="fall") %}
-+               {_t_clk3} {_vdd_vclk} {_t_clk4} {_vdd_vclk} {_t_clk5} {_vss_vclk} {_t_clk6} {_vss_vclk} {_t_clk7} {_vss_vclk})
- {%- else %}
+{#- ISS-00101: 計測部 _t_clk4 以降は arc_oirc[3]（0/1/r/f/p/n）のみで決定。 clk_role 不使用。
+   0/1=static、 r/f=rise/fall（戻さず維持）、 p/n=1 パルス（min_pulse 用）。 z/s/その他は計測部なし＝init 終値維持 #}
+{%- if   param.arc_oirc[3] == "0" %}
++               {_t_clk4} {_vss_vclk} {_t_clk5} {_vss_vclk} {_t_clk6} {_vss_vclk} {_t_clk7} {_vss_vclk})
+{%- elif param.arc_oirc[3] == "1" %}
++               {_t_clk4} {_vdd_vclk} {_t_clk5} {_vdd_vclk} {_t_clk6} {_vdd_vclk} {_t_clk7} {_vdd_vclk})
+{%- elif param.arc_oirc[3] == "r" %}
++               {_t_clk4} {_vss_vclk} {_t_clk5} {_vdd_vclk} {_t_clk6} {_vdd_vclk} {_t_clk7} {_vdd_vclk})
+{%- elif param.arc_oirc[3] == "f" %}
++               {_t_clk4} {_vdd_vclk} {_t_clk5} {_vss_vclk} {_t_clk6} {_vss_vclk} {_t_clk7} {_vss_vclk})
+{%- elif param.arc_oirc[3] == "p" %}
++               {_t_clk4} {_vss_vclk} {_t_clk5} {_vdd_vclk} {_t_clk6} {_vdd_vclk} {_t_clk7} {_vss_vclk})
+{%- elif param.arc_oirc[3] == "n" %}
++               {_t_clk4} {_vdd_vclk} {_t_clk5} {_vss_vclk} {_t_clk6} {_vss_vclk} {_t_clk7} {_vdd_vclk})
+{%- else %}
 +               )
- {%- endif %}
+{%- endif %}
+{%- else %}
+*** VCLK 未使用 (val_oirc[3]==""): _vss_vclk に固定 (ISS-00101: VCLK node の floating 防止)
+VCLK VCLK 0 DC {_vss_vclk}
 
-{% else %}
- {%- if param.clk_init == "stable" %}
-VCLK VCLK 0 PWL({_tslew_min} {_vdd_vclk}
- {%- else %}
-VCLK VCLK 0 PWL({_tslew_min} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vclk} {_t_clk2} {_vss_vclk}
- {%- endif %}
-
-{%- if (param.clk_role == "related")  %}
-+               {_t_clk3} {_vdd_vclk} {_t_clk4} {_vdd_vclk} {_t_clk5} {_vss_vclk} {_t_clk6} {_vss_vclk} {_t_clk7} {_vdd_vclk})
- {%- elif (param.clk_role == "input") and (param.arc_oirc[3]=="fall") %}
-+               {_t_clk3} {_vdd_vclk} {_t_clk4} {_vdd_vclk} {_t_clk5} {_vss_vclk} {_t_clk6} {_vss_vclk} {_t_clk7} {_vdd_vclk})
- {%- elif (param.clk_role == "input") and (param.arc_oirc[3]=="rise") %}
-+               {_t_clk3} {_vss_vclk} {_t_clk4} {_vss_vclk} {_t_clk5} {_vdd_vclk} {_t_clk6} {_vdd_vclk} {_t_clk7} {_vdd_vclk})
- {%- else %}
-+               )
- {%- endif %}
-
-{% endif %}
+{%- endif %}
 
 
 ** MEASURE
 
-{%- if   param.arc_oirc[0] in ["rise","fall"] %}
+{%- if   param.arc_oirc[0] in ["r","f"] %}
 *** output change time
 .MEASURE TRAN chg_out
-+ WHEN v(VOUT)={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={min(_t_rel0,_t_in0) - 2*_tslew_min}
++ WHEN v(VOUT)={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_rel0,_t_in0) - 2*_tslew_min}
 {%- endif %}
 
-{%- if   (param.arc_oirc[0] in ["rise","fall"]) and (param.arc_oirc[2] in ["rise","fall"]) %}
-*** Prop delay (rel->out)
+{%- if   (param.arc_oirc[0] in ["r","f"]) and (param.arc_oirc[2] in ["r","f","p","n"]) %}
+*** Prop delay (rel->out)  # ISS-00101: arc[2]=p/n（pulse）でも VREL 最初の rise/fall を TRIG として有効。 min_pulse 等で必要
 .MEASURE TRAN prop_rel_out
-+ TRIG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
-+ TARG v(VOUT) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
++ TRIG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc4measure[2]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
++ TARG v(VOUT) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
 {%- endif %}
 
-{%- if   (param.arc_oirc[0] in ["rise","fall"]) and (param.arc_oirc[1] in ["rise","fall"]) %}
-*** Prop delay (in->out) -- 汎用 in->out delay。 現状 lat_setup/lat_hold で使用、 combinational delay にも適用可
+{%- if   (param.arc_oirc[0] in ["r","f"]) and (param.arc_oirc[1] in ["r","f"]) and (param.pin_oirc[1] != "") and (param.pin_oirc[2] != "") and (param.pin_oirc[1] != param.pin_oirc[2]) %}
+*** Prop delay (in->out) -- LAT setup/hold 用（input pin と rel pin が別 pin の場合のみ）。 combinational では prop_rel_out を使用
 .MEASURE TRAN prop_in_out
-+ TRIG v(VIN)  VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc[1]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
-+ TARG v(VOUT) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
++ TRIG v(VIN)  VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc4measure[1]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
++ TARG v(VOUT) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
 {%- endif %}
 
-{%- if  param.arc_oirc[0] in ["rise","fall"] %}
+{%- if  param.arc_oirc[0] in ["r","f"] %}
 *** Trans delay
 .MEASURE TRAN trans_out
-+ TRIG v(VOUT) VAL={{param.tran_v0_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={min(_t_rel0,_t_in0) - 2*_tslew_min}
-+ TARG v(VOUT) VAL={{param.tran_v1_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={min(_t_rel0,_t_in0) - 2*_tslew_min}
++ TRIG v(VOUT) VAL={{param.tran_v0_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_rel0,_t_in0) - 2*_tslew_min}
++ TARG v(VOUT) VAL={{param.tran_v1_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_rel0,_t_in0) - 2*_tslew_min}
 {%- endif %}
 
-{%-if (param.arc_oirc[1] in ["rise","fall"]) and (param.arc_oirc[2] in ["rise","fall"])%}
+{%-if (param.arc_oirc[1] in ["r","f"]) and (param.arc_oirc[2] in ["r","f"])%}
 *** setup/recovery
 .MEASURE TRAN setup_in_rel
-+ TRIG v(VIN)  VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc[1]}}=1 TD={_t_clk3 - 2*_tslew_min}
-+ TARG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_clk3 - 2*_tslew_min}
++ TRIG v(VIN)  VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc4measure[1]}}=1 TD={_t_clk3 - 2*_tslew_min}
++ TARG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc4measure[2]}}=1 TD={_t_clk3 - 2*_tslew_min}
 
 *** hold/removal
 .MEASURE TRAN hold_rel_in
-+ TRIG v(VREL)  VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_clk3 - 2*_tslew_min}
-+ TARG v(VIN)   VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc[1]}}=1 TD={_t_clk3 - 2*_tslew_min}
++ TRIG v(VREL)  VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc4measure[2]}}=1 TD={_t_clk3 - 2*_tslew_min}
++ TARG v(VIN)   VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc4measure[1]}}=1 TD={_t_clk3 - 2*_tslew_min}
 {%- endif %}
 
 {%- if   param.meas_energy in [1,2] %}
 *** energy time
 .MEASURE TRAN energy_start
-+ WHEN V(VREL)={{param.ener_v0_oirc[2]}} {{param.arc_oirc[2]}}=1 TD={_t_rel0 - 2*_tslew_min}
++ WHEN V(VREL)={{param.ener_v0_oirc[2]}} {{param.arc_oirc4measure[2]}}=1 TD={_t_rel0 - 2*_tslew_min}
 
 .MEASURE TRAN energy_end
-+ WHEN V(VOUT)={{param.ener_v1_oirc[0]}} {{param.arc_oirc[0]}}=1 TD={_t_rel0 - 2*_tslew_min}
++ WHEN V(VOUT)={{param.ener_v1_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={_t_rel0 - 2*_tslew_min}
 {%- endif %}
 
 {%- if   param.meas_energy in [2,4,5] %}
 *** In/Out Q, Capacitance 
 .MEASURE TRAN q_rel_dyn INTEG I(VREL)  FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 .MEASURE TRAN q_in_dyn  INTEG I(VIN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+{%- if param.val_oirc[3] != "" %}
 .MEASURE TRAN q_clk_dyn INTEG I(VCLK)  FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+{%- endif %}
 .MEASURE TRAN q_out_dyn INTEG I(VOCAP) FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 
 *** Energy (Total charge, Short-Circuit Charge)
@@ -299,10 +293,14 @@ VCLK VCLK 0 PWL({_tslew_min} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_v
 .MEASURE TRAN i_vddio_leak AVG I(VDDIO_DYN) FROM={_t_in0 - 101*_tslew_min} TO={_t_in0 - 1*_tslew_min}
 .MEASURE TRAN i_vssio_leak AVG I(VSSIO_DYN) FROM={_t_in0 - 101*_tslew_min} TO={_t_in0 - 1*_tslew_min}
 
-* Gate leak current 
+* Gate leak current
+* ISS-00110: 計測対象は pin_oirc[2] = VREL の slew 期間に統一。 i_in_leak (VIN slew 期間) は廃止。
+*           VIN stable な entry（LATCH power_tin pin(E) 等）で _t_in0 == _t_in1 → MEASURE out-of-interval エラー回避のため。
 .MEASURE TRAN i_rel_leak AVG I(VREL) FROM={_t_rel0} TO={_t_rel1}
-.MEASURE TRAN i_in_leak  AVG I(VIN)  FROM={_t_in0}  TO={_t_in1}
+*.MEASURE TRAN i_in_leak  AVG I(VIN)  FROM={_t_in0}  TO={_t_in1}
+{%- if param.val_oirc[3] != "" %}
 .MEASURE TRAN i_clk_leak AVG I(VCLK) FROM={_t_rel0} TO={_t_rel1}
+{%- endif %}
 
 {%- elif   param.meas_energy == 3 %}
 * Gate leak current

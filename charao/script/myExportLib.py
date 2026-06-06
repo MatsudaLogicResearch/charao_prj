@@ -121,6 +121,10 @@ def exportLib(targetLib:Mls):
 
   outlines.append(f'  voltage_map ("{targetLib.vdd_name}", {targetLib.vdd_voltage});')
   outlines.append(f'  voltage_map ("{targetLib.vss_name}", {targetLib.vss_voltage});')
+  if targetLib.nwell_name:
+    outlines.append(f'  voltage_map ("{targetLib.nwell_name}", {targetLib.nwell_voltage});')
+  if targetLib.pwell_name:
+    outlines.append(f'  voltage_map ("{targetLib.pwell_name}", {targetLib.pwell_voltage});')
   #outlines.append(f'  voltage_map (GND , {targetLib.vss_voltage});')
   
   outlines.append(f'  default_cell_leakage_power : 0;')
@@ -280,13 +284,27 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
 
   h_list_pre = [h for h in harnessList if h.template_kind.startswith(("leakage"))]
   h_list     = sorted(h_list_pre, key=lambda x: (x.timing_when));
-    
+
+  # ISS-00116: related_pg_pin の vdd 逆引き
+  rvs_dict_leak = {v:k for k,v in targetCell.ports_dict.items()}
+  vdd_pin_leak = rvs_dict_leak.get("vdd", targetLib.vdd_name)
+
   if len(h_list) > 0:
     for h in h_list:
       outlines.append(f'    leakage_power() {{')
       #outlines.append(f'      power_level : "CORE_VOLTAGE;"')
-      outlines.append(f'      when : "{targetCell.replace_by_portmap(h.timing_when)}";')
+      outlines.append(f'      related_pg_pin : "{vdd_pin_leak}";')
+      if h.timing_when:
+        outlines.append(f'      when : "{targetCell.replace_by_portmap(h.timing_when)}";')
       outlines.append(f'      value : {f2s_ceil(f=h.pleak/targetLib.leakage_power_mag,sigdigs=sigdigs)};')
+      outlines.append(f'    }}')
+
+    # ISS-00116: default leakage_power() block (when なし、 同 related_pg_pin の max value)
+    if any(h.mec.power_default for h in h_list):
+      max_pleak = max(h.pleak for h in h_list)
+      outlines.append(f'    leakage_power() {{')
+      outlines.append(f'      related_pg_pin : "{vdd_pin_leak}";')
+      outlines.append(f'      value : {f2s_ceil(f=max_pleak/targetLib.leakage_power_mag,sigdigs=sigdigs)};')
       outlines.append(f'    }}')
  
   
@@ -326,23 +344,37 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
 
   outlines = []
   ### PG infomation
+  rvs_dict = {v:k for k,v in targetCell.ports_dict.items()}
   for port in [p for p in (targetCell.vports ) if p is not None]:
-    #-- VDD/VSS/VDD1/VSS1/VDDIO/VSSIO
-    pin_name=targetCell.replace_by_portmap(port)        
-    outlines.append(f'    pg_pin ({pin_name}){{') ## 
-    if port.startswith("vdd"): 
-      outlines.append(f'      pg_type : "primary_power";')
+    #-- VDD/VSS/VDD1/VSS1/VDDIO/VSSIO/VNW/VPW
+    pin_name=targetCell.replace_by_portmap(port)
+    outlines.append(f'    pg_pin ({pin_name}){{') ##
+    if port == "vnw":
+      pg_type = "nwell"
+    elif port == "vpw":
+      pg_type = "pwell"
+    elif port.startswith("vdd"):
+      pg_type = "primary_power"
     else:
-      outlines.append(f'      pg_type : "primary_ground";')
+      pg_type = "primary_ground"
+    outlines.append(f'      pg_type : "{pg_type}";')
 
     outlines.append(f'      voltage_name : "{pin_name}";')
     outlines.append(f'      direction : "inout";')
+
+    if port == "vdd" and "vnw" in rvs_dict:
+      outlines.append(f'      related_bias_pin : {rvs_dict["vnw"]};')
+    elif port == "vss" and "vpw" in rvs_dict:
+      outlines.append(f'      related_bias_pin : {rvs_dict["vpw"]};')
+
+    if pg_type in ("nwell", "pwell"):
+      outlines.append(f'      physical_connection : device_layer;')
 
     if port in targetCell.pad_infos.keys():
       for k,v in targetCell.pad_infos[port].items():
         if v:
           outlines.append(f'      {k} : {targetCell.replace_by_portmap(v)};')
-          
+
     outlines.append(f'    }}')
   
 
@@ -512,7 +544,8 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
 
       #-- when
       if h1.timing_when != "":
-        outlines.append(f'        when  : "{targetCell.replace_by_portmap(h1.timing_when).replace("&"," ")}";')
+        #outlines.append(f'        when  : "{targetCell.replace_by_portmap(h1.timing_when).replace("&"," ")}";')  # ISS-00115
+        outlines.append(f'        when  : "{targetCell.replace_by_portmap(h1.timing_when)}";')
 
       ## rise(fall)
       for h in group_list:
@@ -609,7 +642,8 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       ## related_pin omitted (Liberty default = same biport)
 
       if timing_when != "":
-        outlines.append(f'        when  : "{targetCell.replace_by_portmap(timing_when).replace("&"," ")}";')
+        #outlines.append(f'        when  : "{targetCell.replace_by_portmap(timing_when).replace("&"," ")}";')  # ISS-00115
+        outlines.append(f'        when  : "{targetCell.replace_by_portmap(timing_when)}";')
 
       for h in group_list:
         t = h.template
@@ -711,9 +745,10 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       size=len(group_list)
       print(f"  [INFO] group(const): target={port}, relport={target_relport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
 
-      size_exp=1 if timing_type in ["removal_rising","removal_falling","recovery_rising","recovery_falling"] else 2
-      if size != size_exp: ## pair of fall/rise
-        print(f"Error: len(group) is not {size_exp}(={size}) @{timing_type}")
+      ## ISS-00121: dummy entry 追加で size > size_exp になり得るため、 空のみ error に緩和。
+      ##   rep のみ lut["setup_hold"] を持ち、 aux (dummy) は空 list → L781 ループで skip。
+      if size < 1:
+        print(f"Error: len(group) is 0 @{timing_type}")
         my_exit()
 
       ## check
@@ -745,12 +780,15 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
 
       ## constraint
       for h in group_list:
+        ## ISS-00121: aux (dummy) は lut["setup_hold"] が空 → skip。 rep のみ出力。
+        if not h.lut["setup_hold"]:
+          continue
         t=h.template
         outlines.append(f'        {h.constraint } ({t.kind + "_template_" + t.grid }) {{')
-          
+
         for lut_line in h.lut["setup_hold"]:
           outlines.append(f'          {lut_line}')
-        outlines.append(f'        }}') 
+        outlines.append(f'        }}')
 
       outlines.append(f'      }}') ## timing end
 
@@ -786,7 +824,8 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       
       #-- when
       if h1.timing_when != "":
-        outlines.append(f'        when  : "{targetCell.replace_by_portmap(h1.timing_when).replace("&"," ")}";')
+        #outlines.append(f'        when  : "{targetCell.replace_by_portmap(h1.timing_when).replace("&"," ")}";')  # ISS-00115
+        outlines.append(f'        when  : "{targetCell.replace_by_portmap(h1.timing_when)}";')
 
       ## rise(fall)
       for h in group_list:
@@ -820,7 +859,8 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
 
       ## when
       if timing_when != "":
-        outlines.append(f'        when  : "{targetCell.replace_by_portmap(timing_when).replace("&"," ")}";')
+        #outlines.append(f'        when  : "{targetCell.replace_by_portmap(timing_when).replace("&"," ")}";')  # ISS-00115
+        outlines.append(f'        when  : "{targetCell.replace_by_portmap(timing_when)}";')
 
       ## rise / fall (input direction)
       for h in group_list:

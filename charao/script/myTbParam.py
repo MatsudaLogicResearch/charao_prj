@@ -41,7 +41,9 @@ class MyTbParam:
   pullres      :float      =1000;
   pullres_gate :str        ="driver.ngate";
   arc_oirc     :list[str]=Field(default_factory=list);
-  val0_oirc    :list[str]=Field(default_factory=list);
+  arc_oirc4measure :list[str]=Field(default_factory=list);  # ISS-00101: r→rise, f→fall。.MEASURE TRAN edge spec 用
+  pin_oirc     :list[str]=Field(default_factory=list);  # ISS-00101: pin name (o0/i0/r0/s0/c0 等) を testbench に渡す
+  val_oirc    :list[str]=Field(default_factory=list);
 
   clk_role     :str        ="nouse"; # nouse/related/input
   clk_init     :str        ="pulse"; # pulse (default) or stable (for LAT combinational arc)
@@ -171,18 +173,23 @@ class MyTbParam:
                         h.mls.energy_meas_low_threshold_voltage  if arc_oirc[1]=="r" else h.mls.energy_meas_high_threshold_voltage,
                         h.mls.energy_meas_low_threshold_voltage  if arc_oirc[2]=="r" else h.mls.energy_meas_high_threshold_voltage,
                         h.mls.energy_meas_low_threshold_voltage  if arc_oirc[3]=="r" else h.mls.energy_meas_high_threshold_voltage]
-     
+
     self.ener_v1_oirc =[h.mls.energy_meas_high_threshold_voltage  if arc_oirc[0]=="r" else h.mls.energy_meas_low_threshold_voltage,
                         h.mls.energy_meas_high_threshold_voltage  if arc_oirc[1]=="r" else h.mls.energy_meas_low_threshold_voltage,
                         h.mls.energy_meas_high_threshold_voltage  if arc_oirc[2]=="r" else h.mls.energy_meas_low_threshold_voltage,
                         h.mls.energy_meas_high_threshold_voltage  if arc_oirc[3]=="r" else h.mls.energy_meas_low_threshold_voltage]
   
-    self.arc_oirc     =["rise" if arc_oirc[0]=="r" else "fall" if arc_oirc[0]=="f" else "none",
-                        "rise" if arc_oirc[1]=="r" else "fall" if arc_oirc[1]=="f" else "none",
-                        "rise" if arc_oirc[2]=="r" else "fall" if arc_oirc[2]=="f" else "none",
-                        "rise" if arc_oirc[3]=="r" else "fall" if arc_oirc[3]=="f" else "none"]
-    
-    self.val0_oirc    =[h.target_outport_val,h.target_inport_val,h.target_relport_val,h.target_clkport_val]
+    #-- ISS-00101: arc_oirc は生の値（r/f/0/1/z、 移行期 s、 pin なし ""）のまま渡す。
+    #   rise/fall への変換は廃止（temp_testbench 側で r/f/0/1/z を直接判定）。
+    self.arc_oirc     =list(arc_oirc)
+    # .MEASURE TRAN edge spec 用（r/p→rise / f/n→fall、 他は素通し）
+    # ISS-00101: p (pos pulse) は最初の rise edge、 n (neg pulse) は最初の fall edge を TRIG として扱う
+    _edge_map = {"r": "rise", "f": "fall", "p": "rise", "n": "fall"}
+    self.arc_oirc4measure = [_edge_map.get(v, v) for v in arc_oirc]
+    # ISS-00101: pin name を testbench に渡す（pin_oirc[1] vs [2] の異同で prop_in_out 生成判定）
+    self.pin_oirc     =list(h.mec.pin_oirc)
+
+    self.val_oirc    =[h.target_outport_val,h.target_inport_val,h.target_relport_val,h.target_clkport_val]
 
 
     #--
@@ -192,6 +199,25 @@ class MyTbParam:
     elif h.timing_type == "three_state_disable":
       v = h.mls.sim_pullres_io_disable if h.mlc.isio else h.mls.sim_pullres_std_disable
       self.pullres = float("{:.5g}".format(v * h.mls.resistance_mag))
+
+
+  def update_ener_thresholds_for_e1(self, arc_oirc:list[str], mls):
+    """ISS-00117: meas_energy=1 (energy1: estart/eend 抽出のみ) 用の閾値補正。
+    energy1 で eend を「VOUT が VDD 完全 settle した時刻」 として取得することで、
+    energy2 の tsim_end が VOUT settle 後まで延長 → 余計な ramping 区間での ngspice 収束失敗を回避。
+
+    呼出順序：param.meas_energy=1 設定後、 set_common_value 完了後に呼び、 ener_v0_oirc/ener_v1_oirc を上書きする。
+
+    閾値仕様（係数 1%、 1.01 × high = VDD ちょうど到達まで広げる）：
+      arc_oirc[i]=="r" (rise): v0=low (現状) / v1=1.01×high (VDD 完全到達まで)
+      arc_oirc[i]!="r" (fall): v0=0.99×high (緩めに高値検出) / v1=0.99×low (緩めに低値検出)
+
+    制約（myLibrarySetting.py で守る）：
+      energy_meas_low_threshold  >= 0.01  → 0.99×low が負電圧化しない
+      energy_meas_high_threshold <= 0.99  → 1.01×high が VDD 超過しない
+    """
+    self.ener_v0_oirc =[mls.energy_meas_low_threshold_voltage      if arc_oirc[i]=="r" else 0.99*mls.energy_meas_high_threshold_voltage for i in range(4)]
+    self.ener_v1_oirc =[1.01*mls.energy_meas_high_threshold_voltage if arc_oirc[i]=="r" else 0.99*mls.energy_meas_low_threshold_voltage  for i in range(4)]
 
 
   def write_pinmap_if_enabled(self, sim_dir:str):

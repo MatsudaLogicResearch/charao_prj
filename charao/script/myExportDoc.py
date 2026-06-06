@@ -251,14 +251,17 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
           size=len(group_list)
         
           for g in group_list:
+            ## ISS-00121: aux (dummy) は dict_list2["setup_hold"] が未設定 → skip。 rep のみ出力。
+            if "setup_hold" not in g.dict_list2:
+              continue
             index1_pos=len(g.template.index_1)//2
             index2_pos=len(g.template.index_2)//2
             index1_val=g.template.index_1[index1_pos]
             index2_val=g.template.index_2[index2_pos]
-          
+
             const_arc=constraint.replace('_constraint',"")
             rel_arc  =timing_type.replace(setup_hold+"_","")
-          
+
             const_pin=f'{targetCell.replace_by_portmap(inport)}({const_arc})'
             rel_pin  =f'{targetCell.replace_by_portmap(relport)}({rel_arc})'
             const_slew=index2_val

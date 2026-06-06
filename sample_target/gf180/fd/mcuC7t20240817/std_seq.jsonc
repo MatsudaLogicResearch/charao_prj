@@ -5,7 +5,7 @@
 // This configuration file is licensed under the MIT License.
 //===================================================================
 {
-"spice_path":"./sample/src/gf180mcuC/libs.ref/gf180mcu_fd_sc_mcu7t5v0/spice",
+"spice_path":"./sample_src/gf180mcuC/libs.ref/gf180mcu_fd_sc_mcu7t5v0/spice",
 
 "cell_info": [
   // [Info] The order of "ports_dict" is same as the order of pin-list in the spice file.

@@ -16,6 +16,8 @@
 #   INDEX2="0 9"              # unset -> no --template_index2_only (all idx2)
 #   COMPARE_INTERPOLATE=0|1   # default: 1 (--interpolate on)
 #   (INDEX1/INDEX2 とも未設定で全 grid 実行時は --keep_zero_new 自動付与)
+#   SRC_DIR="sample_src"      # default: sample_src (PDK SPICE / lib 等の src 群)
+#   TARGET_DIR="sample_target"# default: sample_target。旧版 sim 比較時は old_target に切替
 #
 # Examples:
 #   # 2x2 corners, all cells, local charao, then extract + compare
@@ -23,6 +25,12 @@
 #
 #   # Full flow including orig lib extract (first time)
 #   bash debug_run.sh lib2csv_orig lib2csv_charao compare
+#
+#   # 旧 vs 新 sim 比較 (corner x1):
+#   #   新版: MODE=local + sample_target (default)
+#   INDEX1="9" INDEX2="9" CELLS="inv_1" MODE=local RUN_NAME=run_new bash debug_run.sh clean run_each
+#   #   旧版: MODE=pip + TARGET_DIR=old_target
+#   INDEX1="9" INDEX2="9" CELLS="inv_1" MODE=pip  TARGET_DIR=old_target RUN_NAME=run_old bash debug_run.sh run_each
 
 # Activate venv if available (no-op when already activated or absent)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -36,8 +44,12 @@ set -e
 # 全 cmd_* で ${RUN_NAME} を直接参照（RUN_NAME 指定時 ./<name>/rslt、 指定なし ./run/rslt）
 RUN_NAME="${RUN_NAME:-run}"
 
+# SRC_DIR / TARGET_DIR: charao の src / target dir。 旧版 sim 比較は TARGET_DIR=old_target で切替
+SRC_DIR="${SRC_DIR:-sample_src}"
+TARGET_DIR="${TARGET_DIR:-sample_target}"
+
 LIB_FILE="gf180CB5P00fdmcuC7t20240817_TTV5P00C25_b00.lib"
-ORIG_LIB="sample/src/gf180mcuC/libs.ref/gf180mcu_fd_sc_mcu7t5v0/lib/gf180mcu_fd_sc_mcu7t5v0__tt_025C_5v00.lib"
+ORIG_LIB="${SRC_DIR}/gf180mcuC/libs.ref/gf180mcu_fd_sc_mcu7t5v0/lib/gf180mcu_fd_sc_mcu7t5v0__tt_025C_5v00.lib"
 ORIG_CSV_DIR="tmp/gf180_fd_mcuC7t20240817/tt_025C_5v00"
 
 _setup_args() {
@@ -51,6 +63,8 @@ _setup_args() {
   [ -n "${MEAS_ONLY}" ] && MEAS_ONLY_OPT="--measures_only ${MEAS_ONLY}"
   WAVE_RAW_OPT=""
   [ -n "${WAVE_RAW}" ] && WAVE_RAW_OPT="--wave_raw"
+  DEBUG_STOP_OPT=""
+  [ -n "${DEBUG_STOP}" ] && DEBUG_STOP_OPT="--debug_stop ${DEBUG_STOP}"   # ISS-00118 debug: stop after N sp
 
   # mylogic_user.py をプロジェクトルート直下から自動検出（v0.9.14 以降は通常不要）
   MYLOGIC_USER_OPT=""
@@ -65,13 +79,13 @@ _setup_args() {
   if [ "$MODE_" = "local" ]; then
     CHARAO_CMD="python3 -m charao.script.charao"
     REPO_ARG="--REPO_URL jsoncomment=jsoncomment,pydantic=pydantic,numpy=numpy,jinja2=jinja2"
-    SOURCE_ARG="--SOURCE sample ${MYLOGIC_USER_SOURCE} charao"
+    SOURCE_ARG="--SOURCE ${SRC_DIR} ${TARGET_DIR} ${MYLOGIC_USER_SOURCE} charao"
     SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE .spice .ngspice .sp .jsonc .py .jp2"
     SOURCE_MATCH_ARG="--SOURCE_MATCH gf180 ${MYLOGIC_USER_MATCH} charao"
   else
     CHARAO_CMD="python3 -m charao"
     REPO_ARG="--REPO_URL charao=git+https://github.com/MatsudaLogicResearch/charao_prj.git"
-    SOURCE_ARG="--SOURCE sample ${MYLOGIC_USER_SOURCE}"
+    SOURCE_ARG="--SOURCE ${SRC_DIR} ${TARGET_DIR} ${MYLOGIC_USER_SOURCE}"
     SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE .spice .ngspice .sp .jsonc .py"
     SOURCE_MATCH_ARG="--SOURCE_MATCH gf180 ${MYLOGIC_USER_MATCH}"
   fi
@@ -103,7 +117,7 @@ cmd_run_all() {
   local LOG="lrpymrpc_debug_batch${RUN_NAME:+_$RUN_NAME}.log"
   local RUN_NAME_OPT=""
   [ -n "${RUN_NAME}" ] && RUN_NAME_OPT="--RUN_NAME ${RUN_NAME}"
-  local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target sample/target ${CELLS_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${MYLOGIC_USER_OPT}"
+  local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target ${TARGET_DIR} ${CELLS_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}"
   set -x
   # sim 中は非圧縮 .log に逐次書き込み（tail -f で進捗確認可）、 取得完了後に gzip 圧縮
   python -u -m lrPymRPC \
@@ -146,7 +160,7 @@ cmd_run_each() {
     local WORK_DEST="${RUN_NAME:+$RUN_NAME/}work_${short}"
     rm -rf "$RSLT_PATH" "$WORK_PATH" "$RSLT_DEST" "$WORK_DEST"
     local LOG="lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log"
-    local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target sample/target --cells_only ${full} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${MYLOGIC_USER_OPT}"
+    local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target ${TARGET_DIR} --cells_only ${full} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}"
     set -x
     python -u -m lrPymRPC \
       --SERVER_IP 192.168.168.103 \

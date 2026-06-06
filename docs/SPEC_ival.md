@@ -41,48 +41,68 @@ testbench の時間軸を 3 期間に分ける：
 | `r` | reset | [2] | 非同期リセット（related の一種）|
 | `s` | set | [2] | 非同期セット（related の一種）|
 | `c` | clock | [3] | クロックピン |
+| `b` | biport | [0]/[1]/[2] | 双方向ピン（inout、 bus_hold 等）。 同一 pin を output/input/related スロット全部に置く |
 
 `c` / `r` / `s` は**遷移型信号**で、 `pin_oirc[3]`（clock スロット）にも使える。
+`b`（biport）は output/input/related を兼ねる単一 net。 ival キーは独自に `"b"`、 値は `0`/`1` のみ使用可能（例：`ival={"o":[],"i":[],"b":["0"]}`）。 HOLD 等の bus_hold セル用。
 
 ---
 
 ## 4. ival 値定義（確定）
 
-| ival 値 | init 前半<br>（0〜_t_init1）| init 後半<br>（_t_init2〜_t_init3）| o | c,r,s | i | 用途 |
-|---------|------|------|----|-------|----|------|
-| `0` | L | L | ○ | ○ | ○ | L 固定 |
-| `1` | H | H | ○ | ○ | ○ | H 固定 |
-| `r` | L | H |  | ○ | ○ | init 内 rise（_t_init1〜2 で遷移）|
-| `f` | H | L |  | ○ | ○ | init 内 fall |
-| `p` | L→H | H→L |  | ○ |  | pos-edge clock の pulse（clk_init=pulse）|
-| `n` | H→L | L→H |  | ○ |  | neg-edge clock の pulse |
-| `u` | open | open + `.IC`=H | ○ |  | ○ | bidir/tri-state（H 初期）|
-| `d` | open | open + `.IC`=L | ○ |  | ○ | bidir/tri-state（L 初期）|
-| `z` | open | open（純 Hi-Z）| ○ |  | ○ | bidir/tri-state（Hi-Z）|
+| ival 値 | init 前半<br>（0〜_t_init1）| init 後半<br>（_t_init2〜_t_init3）| output[0] | input[1] | clock[3] | related[2]＝r/s | 用途 |
+|---------|------|------|----|----|----|----|------|
+| `0` | L | L | ○ | ○ | ○ | ○ | L 固定 |
+| `1` | H | H | ○ | ○ | ○ | ○ | H 固定 |
+| `r` | L | H |  |  | ○ |  | clock init 内 rise（_t_init1〜2 で遷移）|
+| `f` | H | L |  |  | ○ |  | clock init 内 fall |
+| `p` | L→H | H→L |  |  | ○ |  | pos-edge pulse（旧 `clk_init=pulse` 相当）|
+| `n` | H→L | L→H |  |  | ○ |  | neg-edge pulse |
+| `u` | H 強制 | H 強制 | ○ | ○ |  |  | Hi-Z を `.IC`＋pre-charge SW で H 初期化 |
+| `d` | L 強制 | L 強制 | ○ | ○ |  |  | Hi-Z を `.IC`＋pre-charge SW で L 初期化 |
+| `z` | open | open（純 Hi-Z）| ○ |  |  |  | 純 Hi-Z（`.IC`/SW なし）|
 
 **ポートタイプ列の意味**：
-- `o` = output（`pin_oirc[0]`）
-- `c,r,s` = 遷移型信号 clock / reset / set（`pin_oirc[2]` related・`pin_oirc[3]` clock）
-- `i` = input（clock/reset/set 以外、 `pin_oirc[1]`）
+- `output[0]` = `pin_oirc[0]`
+- `input[1]` = `pin_oirc[1]`（clock/reset/set 以外）
+- `clock[3]` = `pin_oirc[3]`
+- `related[2]` = `pin_oirc[2]`（reset/set。 VREL は遷移できないので `ival` は `0`/`1` のみ）
+- `biport[0]/[1]/[2]` = `pin_oirc[0]=[1]=[2]` 同一 pin。 ival キーは `"b"` を使用、 値は `0`/`1` のみ
 
 **補足**：
-- `r`/`f`：前半・後半で値固定、 遷移は期間境界（`_t_init1`〜`_t_init2`）
-- `p`/`n`：各期間内で遷移（`p` = 前半 rise ＋ 後半 fall）。 clock 専用
-- `o`（output）に `r`/`f`/`p`/`n` は現状未使用
-- `u`/`d`/`z` は driver を接続せず `.IC` で初期化（bidir/tri-state 用）
+- `r`/`f`：前半・後半で値固定、 遷移は期間境界（`_t_init1`〜`_t_init2`）。 **clock 専用**（VIN/VREL は遷移不可）
+- `p`/`n`：各期間内で遷移（`p` = 前半 rise ＋ 後半 fall）。 **clock 専用**（旧 `clk_init=pulse` を吸収）
+- `u`/`d`：output/input のみ。 related は `0`/`1` のみで `u`/`d` 不可
+- `z`：output のみ。 input/related の `z` は未サポート（ISS-00102）
+- `u`/`d`：driver は接続しないが、 output（`pin_oirc[0]`）が Hi-Z でも `.meas` を成立させるため、
+  `.IC` と pre-charge SW（ISS-00076、 `u`=`"1"` 群／`d`=`"0"` 群）で WOUT を H/L に初期化する。
+  input/related の `u`/`d` は VIN/VREL を `.IC` で H/L 初期化（pre-charge SW なし）。
+- `z`：`.IC` も pre-charge SW も接続しない純 Hi-Z（外部からの初期化なし）。
+- **biport (`b`)**：HOLD 等 bus_hold セル用。 ival キー `"b"` に `0`/`1` のみ指定可（`r`/`f`/`p`/`n`/`u`/`d`/`z` 使用不可）。 単一 net を VIN/VREL/WOUT 全てに割り当て、 弱駆動素子（bus_hold）の動作を観測する。
+- pull 抵抗（`pullres_role`、 §6.4）は `ival` とは独立した別機構で、 `u`/`d`/`z` とは無関係。
 
 ---
 
 ## 5. arc_oirc 値定義（確定）
 
-| arc 値 | 意味 | 適応期間 |
-|--------|------|----------|
-| `r` | rise（L→H）| input→`_t_in`、 related→`_t_rel`、 clock→`_t_clk4` 以降 |
-| `f` | fall（H→L）| 同上 |
-| `s` | static（遷移なし）| — |
+`arc_oirc` は計測フェーズ（input→`_t_in`、 related→`_t_rel`、 clock→`_t_clk4` 以降）の
+各 pin の挙動を表す。 旧 `s`（static）は計測フェーズ値が init 終値依存だったため廃止し、
+`0`/`1` で計測フェーズの静的値を**明示**する。
 
-`ival` の `r`/`f`（init 内遷移）と `arc_oirc` の `r`/`f`（計測フェーズ遷移）は
-同じ記号だが**期間が別**（二層構造）。
+| arc 値 | 意味 | output[0] | input[1] | related[2] | clock[3] |
+|--------|------|-----------|----------|------------|----------|
+| `r` | rise（L→H、 以後 H 維持）| ○ | ○ | ○ | ○ |
+| `f` | fall（H→L、 以後 L 維持）| ○ | ○ | ○ | ○ |
+| `0` | static L | ○ | ○ | ○ | ○ |
+| `1` | static H | ○ | ○ | ○ | ○ |
+| `p` | pos-edge pulse（L→H→L、 1 パルス）|  |  |  | ○ |
+| `n` | neg-edge pulse（H→L→H、 1 パルス）|  |  |  | ○ |
+| `z` | Hi-Z | ○（予定）|  |  |  |
+
+- **`s`（旧 static）は廃止**。 移行期はコード側で後方互換受理するが、 mylogic 変換完了後に最終削除。
+- `p`/`n` は clock の min_pulse_width 計測用（clock[3] 専用）。
+- `z`：output[0] の three_state arc 用（使用予定）。 input/related の `z` は未サポート（ISS-00102）、 clock の `z` も未サポート。
+- `ival` の `r`/`f`（init 内遷移）と `arc_oirc` の `r`/`f`（計測フェーズ遷移）は同記号だが**期間が別**（二層構造）。
 
 ---
 
@@ -90,42 +110,63 @@ testbench の時間軸を 3 期間に分ける：
 
 ### 6.1 ival × arc_oirc → 各期間の値
 
-`ival` が init 前半・後半、 `arc_oirc` が計測フェーズの遷移を決める。
-計測後の値（rval、 旧 `mondrv_oirc` 相当）は **ival 後半値に arc を適用**して導出する。
+`ival` が init 期間の値、 `arc_oirc` が計測フェーズの値（遷移 or 静的）を決める。
+計測後の値（rval、 旧 `mondrv_oirc` 相当）は **`arc_oirc` から直接導出**する。
 
-| ival | init 前半 | init 後半 | arc=`s` | arc=`r` | arc=`f` | rval（計測後）|
-|------|-----------|-----------|---------|---------|---------|---------------|
-| `0` | L | L | L 静止 | L→H | （不可：後半 L）| s→L / r→H |
-| `1` | H | H | H 静止 | （不可：後半 H）| H→L | s→H / f→L |
-| `r` | L | H | H 静止 | （不可）| H→L | s→H / f→L |
-| `f` | H | L | L 静止 | L→H | （不可）| s→L / r→H |
-| `p` | L→H→L（pulse）| — | clock 計測は `_t_clk4` 以降（arc[3]）| | | — |
-| `n` | H→L→H（pulse）| — | 同上 | | | — |
-| `u` | open | open + `.IC`=H | Hi-Z 保持 | — | — | bidir 結果値 |
-| `d` | open | open + `.IC`=L | Hi-Z 保持 | — | — | bidir 結果値 |
-| `z` | open | open（Hi-Z）| Hi-Z 保持 | — | — | bidir 結果値 |
+**整合制約**：ival 後半値（init 終値）と `arc_oirc[i]` は整合する必要：
+- 後半 L（ival=`0`/`f`/`d`）→ arc は `0`（static L）／`r`（rise）／`p`（pos pulse）
+- 後半 H（ival=`1`/`r`/`u`）→ arc は `1`（static H）／`f`（fall）／`n`（neg pulse）
+- 不整合（例：後半 L＋arc=`f`）は ERROR
 
-- **arc と ival 後半値の整合制約**：後半 L（`0`/`f`）→ arc は `s` または `r` のみ、
-  後半 H（`1`/`r`）→ arc は `s` または `f` のみ。 不整合は ERROR とする。
-- **rval 導出**：arc=`s`→ival 後半値そのまま、 arc=`r`→H、 arc=`f`→L。
-  これにより `mondrv_oirc` は明示フィールドから廃止し charao 内で導出可能。
+**rval 導出**：
+
+| arc 値 | rval（計測フェーズ最終値）|
+|---|---|
+| `0` | L |
+| `1` | H |
+| `r` | H（L→H、 以後 H 維持）|
+| `f` | L（H→L、 以後 L 維持）|
+| `p` | L（1 パルス後、 init 終値 L に戻る）|
+| `n` | H（1 パルス後、 init 終値 H に戻る）|
+| `z` | Hi-Z |
+| `s`（旧）| ival 後半値（移行期、 後方互換）|
+
+→ `arc=s` は廃止予定で、 ival 後半値依存（「前の値を覚える」必要）だったが、 新仕様の `0`/`1` で
+計測フェーズの値を明示化することで解消。 `mondrv_oirc` は明示フィールドから廃止し charao 内で導出可能。
 
 ### 6.2 ポートタイプ別の testbench 実装
 
 | ポート | testbench 信号 | init 期間（`ival`）| 計測フェーズ（`arc_oirc`）|
 |--------|----------------|--------------------|---------------------------|
-| `o`（output）| WOUT | `0`/`1`→WOUT pre-charge SW（ISS-00076）で L/H 強制、 `u`/`d`/`z`→`.IC` | arc[0]=`r`/`f` で出力遷移を計測、 `s` は計測なし |
-| `i`（input）| VIN | `ival` 前半/後半値で PWL knot（`_t_init0/1/2/3`）、 `u`/`d`/`z`→`.IC` | arc[1]=`r`/`f` で `_t_in0`〜`_t_in1` に遷移 PWL |
-| `r`/`s`（related）| VREL | 同上（`_t_init*` の PWL knot）| arc[2]=`r`/`f` で `_t_rel0`〜`_t_rel1` に遷移 PWL（pulse は `_t_rel2/3`）|
-| `c`（clock）| VCLK | `0`/`1`→stable、 `p`/`n`→pulse PWL（`_t_clk0..3`）| arc[3]=`r`/`f` で `_t_clk4..7` に clock サイクル |
+| `o`（output）| WOUT | `0`/`1`/`u`/`d`→WOUT pre-charge SW（ISS-00076）＋`.IC` で L/H 強制（`u`=H／`d`=L）、 `z`→初期化なし | arc[0]=`r`/`f`→出力遷移を計測、 `0`/`1`→static（計測なし）、 `z`→Hi-Z（予定）|
+| `i`（input）| VIN | `0`/`1`→0ns 区間 PWL（`_tslew_min`〜`_t_in0`）、 **`u`/`d` は input 未サポート**（実装で使用例なし、 ISS-00101 で jp2 から VIN .IC 分岐削除）、 `r`/`f`/`p`/`n` 不可（遷移できない）| arc[1]=`0`/`1`→static PWL、 `r`/`f`→`_t_in0`〜`_t_in1` 遷移 PWL、 `p`/`n` 不可（input は pulse 不要） |
+| `r`/`s`（related）| VREL | **ival 不使用**（ISS-00101 で jp2 から val_oirc[2] 分岐削除、 arc_oirc[2] 一本化）| arc[2]=`0`/`1`→`_t_rel0` static、 `r`/`f`→`_t_rel1` まで edge、 `p`/`n`→`_t_rel3` まで round trip pulse |
+| `c`（clock）| VCLK | `0`/`1`→stable、 `p`/`n`→init 内 1 パルス PWL（`_t_clk0..3`）、 `r`/`f`→init 内 rise/fall（戻さない）| arc[3]=`r`/`f`/`0`/`1`/`p`/`n`→`_t_clk4` 以降。 **`clk_role` 不使用**（arc[3] のみで決定）|
+| `b`（biport）| VIN/VREL/WOUT 共有（同 net 接続）| `b:0`/`b:1` で `.IC`+pre-charge SW により H/L 初期化（output 兼用）| arc[0]/[1]/[2] が揃って `r`/`f` で biport slew→`q_in_dyn` で power_tin / leakage を計測（HOLD 等 bus_hold セル）|
 
 ### 6.3 廃止対象パラメータの導出
 
 | 廃止対象 | 導出方法 |
 |----------|----------|
-| `mondrv_oirc` | ival 後半値 + arc_oirc（6.1）から rval を charao 内で生成 |
-| `clk_role` | clock pin（`pin_oirc[3]`）の arc_oirc が `r`/`f`/`s` のいずれか、 および related/input の役割は pin_oirc スロットから判定 |
-| `clk_init` | clock pin の ival 値が `p`/`n`（=pulse）か `0`/`1`（=stable）かで決定 |
+| `mondrv_oirc` | `arc_oirc` から直接（§6.1）。 `r`→H、 `f`→L、 `0`→L、 `1`→H、 `p`/`n`→pulse 後の値（init 終値）、 `z`→Hi-Z |
+| `clk_role` | **完全廃止**。 VCLK 計測部は `arc_oirc[3]` だけで決定（related と input+rise の計測部波形が同一だったため、 区別不要）|
+| `clk_init` | clock pin の `ival[3]` で吸収（`0`/`1`→stable、 `p`/`n`→pulse、 `r`/`f`→init 内遷移）|
+
+### 6.4 pullres_role（three_state arc 用 external pull、 ival とは独立）
+
+three_state_enable/disable arc の計測では output が Hi-Z の区間に external pull で
+WOUT を駆動し遷移を作る。 `pullres_role` で制御され、 `ival` 値とは独立した別機構
+（`charao_run.py` が `arc_oirc` と cell の `oe_infos` から自動設定）。
+
+| pullres_role | 機構 | 適用 measure |
+|--------------|------|--------------|
+| `nouse` | pull なし | delay/power/leakage（three_state 以外すべて）|
+| `up`/`down` | 固定抵抗 `R0` で WOUT を VDD/VSS に pull | three_state_enable |
+| `up_ngate`/`up_pgate`/`down_ngate`/`down_pgate` | SW（cell の oe-driver gate 連動）| three_state_disable |
+
+- enable：`arc_oirc[0]=r`→`down` / `f`→`up`（output と逆極性に初期 pull）
+- disable：`arc_oirc[0]`＋cell type（nmos/pmos）から `*_ngate`/`*_pgate`、 gate ノードは `oe_infos[outport]["drv0"/"drv1"]["gate"]`
+- 抵抗値 `pullres`：enable 時 ~100kΩ（弱 pull）、 disable 時 ~0.1Ω（強制 drive）。 std/io で別値（`myLibrarySetting`）
 
 ---
 

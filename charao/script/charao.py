@@ -62,8 +62,12 @@ def main():
   parser.add_argument('-w','--work_dir' ,type=str               , default="work", help='work directory.')
   parser.add_argument('--mylogic_user'  ,type=str               , default=""    , help='PATH to User-define Logic entries file(ex myloic_user.py).')
   parser.add_argument('--wave_raw'      , action='store_true'                  , help='Save ngspice transient result as sim.sp.raw (per-sim subdir). Saves DUT cell port via hierarchical reference V(XCELL.XDUT.<port>). ISS-00078.')
+  parser.add_argument('--debug_stop'    , type=int              , default=0    , help='DEBUG: stop charao after N sp files generated (os._exit(0)). 0=disabled. Use for hang debug / sp inspection (ISS-00118).')
 
   args = parser.parse_args()
+  #--- DEBUG: set sp-generation limit (ISS-00118 debug helper)
+  from . import charao_run as _cr
+  _cr._DBG_SP_LIMIT = args.debug_stop
   #print(args.batch)
 
   #--- barner

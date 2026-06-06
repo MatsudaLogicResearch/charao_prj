@@ -96,8 +96,8 @@ class MyLibrarySetting(BaseModel):
   logic_threshold_low         : float = 0.2  ;#
   logic_high_to_low_threshold : float = 0.5  ;#
   logic_low_to_high_threshold : float = 0.5  ;#
-  energy_meas_low_threshold   : float = 0.01 ;#
-  energy_meas_high_threshold  : float = 0.99 ;#
+  energy_meas_low_threshold   : float = 0.01 ;# ISS-00117: 必ず 0.01 以上を設定。 myTbParam.py の meas_energy=1 補正で 0.99×low → 負電圧化を防ぐため。
+  energy_meas_high_threshold  : float = 0.99 ;# ISS-00117: 必ず 0.99 以下を設定。 myTbParam.py の meas_energy=1 補正で 1.01×high → VDD 超過化を防ぐため。
   hold_meas_low_threshold     : float = 0.01 ;#
   hold_meas_high_threshold    : float = 0.99 ;#
   slew_derate_from_library    : float = 1.0  ;# .lib header value (stored = phys threshold-window time; STA: actual = stored * derate)

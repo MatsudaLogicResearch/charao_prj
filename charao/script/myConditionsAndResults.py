@@ -37,7 +37,7 @@ from .myFunc import my_exit, f2s_ceil
 #                "eintl","ein","cin", "pleak"]
 #DictKey=Literal["prop","trans","setup_hold",
 #                "eintl","ein","cin"]
-DictKey=Literal["prop","trans","setup_hold",
+DictKey=Literal["prop","trans","setup_hold","setup_hold_raw",
                 "eintl","cin","crel","cclk"]
   
 #LutKey = Literal["prop","trans","setup_hold","eintl","ein"]
@@ -152,21 +152,25 @@ class MyConditionsAndResults(BaseModel):
     arc_in =self.mec.arc_oirc[1]
 
     ## -- for output
+    #   ISS-00101: arc 's'（旧 static）/'0'/'1'/'z'（新）は stable 扱い。 ''（pin なし）はスキップ。
     if   (arc_out == 'r'):
       self.direction_prop  ="cell_rise"
       self.direction_tran  ="rise_transition"
       self.direction_power ="rise_power"
-      
+
     elif (arc_out == 'f'):
       self.direction_prop  ="cell_fall"
       self.direction_tran  ="fall_transition"
       self.direction_power ="fall_power"
-      
-    elif (arc_out == 's'):
+
+    elif (arc_out in ('s', '0', '1', 'z')):
       self.direction_prop  ="stable"
       self.direction_tran  ="stable"
       self.direction_power ="stable"
-      
+
+    elif (arc_out == ''):                    #-- arc 未指定（output なしスロット）→ direction 未設定
+      pass
+
     elif self.mlc.logic not in ["ANTENNA"]: #-- ANTENNA has only INPUT.
       print(f"{self.mlc.logic}")
       print(f"[Error] unknown arc_out={arc_out}(output).")
@@ -176,15 +180,18 @@ class MyConditionsAndResults(BaseModel):
     if   (arc_in == 'r'):
       self.constraint    = "rise_constraint"
       self.passive_power = "rise_power"
-      
+
     elif (arc_in == 'f'):
       self.constraint = "fall_constraint"
       self.passive_power = "fall_power"
-      
-    elif (arc_in == 's'):
+
+    elif (arc_in in ('s', '0', '1', 'z')):
       self.constraint    = "stable"
       self.passive_power = "stable"
-      
+
+    elif (arc_in == ''):                     #-- arc 未指定（input なしスロット）→ 未設定
+      pass
+
     else:
       print(f"[Error] unknown arc_in={arc_in}(input).")
       my_exit()

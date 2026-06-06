@@ -18,7 +18,7 @@
    "process_name"       : "gf180"
   ,"lib_vendor_id"      : "fd"
   ,"revision"           : "mcuC7t20240817"
-  ,"model_path"         : "./sample/target/gf180"
+  ,"model_path"         : "./sample_target/gf180"
   ,"result_path"        : "./rslt"
   ,"vdd_name"           : "VDD"
   ,"vss_name"           : "VSS"

@@ -20,6 +20,13 @@ import copy
 
 from dataclasses import dataclass, field
 
+
+def _ival_late(v):
+  """ISS-00101: ival 値の後半（_t_init2〜_t_init3 期間）の論理値を返す。
+  u（.IC=H）→1、 d（.IC=L）→0、 z（純 Hi-Z）はそのまま。"""
+  return {"0":"0", "1":"1", "r":"1", "f":"0", "p":"0", "n":"1", "u":"1", "d":"0"}.get(v, v)
+
+
 @dataclass
 class MyExpectCell:
   pin_oirc     : list[str]      =field(default_factory=list); #pin definition, {"o0", "i0", "c0"} for outport, inport, relatedport
@@ -33,27 +40,43 @@ class MyExpectCell:
   tmg_when    : str = ""               ; #when condition in .lib/.v (optional)
   specify     : str = ""               ; #specify code in .v (optional). ";;" marks verilog ifnone.
   timing_default : bool = False        ; #emit when-less Liberty default block (independent of specify ";;")
+  power_default  : bool = False        ; #emit default leakage_power() block with max value of same related_pg_pin (ISS-00116)
 
   def __post_init__(self):
 
-    ##-- generate rval(result value) from ival/mondrv_oirc
+    ##-- generate rval(result value)
+    ##   ISS-00101: mondrv_oirc が指定（非空要素あり）なら従来通り。 空なら ival 後半値 + arc_oirc
+    ##   から導出（arc r→1 / f→0 / s→ival 後半値）。 新 ival 仕様の entry は mondrv_oirc を省略。
     tval=copy.deepcopy(self.ival); # copy initial value
+    use_mondrv = any(self.mondrv_oirc)
 
     for i, pin_pos in  enumerate(self.pin_oirc):
-      #-- get new value
-      val_new=self.mondrv_oirc[i];
-
-      #-- mondrv_oirc[i]=""
-      if not val_new:
+      if not pin_pos:
         continue
-      
+
       #-- get output/input/related port name
       flag=re.match(r"([oibcrs])([0-9]+)", pin_pos)
-      pin=flag.group(1)
-      pos=flag.group(2)
       if not flag:
-        print(f"[Error] unknown pin name={pin} in pin_oirc.")
+        print(f"[Error] unknown pin name in pin_oirc={pin_pos}.")
         my_exit()
+      pin=flag.group(1)
+      pos=int(flag.group(2))
+
+      #-- get new value
+      if use_mondrv:
+        val_new=self.mondrv_oirc[i];
+        if not val_new:
+          continue
+      else:
+        #-- ISS-00101: arc_oirc から rval を導出
+        #   arc r→1 / f→0 / 0,1,z→計測フェーズ値を明示。 旧 s は ival 後半値で後方互換（移行期、 最終削除）。
+        #   arc="" は未指定（pin なしスロット）→ rval 変更なし。
+        a = self.arc_oirc[i] if i < len(self.arc_oirc) else ""
+        if   not a:                 continue
+        elif a == "r":              val_new = "1"
+        elif a == "f":              val_new = "0"
+        elif a in ("0", "1", "z"):  val_new = a
+        else:                       val_new = _ival_late(tval[pin][pos])
 
       #-- change value
       tval[pin][int(pos)]=val_new

@@ -30,6 +30,90 @@ from .myTbParam              import MyTbParam               as Mtp
 from .myFunc import my_exit
 
 
+#==============================================================================
+# DEBUG: sp-generation limit (ISS-00118)
+#   charao.py が `--debug_stop N` で _DBG_SP_LIMIT を設定。
+#   N 個の testbench (sim.sp) 生成時点で os._exit(0)。
+#   lrPymRPC は正常終了として結果転送するため、 生成済 sp / work/ をローカル取得可能。
+#==============================================================================
+_DBG_SP_LIMIT = 0
+_DBG_SP_COUNT = [0]
+_DBG_SP_LOCK  = threading.Lock()
+
+
+#==============================================================================
+# ISS-00121: max 集約対象 measure_type と集約関数
+#   出力 2 個セル（DFFB 等）で Q/QB の constraint 計測値の max を採用するため、
+#   全 sim 完了後に runExpectation 末尾で同 group の harness を集約 → max 採用。
+#   group key = (measure_type, target_relport, target_inport, timing_when, constraint)
+#   group size=1 (dffrsnq 等) では skip → 既存動作と完全同じ。
+#   既存 MultiThread の set_lut() 呼び出しはコメントアウト（動作確認完了まで）、
+#   runExpectation 末尾で set_lut() を一括実行。
+#==============================================================================
+MAX_AGGREGATE_MEAS_TYPES = [
+    "setup_rising", "setup_falling",
+    "hold_rising",  "hold_falling",
+    "recovery_rising", "recovery_falling",
+    "removal_rising",  "removal_falling",
+]
+
+
+def _meas_type_to_value_names(measure_type):
+  """measure_type → set_lut 対象の value_name list (空 list なら set_lut 不要)。"""
+  if measure_type in ["delay", "rising_edge", "falling_edge", "clear", "preset"] or \
+     measure_type.startswith("three_state_") or \
+     measure_type.startswith("delay_"):
+    return ["prop", "trans"]
+  if measure_type in ["power_tout", "power_tin", "passive"]:
+    return ["eintl"]
+  if measure_type in MAX_AGGREGATE_MEAS_TYPES:
+    return ["setup_hold"]
+  # min_pulse_width_* / leakage は set_lut 不要（dict_list2 直接 export）
+  return []
+
+
+def _aggregate_max_in_harness_list(harness_list):
+  """ISS-00121: 同 group の harness を集約、 各 (index1, index2) で max 採用。
+  spice 結果 raw は dict_list2["setup_hold_raw"] に保持（変更しない）、 集約 max は
+  rep (group[0]) の dict_list2["setup_hold"] に deep copy + max 上書きで新規格納し、
+  rep.set_lut("setup_hold") で lut/lut_min2max[setup_hold] 生成。
+  aux (group[1:]) の dict_list2["setup_hold"] / lut["setup_hold"] は未設定（export で skip）。
+  group key = (measure_type, target_relport, target_inport, timing_when, constraint)
+  """
+  groups = {}
+  for h in harness_list:
+    if h.measure_type not in MAX_AGGREGATE_MEAS_TYPES:
+      continue
+    key = (h.measure_type, h.target_relport, h.target_inport, h.timing_when, h.constraint)
+    groups.setdefault(key, []).append(h)
+
+  src_name = "setup_hold_raw"
+  dst_name = "setup_hold"
+
+  for group in groups.values():
+    rep = group[0]
+    # rep の dict_list2[setup_hold_raw] を deep copy → dict_list2[setup_hold] に新規格納
+    rep.dict_list2[dst_name] = copy.deepcopy(rep.dict_list2[src_name])
+    # group 内全 harness の raw 値で max 上書き
+    for h in group:
+      for i1, sub in h.dict_list2[src_name].items():
+        for i2, val in sub.items():
+          if val > rep.dict_list2[dst_name][i1][i2]:
+            rep.dict_list2[dst_name][i1][i2] = val
+    # rep の set_lut で lut/lut_min2max[setup_hold] 生成（aux は未生成のまま）
+    rep.set_lut(dst_name)
+
+
+def _check_dbg_sp(spicef:str) -> None:
+  if _DBG_SP_LIMIT <= 0:
+    return
+  with _DBG_SP_LOCK:
+    _DBG_SP_COUNT[0] += 1
+    if _DBG_SP_COUNT[0] >= _DBG_SP_LIMIT:
+      print(f"[DEBUG] sp count {_DBG_SP_COUNT[0]} reached --debug_stop={_DBG_SP_LIMIT} (last={spicef}), forcing os._exit(0)")
+      os._exit(0)
+
+
 def _tslew_from_template(slew:float, mls:Mls) -> float:
   """Convert template slew (physical threshold-window time) to SPICE PWL
   full-rail (0-100%) ramp duration. Template index_1 represents the
@@ -147,6 +231,21 @@ def runExpectation(targetLib:Mls, targetCell:Mlc, expectationdictList:List[Mec])
       harnessList.extend(rslt_Harness)
 
 
+  ## ISS-00121: max 集約 phase (set_lut の前に dict_list2 を max 更新)
+  _aggregate_max_in_harness_list(harnessList)
+
+  ## ISS-00121: set_lut 一括 (全 harness、 measure_type → value_name(s))
+  ##   MAX_AGGREGATE_MEAS_TYPES は _aggregate_max_in_harness_list 内で
+  ##   rep のみ set_lut("setup_hold") 済み → ここでは skip。
+  for h in harnessList:
+    if h.measure_type in MAX_AGGREGATE_MEAS_TYPES:
+      continue
+    for vname in _meas_type_to_value_names(h.measure_type):
+      try:
+        h.set_lut(value_name=vname)
+      except Exception as e:
+        print(f"[WARN] ISS-00121 set_lut('{vname}') failed for {h.measure_type}: {e}")
+
   ## average cin of each harness
   #targetCell.set_cin_avg(harnessList=harnessList)
   targetCell.set_cin_max(harnessList=harnessList)
@@ -230,8 +329,8 @@ def runSpiceDelayMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
     thread.join()
 
 
-  h_delay.set_lut(value_name="prop")
-  h_delay.set_lut(value_name="trans")
+  #h_delay.set_lut(value_name="prop")   # ISS-00121: runExpectation 末尾で一括実行
+  #h_delay.set_lut(value_name="trans")  # ISS-00121: runExpectation 末尾で一括実行
 
   #------ update max_load/max_trans
   mlc.update_max_load4out(port_name=h_delay.target_outport, new_value=max(index2_loads))
@@ -312,7 +411,7 @@ def runSpicePowerToutMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mc
       thread.join()
 
 
-    h_power.set_lut(value_name="eintl")
+    #h_power.set_lut(value_name="eintl")  # ISS-00121: runExpectation 末尾で一括実行
 
     #------ update max_load/max_trans
     mlc.update_max_load4out(port_name=h_power.target_outport, new_value=max(index2_loads))
@@ -376,7 +475,7 @@ def runSpicePowerTinMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mca
     thread.join()
 
 
-  h_power.set_lut(value_name="eintl")
+  #h_power.set_lut(value_name="eintl")  # ISS-00121: runExpectation 末尾で一括実行
 
   return [h_power]
 
@@ -475,7 +574,8 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, param:Mtp) ->dict:
     f.write(rendered)
   param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
   print(f"  [INFO] generate tb={spicef}")
-  
+  _check_dbg_sp(spicef)   # ISS-00118 debug: stop after N sp
+
   #-- execute spice
   spicelis=h.mls.exec_spice(spicef=spicef)
                               
@@ -576,6 +676,7 @@ def runSpicePowerToutSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_s
     ## 1st trial: extract energy_start/end (meas_energy=1, timestep_tmax ratio=20)
     tsim_end1 = max(1e-6, 2*sim_c2d_max * h.mls.time_mag)
     param.meas_energy   = 1
+    param.update_ener_thresholds_for_e1(arc_oirc=arc_oirc, mls=h.mls)  # ISS-00117: energy1 用ワイド閾値で eend 取得
     param.time_energy   = [0, 0]
     param.tsim_end      = tsim_end1
     param.tpulse_rel    = tsim_end1
@@ -697,7 +798,8 @@ def genFileLogic_PowerToutTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
     f.write(rendered)
   param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
   print(f"  [INFO] generate tb={spicef}")
-  
+  _check_dbg_sp(spicef)   # ISS-00118 debug: stop after N sp
+
   #-- execute spice
   spicelis=h.mls.exec_spice(spicef=spicef)
                               
@@ -710,8 +812,10 @@ def genFileLogic_PowerToutTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
   res_list=["energy_start","energy_end"]
   res=dict()
   if(param.meas_energy == 2):
-    res_list += ["q_in_dyn","q_rel_dyn","q_clk_dyn","q_out_dyn","q_vdd_dyn","q_vss_dyn",
-                 "i_vdd_leak","i_vss_leak","i_vnw_leak","i_vpw_leak","i_in_leak","i_rel_leak","i_clk_leak"]
+    res_list += ["q_in_dyn","q_rel_dyn","q_out_dyn","q_vdd_dyn","q_vss_dyn",
+                 "i_vdd_leak","i_vss_leak","i_vnw_leak","i_vpw_leak","i_rel_leak"]
+    if h.mec.pin_oirc[3] != "":
+      res_list += ["q_clk_dyn","i_clk_leak"]
     
   with open(spicelis,'r') as f:
     for inline in f:
@@ -744,8 +848,8 @@ def genFileLogic_PowerToutTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
     #q_in_dyn =res["q_clk_dyn"] if h.target_relport=="c0" else res["q_rel_dyn"]
     q_in_dyn  = res["q_in_dyn"]
     q_rel_dyn = res["q_rel_dyn"]
-    q_clk_dyn = res["q_clk_dyn"]
-    
+    q_clk_dyn = res["q_clk_dyn"] if h.mec.pin_oirc[3] != "" else 0.0
+
     ## Pleak = max(supply, absorb) * Vdd
     ## supply = I_vdd + I_vnw (into DUT), absorb = I_vss + I_vpw (out of DUT)
     i_vdd = -float(res["i_vdd_leak"])
@@ -807,6 +911,7 @@ def genFileLogic_PowerTinTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
     f.write(rendered)
   param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
   print(f"  [INFO] generate tb={spicef}")
+  _check_dbg_sp(spicef)   # ISS-00118 debug: stop after N sp
 
   ## execute spice
   spicelis = h.mls.exec_spice(spicef=spicef)
@@ -815,8 +920,10 @@ def genFileLogic_PowerTinTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
     spicelis = spicelis[:-3]+"mt0"
 
   ## parse results (no energy_start/end for meas_energy=5)
-  res_list = ["q_in_dyn","q_rel_dyn","q_clk_dyn","q_out_dyn","q_vdd_dyn","q_vss_dyn",
-              "i_vdd_leak","i_vss_leak","i_vnw_leak","i_vpw_leak","i_in_leak","i_rel_leak","i_clk_leak"]
+  res_list = ["q_in_dyn","q_rel_dyn","q_out_dyn","q_vdd_dyn","q_vss_dyn",
+              "i_vdd_leak","i_vss_leak","i_vnw_leak","i_vpw_leak","i_rel_leak"]
+  if h.mec.pin_oirc[3] != "":
+    res_list += ["q_clk_dyn","i_clk_leak"]
   res = dict()
 
   with open(spicelis, 'r') as f:
@@ -844,7 +951,7 @@ def genFileLogic_PowerTinTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
 
   q_in_dyn  = res["q_in_dyn"]
   q_rel_dyn = res["q_rel_dyn"]
-  q_clk_dyn = res["q_clk_dyn"]
+  q_clk_dyn = res["q_clk_dyn"] if h.mec.pin_oirc[3] != "" else 0.0
 
   i_vdd = -float(res["i_vdd_leak"])
   i_vss =  float(res["i_vss_leak"])
@@ -941,7 +1048,7 @@ def runSpiceSetupMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
     thread.join() 
 
   #--- generate lut table
-  h_const.set_lut(value_name="setup_hold")
+  #h_const.set_lut(value_name="setup_hold")  # ISS-00121: runExpectation 末尾で一括実行
 
   #------ update max_trans_in
   mlc.update_max_trans4in(port_name=h_const.target_relport, new_value=max(index2_slopes_rel))
@@ -1061,7 +1168,7 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
     #-- result in targetHarness
     with h._lock:
       if h.measure_type in ["setup_rising","setup_falling","recovery_rising","recovery_falling"]:
-        h.dict_list2["setup_hold" ][index1_slope_const][index2_slope_rel] = setup_pass
+        h.dict_list2["setup_hold_raw" ][index1_slope_const][index2_slope_rel] = setup_pass
 
       else:
         print(f"[Error] not support measure_type={h.measure_type}")
@@ -1084,7 +1191,8 @@ def genFileLogic_Setup1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
     f.write(rendered)
   param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
   print(f"  [INFO] generate tb={spicef}")
-  
+  _check_dbg_sp(spicef)   # ISS-00118 debug: stop after N sp
+
   #-- execute spice
   spicelis=h.mls.exec_spice(spicef=spicef)
 
@@ -1191,7 +1299,7 @@ def runSpiceLatSetupMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mca
     thread.join()
 
   #--- generate lut table
-  h_const.set_lut(value_name="setup_hold")
+  #h_const.set_lut(value_name="setup_hold")  # ISS-00121: runExpectation 末尾で一括実行
 
   #------ update max_trans_in
   mlc.update_max_trans4in(port_name=h_const.target_relport, new_value=max(index2_slopes_rel))
@@ -1311,7 +1419,7 @@ def runSpiceLatSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_sl
     #-- result in targetHarness
     with h._lock:
       if h.measure_type in ["setup_rising","setup_falling","recovery_rising","recovery_falling"]:
-        h.dict_list2["setup_hold" ][index1_slope_const][index2_slope_rel] = setup_pass
+        h.dict_list2["setup_hold_raw" ][index1_slope_const][index2_slope_rel] = setup_pass
 
       else:
         print(f"[Error] not support measure_type={h.measure_type}")
@@ -1332,6 +1440,7 @@ def genFileLogic_LatSetup1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
     f.write(rendered)
   param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
   print(f"  [INFO] generate tb={spicef}")
+  _check_dbg_sp(spicef)   # ISS-00118 debug: stop after N sp
 
   #-- execute spice
   spicelis=h.mls.exec_spice(spicef=spicef)
@@ -1434,7 +1543,7 @@ def runSpiceHoldMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
     thread.join() 
 
   #--- generate lut table
-  h_const.set_lut(value_name="setup_hold")
+  #h_const.set_lut(value_name="setup_hold")  # ISS-00121: runExpectation 末尾で一括実行
   
   ###################################################################
   return [h_const]
@@ -1562,7 +1671,7 @@ def runSpiceHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope_
     #-- result in targetHarness
     with h._lock:
       if  h.measure_type in ["hold_rising","hold_falling","removal_rising","removal_falling"]:
-        h.dict_list2["setup_hold" ][index1_slope_const][index2_slope_rel] = hold_pass
+        h.dict_list2["setup_hold_raw" ][index1_slope_const][index2_slope_rel] = hold_pass
       else:
         print(f"[Error] not support measure_type={h.measure_type}")
         my_exit()
@@ -1584,7 +1693,8 @@ def genFileLogic_Hold1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
     f.write(rendered)
   param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
   print(f"  [INFO] generate tb={spicef}")
-  
+  _check_dbg_sp(spicef)   # ISS-00118 debug: stop after N sp
+
   #-- execute spice
   spicelis=h.mls.exec_spice(spicef=spicef)
 
@@ -1689,7 +1799,7 @@ def runSpiceLatHoldMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar
     thread.join()
 
   #--- generate lut table
-  h_const.set_lut(value_name="setup_hold")
+  #h_const.set_lut(value_name="setup_hold")  # ISS-00121: runExpectation 末尾で一括実行
 
   ###################################################################
   return [h_const]
@@ -1804,7 +1914,7 @@ def runSpiceLatHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slo
     #-- result in targetHarness
     with h._lock:
       if  h.measure_type in ["hold_rising","hold_falling","removal_rising","removal_falling"]:
-        h.dict_list2["setup_hold" ][index1_slope_const][index2_slope_rel] = hold_pass
+        h.dict_list2["setup_hold_raw" ][index1_slope_const][index2_slope_rel] = hold_pass
       else:
         print(f"[Error] not support measure_type={h.measure_type}")
         my_exit()
@@ -1873,7 +1983,7 @@ def runSpicePassiveMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar
   mlc.update_max_trans4in(port_name=h_passive.target_inport, new_value=max(index1_slopes_in))
 
   #--- generate lut table
-  h_passive.set_lut(value_name="eintl")
+  #h_passive.set_lut(value_name="eintl")  # ISS-00121: runExpectation 末尾で一括実行
   #h_passive.set_lut(value_name="ein")
   
   ###################################################################
@@ -1958,7 +2068,8 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
     f.write(rendered)
   param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
   print(f"  [INFO] generate tb={spicef}")
-  
+  _check_dbg_sp(spicef)   # ISS-00118 debug: stop after N sp
+
   #-- execute spice
   spicelis=h.mls.exec_spice(spicef=spicef)
                               
@@ -1969,8 +2080,10 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
 
   #-- parse results
   res=dict()
-  res_list=["q_rel_dyn","q_in_dyn","q_clk_dyn","q_out_dyn","q_vdd_dyn","q_vss_dyn",
+  res_list=["q_rel_dyn","q_in_dyn","q_out_dyn","q_vdd_dyn","q_vss_dyn",
             "i_vdd_leak","i_vss_leak","i_vnw_leak","i_vpw_leak"]
+  if h.mec.pin_oirc[3] != "":
+    res_list += ["q_clk_dyn"]
   with open(spicelis,'r') as f:
     
     for inline in f:
@@ -1997,8 +2110,8 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
   ## Cin = Qin / V
   q_in_dyn  = res["q_in_dyn"]
   q_rel_dyn = res["q_rel_dyn"]
-  q_clk_dyn = res["q_clk_dyn"]
-  
+  q_clk_dyn = res["q_clk_dyn"] if h.mec.pin_oirc[3] != "" else 0.0
+
   c_in  = abs(float(q_in_dyn))/(h.mls.vdd_voltage)
   c_rel = abs(float(q_rel_dyn))/(h.mls.vdd_voltage)
   c_clk = abs(float(q_clk_dyn))/(h.mls.vdd_voltage)
@@ -2162,7 +2275,12 @@ def runSpiceMinPulseSingle(poolg_sema, targetHarness:Mcar, spicef:str):
           break;
 
         tsweep_pass=tsweep
-        tsim_end_dyn=rslt["chg_out"] + 10e-9
+        #-- ISS-00101: tsim_end_dyn は 1 sim 目（s100）でのみ確定、 以降は固定。
+        #   measure 失敗時 rslt["chg_out"]=1 (default) で汚染され、 次 segment で
+        #   tsim_end=1.00000001 秒となり ngspice が 1 秒 transient で hang する問題対策。
+        #   min_pulse_width_high / low 共通（本関数は high/low の両方から呼ばれる）。
+        if cnt == 1 and id == 0:
+          tsim_end_dyn=rslt["chg_out"] + 10e-9
         pulse_pass =rslt["pulse"]
 
       tstep_old=tstep
@@ -2187,7 +2305,8 @@ def genFileLogic_MinPulse1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
     f.write(rendered)
   param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
   print(f"  [INFO] generate tb={spicef}")
-  
+  _check_dbg_sp(spicef)   # ISS-00118 debug: stop after N sp
+
   #-- execute spice
   spicelis=h.mls.exec_spice(spicef=spicef)
 
@@ -2354,7 +2473,8 @@ def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
     f.write(rendered)
   param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
   print(f"  [INFO] generate tb={spicef}")
-  
+  _check_dbg_sp(spicef)   # ISS-00118 debug: stop after N sp
+
   #-- execute spice
   spicelis=h.mls.exec_spice(spicef=spicef)
                               
@@ -2409,4 +2529,3 @@ def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
 
   #
   return (rslt)
-
