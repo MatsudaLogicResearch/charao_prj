@@ -4,6 +4,21 @@
 
 ---
 
+## [0.9.14a20] 2026-06-26
+
+Alpha pre-release. min_pulse_width 計測の刷新（ISS-00137 解消・ISS-00133 min_pulse 部ひとまず修正）＋ ISS-00135 pin_oirc/pin_tr reorg。（a19 は CHANGELOG 未記載のため a18→a20 の差分として記述）
+
+### Added
+- `docs/SPEC_const.md` / `docs/SPEC_pin_oirc.md`: 新規（const MEASURE 仕様 / pin_oirc・pin_tr 設計）
+- `config_lib.jsonc`: `simulation_slew_for_pulse`（min_pulse のパルス源 slew、 default 0.02ns＝LUT 最小 slew 目安）
+
+### Changed / Fixed
+- (ISS-00137) `myConditionsAndResults.py`: `set_direction` の出力（direction_prop/tran/power・constraint・passive_power）を 1 dict `direction_in_lib` に集約。 `arc_in=p/n`（min_pulse のパルス arc）で my_exit していたのを解消（p/n→""）。 消費側（myExportLib/myExportDoc/charao_run）を dict 参照に置換（出力 byte 不変）
+- (ISS-00133) min_pulse_width 計測刷新（`charao_run.py` / `myTbParam.py` / `temp_testbench.sp.jp2`）: tpulse・prop を `pin_tr[0]` で振分（CLK→tpulse_clk・prop_clk_out / async→tpulse_rel・prop_rel_out）、 prop TRIG を logic 名サフィックス（_PC/_NC・_PS/_NS・_PR/_NR）の能動エッジ基準に、 secant 判定に trans（出力 slew）劣化を OR 追加、 保存値を実測 `pulse_width_clk`/`pulse_width_rel`（0.5×VDD）に変更。 → floor 収束解消・load 非依存化
+- (ISS-00135) `mylogic_comb_{base,complex,tristate}.py` / `mylogic_seq_{ff,lat,scan}.py` / `myExportLib.py` / `myLogicCell.py` 他: pin_oirc/pin_tr reorg（spice 駆動＝pin_oirc[k]、 Liberty arc 属性＝pin_tr）
+
+---
+
 ## [0.9.14a18] 2026-05-22
 
 Alpha pre-release. LAT lib の when 整備（ISS-00090 Phase2 / ISS-00100）、 min_pulse_width の when 対応（ISS-00082）、 ival 波形仕様の策定（ISS-00101）。
