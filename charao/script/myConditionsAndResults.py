@@ -38,7 +38,8 @@ from .myFunc import my_exit, f2s_ceil
 #DictKey=Literal["prop","trans","setup_hold",
 #                "eintl","ein","cin"]
 DictKey=Literal["prop","trans","setup_hold","setup_hold_raw",
-                "eintl","cin","crel","cclk"]
+                "eintl","cin","crel","cclk",
+                "c_in","c_rel","c_clk","slew_in","slew_rel","slew_clk","load_out"]
   
 #LutKey = Literal["prop","trans","setup_hold","eintl","ein"]
 LutKey = Literal["prop","trans","setup_hold","eintl"]
@@ -57,6 +58,26 @@ Level3Dict = Annotated[
     DefaultDict[DictKey, Level2Dict],  #Level3Dict["prop"][index_2][index_1] = 1.234
     Field(default_factory=lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(float))))
 ]
+
+# ISS-00135 reorg: arc(極性) → Liberty 完成形キーワード文字列 の変換を 1 箇所に集約。
+#   各 category(prop/tran/power/constraint) は同じ極性(rise/fall/stable)を別キーワードで表すだけ。
+#   passive_power は power 列(rise_power/fall_power/stable)を流用する。
+_DIR_LIB = {
+  "rise":   {"prop":"cell_rise", "tran":"rise_transition", "power":"rise_power", "constraint":"rise_constraint"},
+  "fall":   {"prop":"cell_fall", "tran":"fall_transition", "power":"fall_power", "constraint":"fall_constraint"},
+  "stable": {"prop":"stable",    "tran":"stable",          "power":"stable",     "constraint":"stable"},
+  "":       {"prop":"",          "tran":"",                "power":"",           "constraint":""},
+}
+
+def _arc_pol(arc):
+  #-- arc → 極性。 0/1/z は stable。 p/n は min_pulse 専用で direction_in_lib 未使用→""。 '' はスロット無し→""。
+  #   's'(旧 static, 廃止) は未知扱い(None)=エラー。 既存 's' は別の高優先課題で 0/1/z へ移行する。
+  if arc == "r": return "rise"
+  if arc == "f": return "fall"
+  if arc in ("0", "1", "z"): return "stable"
+  if arc in ("p", "n", ""):  return ""
+  return None   #-- unknown ('s' 含む) → my_exit
+
 
 class MyConditionsAndResults(BaseModel):
   #=====================================
@@ -79,15 +100,15 @@ class MyConditionsAndResults(BaseModel):
   #template_energy  : MyItemTemplate = None
   
   measure_type   : str = ""
-  direction_prop : str = ""
-  direction_tran : str = ""
-  direction_power: str = ""
   timing_type    : str = ""
   timing_sense   : str = ""
   #timing_unate   : str = ""
   timing_when    : str = ""
-  constraint     : str = ""
-  passive_power  : str = ""
+  #-- ISS-00135 reorg: direction_prop/tran/power + constraint + passive_power を 1 dict に集約。
+  #   key=category(prop/tran/power/constraint/passive_power) -> Liberty 完成形キーワード文字列。
+  direction_in_lib : dict[str,str] = Field(
+    default_factory=lambda: {"prop":"","tran":"","power":"","constraint":"","passive_power":""}
+  )
 
   target_inport         : str = ""
   target_inport_val     : str = ""
@@ -97,6 +118,11 @@ class MyConditionsAndResults(BaseModel):
   target_outport_val    : str = ""
   target_clkport        : str = ""
   target_clkport_val    : str = ""
+
+  #-- ISS-00127: Liberty 出力用 pin 識別（pin_tr ベース、 自動推定 logic 込み）
+  #   spice 制御用の target_*port とは分離して、 .lib export で参照する
+  lib_target_pin        : str = ""    # `pin (X){}` の X（Liberty 出力用）
+  lib_related_pin       : str = ""    # `related_pin (Y)` の Y（Liberty 出力用）
 
   clk_role              : str = "nouse"
   clk_init              : str = "pulse"   # pulse (default) or stable (for LAT combinational arc; auto-detect by islatch + clk_role="nouse")
@@ -148,53 +174,36 @@ class MyConditionsAndResults(BaseModel):
     
   def set_direction(self):
 
-    arc_out=self.mec.arc_oirc[0]
-    arc_in =self.mec.arc_oirc[1]
+    arc_out = self.mec.arc_oirc[0]
+    # ISS-00135 reorg: 入力方向(constraint/passive_power)は pin_tr[t] が在る pin_oirc 位置の arc を見る。
+    #   setup/hold/recovery/removal→[1]、 passive→[2]、 clear/preset/delay(pin_tr[t]=o0)→[0]。
+    #   出力方向(prop/tran/power)は arc_oirc[0]。 min_pulse(p/n) は direction_in_lib 未使用→""。
+    _pt = self.mec.pin_tr[0] if self.mec.pin_tr else ""
+    arc_in = next((self.mec.arc_oirc[k] for k in range(4)
+                   if _pt and self.mec.pin_oirc[k] == _pt), "")
 
-    ## -- for output
-    #   ISS-00101: arc 's'（旧 static）/'0'/'1'/'z'（新）は stable 扱い。 ''（pin なし）はスキップ。
-    if   (arc_out == 'r'):
-      self.direction_prop  ="cell_rise"
-      self.direction_tran  ="rise_transition"
-      self.direction_power ="rise_power"
+    po = _arc_pol(arc_out)
+    pi = _arc_pol(arc_in)
 
-    elif (arc_out == 'f'):
-      self.direction_prop  ="cell_fall"
-      self.direction_tran  ="fall_transition"
-      self.direction_power ="fall_power"
-
-    elif (arc_out in ('s', '0', '1', 'z')):
-      self.direction_prop  ="stable"
-      self.direction_tran  ="stable"
-      self.direction_power ="stable"
-
-    elif (arc_out == ''):                    #-- arc 未指定（output なしスロット）→ direction 未設定
-      pass
-
-    elif self.mlc.logic not in ["ANTENNA"]: #-- ANTENNA has only INPUT.
-      print(f"{self.mlc.logic}")
-      print(f"[Error] unknown arc_out={arc_out}(output).")
-      my_exit()
-
-    ## -- for input
-    if   (arc_in == 'r'):
-      self.constraint    = "rise_constraint"
-      self.passive_power = "rise_power"
-
-    elif (arc_in == 'f'):
-      self.constraint = "fall_constraint"
-      self.passive_power = "fall_power"
-
-    elif (arc_in in ('s', '0', '1', 'z')):
-      self.constraint    = "stable"
-      self.passive_power = "stable"
-
-    elif (arc_in == ''):                     #-- arc 未指定（input なしスロット）→ 未設定
-      pass
-
-    else:
+    #-- unknown arc('s' 含む)はエラー。 ANTENNA は output 専用なので arc_out unknown を許容し "" 扱い。
+    if po is None:
+      if self.mlc.logic not in ["ANTENNA"]:
+        print(f"{self.mlc.logic}")
+        print(f"[Error] unknown arc_out={arc_out}(output).")
+        my_exit()
+      po = ""
+    if pi is None:
       print(f"[Error] unknown arc_in={arc_in}(input).")
       my_exit()
+
+    #-- 1 dict に集約（prop/tran/power=出力極性 po、 constraint/passive_power=入力極性 pi）
+    self.direction_in_lib = {
+      "prop":          _DIR_LIB[po]["prop"],
+      "tran":          _DIR_LIB[po]["tran"],
+      "power":         _DIR_LIB[po]["power"],
+      "constraint":    _DIR_LIB[pi]["constraint"],
+      "passive_power": _DIR_LIB[pi]["power"],
+    }
       
   def set_measure_type(self):
     if self.mec.meas_type in ["rising_edge","falling_edge",
@@ -252,8 +261,28 @@ class MyConditionsAndResults(BaseModel):
     self.set_target_inport()
     self.set_target_relport()
     self.set_target_clkport()
-    
-    
+    self.set_lib_target_related()  # ISS-00127: Liberty 出力用 pin 識別を pin_tr or 自動推定で設定
+
+
+  def set_lib_target_related(self):
+    """ISS-00127: Liberty 出力用 pin 識別を mylogic の pin_tr から設定。
+    pin_tr は mylogic で **全 entry に必須記載**（charao 内の自動推定は実装しない）。
+    詳細は docs/SPEC_pin_oirc.md §5。"""
+    pin_tr = self.mec.pin_tr
+    if not pin_tr or len(pin_tr) < 1:
+      print(f"[Error] ISS-00127: pin_tr is mandatory for all mylogic entries. meas_type={self.mec.meas_type}, pin_oirc={self.mec.pin_oirc}, tmg_when='{self.mec.tmg_when}'")
+      my_exit()
+    self.lib_target_pin  = pin_tr[0]
+    self.lib_related_pin = pin_tr[1] if len(pin_tr) >= 2 else ""
+    # ISS-00135 reorg(#3): pin_tr[0] 非空必須。 例外: leakage で input なし(pin_oirc[2]="")は
+    #   cell-level で pin 非紐付けのため空白可（ISS-00136 で再検討）
+    if self.lib_target_pin == "":
+      is_leak_noinput = (self.mec.meas_type == "leakage" and self.mec.pin_oirc[2] == "")
+      if not is_leak_noinput:
+        print(f"[Error] ISS-00135: pin_tr[0] (target) must be non-empty. meas_type={self.mec.meas_type}, pin_oirc={self.mec.pin_oirc}, pin_tr={pin_tr}")
+        my_exit()
+
+
   def set_target_outport(self):
     
     pin_pos=self.mec.pin_oirc[0]
@@ -419,17 +448,14 @@ class MyConditionsAndResults(BaseModel):
 
     
   def set_stable_inport(self):
-    in_pin =self.target_inport
-    rel_pin=self.target_outport
-    clk_pin=self.target_clkport
-    
-    #for typ in ["i", "b", "c", "r", "s"]:
-    for typ in ["i", "b", "r", "s"]: #-- except clock port
+    # ISS-00135 reorg(I6): pin_oirc 非空ピン（VOUT/VIN/VREL/VCLK 駆動）を除外、 残りを stable に。
+    #   計測対象(pin_oirc[2]) も自動除外。 clock も特別扱いせず統一（駆動 clock は pin_oirc[3] に入る）。
+    driven = {p for p in self.mec.pin_oirc if p}
+    for typ in ["i", "b", "r", "s", "c"]:
       values=self.mec.ival.get(typ,[])
-      
       for i in range (len(values)):
         pin=typ+"{:}".format(i)
-        if not pin in [rel_pin, in_pin, clk_pin]:
+        if pin not in driven:
           self.stable_inport_val[pin]=self.mec.ival[typ][i]
 
   def set_nontarget_outport(self):
@@ -555,18 +581,19 @@ class MyConditionsAndResults(BaseModel):
       # search target inport
       is_matched = 0
 
-      # DO NOT CHANGE ORDER(CLK->REL->IN)
-      if(w1 == self.target_clkport):
+      # ISS-00135 reorg(U1): pin_oirc 直参照。 pin_oirc=[o0(VOUT),i0(VIN),r0(VREL),c0(VCLK)]。
+      #   clock は必ず pin_oirc[3]。 DO NOT CHANGE ORDER(CLK->REL->IN)
+      if(self.mec.pin_oirc[3] and w1 == self.mec.pin_oirc[3]):
         tmp_line += ' CLK'
         is_matched += 1
         continue
-      
-      if(w1 == self.target_relport):
+
+      if(self.mec.pin_oirc[2] and w1 == self.mec.pin_oirc[2]):
         tmp_line += ' REL'
         is_matched += 1
         continue
-      
-      if(w1 == self.target_inport):
+
+      if(self.mec.pin_oirc[1] and w1 == self.mec.pin_oirc[1]):
         tmp_line += ' IN'
         is_matched += 1
         continue
@@ -591,8 +618,8 @@ class MyConditionsAndResults(BaseModel):
       if is_matched2:
         continue
             
-      # one target outport for one simulation
-      if(w1 == self.target_outport):
+      # one target outport for one simulation (ISS-00135 reorg(U1): pin_oirc[0]=VOUT)
+      if(self.mec.pin_oirc[0] and w1 == self.mec.pin_oirc[0]):
         tmp_line += ' OUT'
         is_matched += 1
         continue
@@ -633,9 +660,8 @@ class MyConditionsAndResults(BaseModel):
       #
       print(f"[Error] not used port name={w1} in XDUT")
       print(f"[Error]  instance={self.mlc.instance}")
-      print(f"Error]   target.outport   ={self.target_outport}")
-      print(f"Error]   target.inport    ={self.target_inport}")
-      print(f"Error]   target.relport   ={self.target_relport}")
+      print(f"Error]   pin_oirc={self.mec.pin_oirc}")
+      print(f"Error]   pin_tr  ={self.mec.pin_tr}")
       print(f"Error]   nontarget_outport={self.nontarget_outport}")
       print(f"Error]   stable_inport_val={self.stable_inport_val}")
       my_exit()

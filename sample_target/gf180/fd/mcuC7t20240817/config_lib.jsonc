@@ -221,6 +221,8 @@
   ,"simulation_timestep_max"    : 1.0
   ,"simulation_timestep_min"    : 0.001
   ,"simulation_slew_min"        : 0.001
+  // ISS-00133: min_pulse のパルス源(VCLK/VREL)slew(ns)。 目安=setup/hold LUT の最小 slew index1[0]
+  ,"simulation_slew_for_pulse"  : 0.02
   ,"sim_pulse_max"              : 5.0
   ,"sim_prop_max"               : 25.0
   ,"sim_prop_tri_max"           : 25.0

@@ -29,10 +29,12 @@ def _ival_late(v):
 
 @dataclass
 class MyExpectCell:
-  pin_oirc     : list[str]      =field(default_factory=list); #pin definition, {"o0", "i0", "c0"} for outport, inport, relatedport
-  arc_oirc     : list[str]      =field(default_factory=list); #arc             {"r" ,"r"  , "f"}  for outport, inport, relatedport
+  #-- ISS-00127: 記述順 pin_tr → pin_oirc → ival → arc_oirc → meas_types → ...
+  pin_tr       : list[str]      =field(default_factory=list); #ISS-00127: Liberty 出力用 pin 識別 [target, related]、 空なら pin_oirc から自動推定（SPEC_pin_oirc.md §5.3）
+  pin_oirc     : list[str]      =field(default_factory=list); #pin definition (spice 制御用), {"o0", "i0", "c0", "c0"} for [VOUT, VIN, VREL, VCLK]
   ival        : dict[str,list[str]]=field(default_factory=lambda:{"o":[],"i":[],"b":[],"c":[],"r":[],"s":[]});#initial value  {"o":["0","1",,],"i":["0","1",,],"b":["0""1",,],"c":["0","1",,],"r":["0","1",,],"s":["0","1",,]]
-  mondrv_oirc  : list[str]      =field(default_factory=list); #new value.     {"0", "0", "1"} for outport, inport, relatedport
+  arc_oirc     : list[str]      =field(default_factory=list); #arc             {"r" ,"r"  , "f"}  for outport, inport, relatedport
+  mondrv_oirc  : list[str]      =field(default_factory=list); #new value.     {"0", "0", "1"} for outport, inport, relatedport (ISS-00101 廃止予定)
   rval        : dict[str,list[str]]=field(default_factory=dict); #result value {"o":["0","1",,],"i":["0","1",,],"b":["0""1",,],"c":["0","1",,],"r":["0","1",,],"s":["0","1",,]]
   meas_types  : list[str] = field(default_factory=list)  ; #plural measure types, mandatory external input
   meas_type   : str = field(default="", init=False)      ; #internal use only, set by runExpectation in loop

@@ -357,51 +357,53 @@ class MyLogicCell(BaseModel):
 
     self.isio=True
 
-  ## average of cin in all harness.dict_list2["cin"]["index_2"]["index_1"]
-  def set_cin_avg(self, harnessList:list["Mcar"]):
+  ## ISS-00135 reorg(U4/U5/U6): per-pin 属性は「pin_oirc[k]==pin かつ arc_oirc[k]∈{r,f,p,n} の
+  ##   位置 k の値」を全 harness 横断で集約。 cin/max_trans は入力ピン、 max_load は出力ピン。
+  _TRANS = ("r", "f", "p", "n")
 
-    ports=(self.inports + [self.clock] + self.biports)
-    for inport in list(filter(lambda x: x is not None, ports)):
-      
-      cin_all=[]
+  @staticmethod
+  def _flatten_d2(d2):
+    ## dict_list2[key] (index1 -> index2 -> val) を flat list に
+    return [v for i1 in d2.values() for v in i1.values()]
+
+  def _gather_in(self, harnessList, keys):
+    ## keys=("c_in","c_rel","c_clk") 等。 入力ピンごとに位置別 dict_list2 を集約
+    out={}
+    for inport in [p for p in (self.inports + [self.clock] + self.biports) if p is not None]:
+      vals=[]
       for h in harnessList:
-        #print(f"inport={inport}, relport={h.target_relport}")
-        
-        if h.target_relport == inport:
-        #if h.target_inport == inport:
-          #-- list of dict_list2["cin"]["index_1"]["index_2"]
-          cin_list=[v for index_1 in h.dict_list2["cin"].values() for v in index_1.values()]
-          cin_all.extend(cin_list)
-          #print(f"{inport}:{cin_all}")
-          
-      if len(cin_all)<1:
-        self.cins[inport]=0.0; #-- default value?
-        continue
-        #print(f'[Error] dict_list2["cin"] size is 0.')
-        #my_exit()
+        po, arc = h.mec.pin_oirc, h.mec.arc_oirc
+        if po[1]==inport and arc[1] in self._TRANS: vals += self._flatten_d2(h.dict_list2[keys[0]])
+        if po[2]==inport and arc[2] in self._TRANS: vals += self._flatten_d2(h.dict_list2[keys[1]])
+        if po[3]==inport and arc[3] in self._TRANS: vals += self._flatten_d2(h.dict_list2[keys[2]])
+      out[inport]=vals
+    return out
 
-      #
-      mag=self.mls.capacitance_mag
-      val_avr=st.mean(cin_all)/mag
-      self.cins[inport]=val_avr
+  def set_cin_avg(self, harnessList):
+    mag=self.mls.capacitance_mag
+    for inport, vals in self._gather_in(harnessList, ("c_in","c_rel","c_clk")).items():
+      self.cins[inport] = (st.mean(vals)/mag) if vals else 0.0
 
-  def set_cin_max(self, harnessList:list["Mcar"]):
+  def set_cin_max(self, harnessList):
+    mag=self.mls.capacitance_mag
+    for inport, vals in self._gather_in(harnessList, ("c_in","c_rel","c_clk")).items():
+      self.cins[inport] = (max(vals)/mag) if vals else 0.0
 
-    ports=(self.inports + [self.clock] + self.biports)
-    for inport in list(filter(lambda x: x is not None, ports)):
+  def set_max_trans(self, harnessList):
+    ## max_transition = 各入力ピンが駆動された最大 slew（pin_oirc[k]×arc）
+    for inport, vals in self._gather_in(harnessList, ("slew_in","slew_rel","slew_clk")).items():
+      if vals:
+        self.max_trans4in[inport] = max(vals)
 
-      max_cin = 0.0
-      for h in [x for x in harnessList if x.target_relport == inport and x.dict_list2["cin"]]:
-        ## dict_list2["cin"][index1][index2] --- dict_list2["cin"]=[,,,,,,]
-        cin_list=[v for index_1 in h.dict_list2["cin"].values() for v in index_1.values()]
-
-        ## update in every harness
-        new_cin = max(cin_list)
-        if max_cin < new_cin:
-          max_cin = new_cin
-          
-      mag=self.mls.capacitance_mag
-      self.cins[inport]=max_cin/mag
+  def set_max_load(self, harnessList):
+    ## max_capacitance = 各出力ピンが特性化された最大 load（pin_oirc[0]）
+    for outport in self.outports:
+      vals=[]
+      for h in harnessList:
+        if h.mec.pin_oirc[0]==outport:
+          vals += self._flatten_d2(h.dict_list2["load_out"])
+      if vals:
+        self.max_load4out[outport] = max(vals)
       
   ## cell_cleak=max leakage
   def set_max_pleak(self, harnessList:list["Mcar"]):

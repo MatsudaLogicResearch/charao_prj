@@ -416,8 +416,8 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
 
     ##-------------------------------------------------------------------------
     ## check timing/power infomation
-    h_list_pre = [h for h in harnessList if h.template_kind.startswith(("delay","power_tout","power_c","power_i")) and (h.target_outport==port)]
-    h_list     = sorted(h_list_pre, key=lambda x: (x.target_relport, x.timing_type, x.timing_when, x.direction_prop));
+    h_list_pre = [h for h in harnessList if h.template_kind.startswith(("delay","power_tout","power_c","power_i")) and (h.lib_target_pin==port)]
+    h_list     = sorted(h_list_pre, key=lambda x: (x.lib_related_pin, x.timing_type, x.timing_when, x.direction_in_lib["prop"]));
 
     if len(h_list) < 1:
       print(f"[INFO]: no harness result exist for target={port}.")
@@ -429,8 +429,8 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       
     ##-------------------------------------------------------------------------
     ## timing(delay)
-    sorted_harnessList=sorted(h_list_t, key=lambda x: (x.target_relport, x.timing_type, x.timing_when))
-    for (target_relport,timing_type,timing_when),group in groupby(sorted_harnessList, key=lambda x:(x.target_relport, x.timing_type, x.timing_when)):
+    sorted_harnessList=sorted(h_list_t, key=lambda x: (x.lib_related_pin, x.timing_type, x.timing_when))
+    for (target_relport,timing_type,timing_when),group in groupby(sorted_harnessList, key=lambda x:(x.lib_related_pin, x.timing_type, x.timing_when)):
       group_list=list(group);
       size=len(group_list)
       print(f"  [INFO] group(delay): target={port}, relport={target_relport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
@@ -471,14 +471,14 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       ## propagation & transition
       for h in group_list:
         t=h.template
-        outlines.append(f'        {h.direction_prop} ({t.kind}_template_{t.grid}) {{')
+        outlines.append(f'        {h.direction_in_lib["prop"]} ({t.kind}_template_{t.grid}) {{')
           
         for lut_line in h.lut["prop"]:
           outlines.append(f'          {lut_line}')
         outlines.append(f'        }}') 
 
         #
-        outlines.append(f'        {h.direction_tran} ({t.kind}_template_{t.grid}) {{')
+        outlines.append(f'        {h.direction_in_lib["tran"]} ({t.kind}_template_{t.grid}) {{')
         for lut_line in h.lut["trans"]:
           outlines.append(f'          {lut_line}')
         outlines.append(f'        }}') 
@@ -495,11 +495,11 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
         outlines.append(f'        timing_type : "{h1.timing_type}";')
         for h in group_list:
           t=h.template
-          outlines.append(f'        {h.direction_prop} ({t.kind}_template_{t.grid}) {{')
+          outlines.append(f'        {h.direction_in_lib["prop"]} ({t.kind}_template_{t.grid}) {{')
           for lut_line in h.lut["prop"]:
             outlines.append(f'          {lut_line}')
           outlines.append(f'        }}')
-          outlines.append(f'        {h.direction_tran} ({t.kind}_template_{t.grid}) {{')
+          outlines.append(f'        {h.direction_in_lib["tran"]} ({t.kind}_template_{t.grid}) {{')
           for lut_line in h.lut["trans"]:
             outlines.append(f'          {lut_line}')
           outlines.append(f'        }}')
@@ -507,8 +507,8 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
 
     ##-------------------------------------------------------------------------
     ## energy(power)
-    sorted_harnessList=sorted(h_list_e, key=lambda x: (x.target_relport, x.timing_type, x.timing_when))
-    for (target_relport,timing_type,timing_when),group in groupby(sorted_harnessList, key=lambda x:(x.target_relport, x.timing_type, x.timing_when)):
+    sorted_harnessList=sorted(h_list_e, key=lambda x: (x.lib_related_pin, x.timing_type, x.timing_when))
+    for (target_relport,timing_type,timing_when),group in groupby(sorted_harnessList, key=lambda x:(x.lib_related_pin, x.timing_type, x.timing_when)):
       group_list=list(group);
       size=len(group_list)
       print(f"  [INFO] group(power): target={port}, relport={target_relport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
@@ -550,7 +550,7 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       ## rise(fall)
       for h in group_list:
         t = h.template
-        outlines.append(f'        {h.direction_power} ({t.kind}_energy_template_{t.grid}) {{')
+        outlines.append(f'        {h.direction_in_lib["power"]} ({t.kind}_energy_template_{t.grid}) {{')
           
         for lut_line in h.lut["eintl"]:
           outlines.append(f'          {lut_line}')
@@ -567,7 +567,7 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
         outlines.append(f'        related_pin : "{targetCell.replace_by_portmap(target_relport)}";')
         for h in group_list:
           t = h.template
-          outlines.append(f'        {h.direction_power} ({t.kind}_energy_template_{t.grid}) {{')
+          outlines.append(f'        {h.direction_in_lib["power"]} ({t.kind}_energy_template_{t.grid}) {{')
           for lut_line in h.lut["eintl"]:
             outlines.append(f'          {lut_line}')
           outlines.append(f'        }}')
@@ -627,8 +627,8 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
     ##-------------------------------------------------------------------------
     ## power_tin (biport internal_power, related_pin omitted = same biport).
     ## Used for bus-keeper / inout cells (e.g. HOLD).
-    h_list_bp = [h for h in harnessList if h.template_kind == "power_tin" and h.target_outport == port]
-    sorted_bp = sorted(h_list_bp, key=lambda x: (x.timing_when, x.passive_power))
+    h_list_bp = [h for h in harnessList if h.template_kind == "power_tin" and h.lib_target_pin == port]
+    sorted_bp = sorted(h_list_bp, key=lambda x: (x.timing_when, x.direction_in_lib["passive_power"]))
     for timing_when, group in groupby(sorted_bp, key=lambda x: x.timing_when):
       group_list = list(group)
       print(f"  [INFO] group(power_tin biport): target={port}, timing_when={timing_when} -> {len(group_list)}")
@@ -647,7 +647,7 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
 
       for h in group_list:
         t = h.template
-        outlines.append(f'        {h.passive_power} ({t.kind}_energy_template_{t.grid}) {{')
+        outlines.append(f'        {h.direction_in_lib["passive_power"]} ({t.kind}_energy_template_{t.grid}) {{')
         for lut_line in h.lut["eintl"]:
           outlines.append(f'          {lut_line}')
         outlines.append(f'        }}')
@@ -725,8 +725,8 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       
     ##-------------------------------------------------------------------------
     ## check timing/power infomation
-    h_list = [h for h in harnessList if (h.template_kind in ["const","passive","power_tin"]) and (h.target_inport == port)]
-    h_list_in = sorted(h_list, key=lambda x: (x.target_relport, x.timing_type, x.timing_when, x.constraint));
+    h_list = [h for h in harnessList if (h.template_kind in ["const","passive","power_tin"]) and (h.lib_target_pin == port)]
+    h_list_in = sorted(h_list, key=lambda x: (x.lib_related_pin, x.timing_type, x.timing_when, x.direction_in_lib["constraint"]));
       
     if len(h_list_in) < 1:
       print(f"[INFO]: no harness result exist for target={port}.")
@@ -739,8 +739,8 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       
     ##-------------------------------------------------------------------------
     ## timing(const)
-    sorted_harnessList=sorted(h_list_in_c, key=lambda x: (x.target_relport, x.timing_type, x.timing_when))
-    for (target_relport,timing_type,timing_when),group in groupby(sorted_harnessList, key=lambda x:(x.target_relport, x.timing_type, x.timing_when)):
+    sorted_harnessList=sorted(h_list_in_c, key=lambda x: (x.lib_related_pin, x.timing_type, x.timing_when))
+    for (target_relport,timing_type,timing_when),group in groupby(sorted_harnessList, key=lambda x:(x.lib_related_pin, x.timing_type, x.timing_when)):
       group_list=list(group);
       size=len(group_list)
       print(f"  [INFO] group(const): target={port}, relport={target_relport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
@@ -784,7 +784,7 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
         if not h.lut["setup_hold"]:
           continue
         t=h.template
-        outlines.append(f'        {h.constraint } ({t.kind + "_template_" + t.grid }) {{')
+        outlines.append(f'        {h.direction_in_lib["constraint"] } ({t.kind + "_template_" + t.grid }) {{')
 
         for lut_line in h.lut["setup_hold"]:
           outlines.append(f'          {lut_line}')
@@ -794,8 +794,8 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
 
     ##-------------------------------------------------------------------------
     ## energy(passive)
-    sorted_harnessList=sorted(h_list_in_p, key=lambda x: (x.target_relport, x.timing_type, x.timing_when))
-    for (target_relport,timing_type,timing_when),group in groupby(sorted_harnessList, key=lambda x:(x.target_relport, x.timing_type, x.timing_when)):
+    sorted_harnessList=sorted(h_list_in_p, key=lambda x: (x.lib_related_pin, x.timing_type, x.timing_when))
+    for (target_relport,timing_type,timing_when),group in groupby(sorted_harnessList, key=lambda x:(x.lib_related_pin, x.timing_type, x.timing_when)):
       group_list=list(group);
       size=len(group_list)
       print(f"  [INFO] group(passive): inport={port}, relport={target_relport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
@@ -830,7 +830,7 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       ## rise(fall)
       for h in group_list:
         t = h.template
-        outlines.append(f'        {h.passive_power} ({t.kind}_energy_template_{t.grid}) {{')
+        outlines.append(f'        {h.direction_in_lib["passive_power"]} ({t.kind}_energy_template_{t.grid}) {{')
           
         for lut_line in h.lut["eintl"]:
           outlines.append(f'          {lut_line}')
@@ -843,7 +843,7 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
     ## power_tin (input pin internal_power, output stable state)
     ## Use passive_power (input direction) for fall_power/rise_power table name,
     ## since direction_power="stable" when output is stable (arc_oirc[0]=="s").
-    sorted_pt = sorted(h_list_in_pt, key=lambda x: (x.timing_when, x.passive_power))
+    sorted_pt = sorted(h_list_in_pt, key=lambda x: (x.timing_when, x.direction_in_lib["passive_power"]))
     for timing_when, group in groupby(sorted_pt, key=lambda x: x.timing_when):
       group_list = list(group)
       print(f"  [INFO] group(power_tin): target={port}, timing_when={timing_when} -> {len(group_list)}")
@@ -865,7 +865,7 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       ## rise / fall (input direction)
       for h in group_list:
         t = h.template
-        outlines.append(f'        {h.passive_power} ({t.kind}_energy_template_{t.grid}) {{')
+        outlines.append(f'        {h.direction_in_lib["passive_power"]} ({t.kind}_energy_template_{t.grid}) {{')
         for lut_line in h.lut["eintl"]:
           outlines.append(f'          {lut_line}')
         outlines.append(f'        }}')

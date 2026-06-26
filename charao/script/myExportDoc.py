@@ -239,14 +239,15 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
 
     for setup_hold in ["setup","hold","recovery","removal"]:
       h_list = [h for h in harnessList if (h.template_kind in ["const"] and h.timing_type.startswith(setup_hold))]
-      sorted_h=sorted(h_list, key=lambda x: (x.timing_type, x.target_inport, x.target_relport, x.constraint, x.timing_when))
+      # ISS-00135/127: .lib const と整合。 Constraint Pin=lib_target_pin(pin_tr[0]), Related pin=lib_related_pin(pin_tr[1])
+      sorted_h=sorted(h_list, key=lambda x: (x.timing_type, x.lib_target_pin, x.lib_related_pin, x.direction_in_lib["constraint"], x.timing_when))
 
       if sorted_h:
         outlines.append(f'### CONSTRAINTS ({setup_hold})')
         outlines.append(f'| Constraint Pin | Related pin | Constraint Pin Slew({targetLib.time_unit}) | Related pin Slew({targetLib.time_unit}) | When | {setup_hold}({targetLib.time_unit})|')
         outlines.append(f'|----|----|----|----|----|----|')
 
-        for (timing_type, inport, relport, constraint,timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_inport,x.target_relport, x.constraint, x.timing_when)):
+        for (timing_type, inport, relport, constraint,timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.lib_target_pin,x.lib_related_pin, x.direction_in_lib["constraint"], x.timing_when)):
           group_list=list(group);
           size=len(group_list)
         
@@ -276,14 +277,14 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
     
     ##-------------------------------------------------    
     h_list = [h for h in harnessList if (h.template_kind.startswith("delay") and (not h.timing_type.startswith("three_state")))]
-    sorted_h=sorted(h_list, key=lambda x: (x.target_outport, x.timing_when, x.target_relport, x.timing_type, x.direction_tran))
+    sorted_h=sorted(h_list, key=lambda x: (x.target_outport, x.timing_when, x.target_relport, x.timing_type, x.direction_in_lib["tran"]))
 
     if sorted_h:
       outlines.append(f'### DELAY AND OUTPUT TRANSITION TIME')
       outlines.append(f'| Input Pin | Output pin | When | Input Pin Slew({targetLib.time_unit}) | Out Load({targetLib.capacitance_unit}) | Delay({targetLib.time_unit})| Transition({targetLib.time_unit}) |')
       outlines.append(f'|----|----|----|----|----|----|----|')
 
-      for (timing_type, relport, outport, direction_tran, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_tran, x.timing_when)):
+      for (timing_type, relport, outport, direction_tran, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_in_lib["tran"], x.timing_when)):
         group_list=list(group);
         size=len(group_list)
       
@@ -315,14 +316,14 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
     ##-------------------------------------------------    
     #h_list = [h for h in harnessList if (h.template_kind in ["delay"])]
     h_list = [h for h in harnessList if (h.template_kind.startswith("delay") and  h.timing_type.startswith("three_state"))]
-    sorted_h=sorted(h_list, key=lambda x: (x.target_outport, x.timing_when, x.target_relport, x.timing_type, x.direction_tran))
+    sorted_h=sorted(h_list, key=lambda x: (x.target_outport, x.timing_when, x.target_relport, x.timing_type, x.direction_in_lib["tran"]))
     
     if sorted_h:
       outlines.append(f'### THREE_STSTE AND OUTPUT TRANSITION TIME')
       outlines.append(f'| OE | Input Pin | Output pin | When | Input Pin Slew({targetLib.time_unit}) | Out Load({targetLib.capacitance_unit}) | Delay({targetLib.time_unit})| Transition({targetLib.time_unit}) |')
       outlines.append(f'|----|----|----|----|----|----|----|----|')
 
-      for (timing_type, relport, outport, direction_tran, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_tran, x.timing_when)):
+      for (timing_type, relport, outport, direction_tran, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_in_lib["tran"], x.timing_when)):
         group_list=list(group);
         size=len(group_list)
       
@@ -357,7 +358,7 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
     #h_list = [h for h in harnessList if (h.template_kind in ["power"])]
     #h_list = [h for h in harnessList if (h.template_kind.startswith("power") and (h.timing_type.startswith("three_state"))]
     h_list = [h for h in harnessList if (h.template_kind.startswith(("power_tout","power_c","power_i")))]
-    sorted_h=sorted(h_list, key=lambda x: (x.target_outport, x.timing_when, x.target_relport, x.timing_type, x.direction_tran))
+    sorted_h=sorted(h_list, key=lambda x: (x.target_outport, x.timing_when, x.target_relport, x.timing_type, x.direction_in_lib["tran"]))
 
 
     if sorted_h:
@@ -365,7 +366,7 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
       outlines.append(f'| Input Pin | When | Output pin | Input Pin Slew({targetLib.time_unit}) | Out Load({targetLib.capacitance_unit}) | Energy({targetLib.energy_unit})|')
       outlines.append(f'|----|----|----|----|----|----|')
 
-      for (timing_type, relport, outport, direction_power, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_power, x.timing_when)):
+      for (timing_type, relport, outport, direction_power, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_in_lib["power"], x.timing_when)):
         group_list=list(group);
         size=len(group_list)
       

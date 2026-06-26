@@ -57,48 +57,48 @@ def get_logic_dict():
       "expect":
              [
                #--- delay + power_tout (related:I=i0, when:EN=i1=1)  #ISS-00101: mondrv_oirc 省略
-               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["0"],"i":["0","1"]}
-                           ,meas_types=["delay","power_tout"], tmg_sense="pos", arc_oirc=["r","r","r",""], tmg_when="i1", specify=""),
-               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["1"],"i":["1","1"]}
-                           ,meas_types=["delay","power_tout"], tmg_sense="pos", arc_oirc=["f","f","f",""], tmg_when="i1", specify="(i0 => o0) = (0,0);;"),
+               MyExpectCell(pin_tr=["o0","i0"], pin_oirc=["o0","","i0",""], ival={"o":["0"],"i":["0","1"]}
+                           ,meas_types=["delay","power_tout"], tmg_sense="pos", arc_oirc=["r","","r",""], tmg_when="i1", specify=""),
+               MyExpectCell(pin_tr=["o0","i0"], pin_oirc=["o0","","i0",""], ival={"o":["1"],"i":["1","1"]}
+                           ,meas_types=["delay","power_tout"], tmg_sense="pos", arc_oirc=["f","","f",""], tmg_when="i1", specify="(i0 => o0) = (0,0);;"),
                #--- three_state_enable arc (EN rise -> Z to active value, no when, fall/rise pair)
                # I=1: ext drive 0 -> internal 1 (Z rise)
-               MyExpectCell(pin_oirc=["o0","i0","i1",""], ival={"o":["0"],"i":["1","0"]}
+               MyExpectCell(pin_tr=["o0","i1"], pin_oirc=["o0","i0","i1",""], ival={"o":["0"],"i":["1","0"]}
                            ,meas_types=["three_state_enable","power_tout"], tmg_sense="pos", arc_oirc=["r","1","r",""], tmg_when="", specify=""),
                # I=0: ext drive 1 -> internal 0 (Z fall)
-               MyExpectCell(pin_oirc=["o0","i0","i1",""], ival={"o":["1"],"i":["0","0"]}
+               MyExpectCell(pin_tr=["o0","i1"], pin_oirc=["o0","i0","i1",""], ival={"o":["1"],"i":["0","0"]}
                            ,meas_types=["three_state_enable","power_tout"], tmg_sense="pos", arc_oirc=["f","0","r",""], tmg_when="", specify=""),
                #--- three_state_disable arc (EN fall -> Z to Hi-Z, oe_infos SW for initial pull)
                # I=0: DUT was driving Z=0; EN fall releases; ext pull-up -> Z rise
-               MyExpectCell(pin_oirc=["o0","i0","i1",""], ival={"o":["0"],"i":["0","1"]}
+               MyExpectCell(pin_tr=["o0","i1"], pin_oirc=["o0","i0","i1",""], ival={"o":["0"],"i":["0","1"]}
                            ,meas_types=["three_state_disable"], tmg_sense="neg", arc_oirc=["r","0","f",""], tmg_when="", specify=""),
                # I=1: DUT was driving Z=1; EN fall releases; ext pull-down -> Z fall
-               MyExpectCell(pin_oirc=["o0","i0","i1",""], ival={"o":["1"],"i":["1","1"]}
+               MyExpectCell(pin_tr=["o0","i1"], pin_oirc=["o0","i0","i1",""], ival={"o":["1"],"i":["1","1"]}
                            ,meas_types=["three_state_disable"], tmg_sense="neg", arc_oirc=["f","1","f",""], tmg_when="", specify=""),
                #--- power_tin pin(EN) when:"!I" (i0=0): EN rise/fall, I=0 stable
-               MyExpectCell(pin_oirc=["o0","i1","i1",""], ival={"o":["0"],"i":["0","0"]}
-                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["0","r","r",""], tmg_when="!i0", specify=""),
-               MyExpectCell(pin_oirc=["o0","i1","i1",""], ival={"o":["0"],"i":["0","1"]}
-                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["0","f","f",""], tmg_when="!i0", specify=""),
+               MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","","i1",""], ival={"o":["0"],"i":["0","0"]}
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["0","","r",""], tmg_when="!i0", specify=""),
+               MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","","i1",""], ival={"o":["0"],"i":["0","1"]}
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["0","","f",""], tmg_when="!i0", specify=""),
                #--- power_tin pin(EN) when:"I" (i0=1): EN rise/fall, I=1 stable
-               MyExpectCell(pin_oirc=["o0","i1","i1",""], ival={"o":["1"],"i":["1","0"]}
-                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["1","r","r",""], tmg_when="i0", specify=""),
-               MyExpectCell(pin_oirc=["o0","i1","i1",""], ival={"o":["1"],"i":["1","1"]}
-                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["1","f","f",""], tmg_when="i0", specify=""),
+               MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","","i1",""], ival={"o":["1"],"i":["1","0"]}
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["1","","r",""], tmg_when="i0", specify=""),
+               MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","","i1",""], ival={"o":["1"],"i":["1","1"]}
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["1","","f",""], tmg_when="i0", specify=""),
                #--- power_tin pin(I) when:"!EN" (i1=0, output Hi-Z): I rise/fall in disabled state
-               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["0"],"i":["0","0"]}
-                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["0","r","r",""], tmg_when="!i1", specify=""),
-               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["1"],"i":["1","0"]}
-                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["1","f","f",""], tmg_when="!i1", specify=""),
+               MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","","i0",""], ival={"o":["0"],"i":["0","0"]}
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["0","","r",""], tmg_when="!i1", specify=""),
+               MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","","i0",""], ival={"o":["1"],"i":["1","0"]}
+                           ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["1","","f",""], tmg_when="!i1", specify=""),
                #--- leakage (4 conditions: !EN&!I / EN&!I / !EN&I / EN&I)  #ISS-00101: mondrv_oirc 省略、 arc=s→0/1
-               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["d"],"i":["0","0"]}
-                           ,meas_types=["leakage"], tmg_sense="non", arc_oirc=["0","0","0",""], tmg_when="!i0&!i1", specify=""),
-               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["d"],"i":["1","0"]}
-                           ,meas_types=["leakage"], tmg_sense="non", arc_oirc=["0","1","1",""], tmg_when="i0&!i1", specify=""),
-               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["d"],"i":["0","1"]}
-                           ,meas_types=["leakage"], tmg_sense="non", arc_oirc=["0","0","0",""], tmg_when="!i0&i1", specify=""),
-               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["u"],"i":["1","1"]}
-                           ,meas_types=["leakage"], tmg_sense="non", arc_oirc=["1","1","1",""], tmg_when="i0&i1", specify="", power_default=True),
+               MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","","i0",""], ival={"o":["d"],"i":["0","0"]}
+                           ,meas_types=["leakage"], tmg_sense="non", arc_oirc=["0","","0",""], tmg_when="!i0&!i1", specify=""),
+               MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","","i0",""], ival={"o":["d"],"i":["1","0"]}
+                           ,meas_types=["leakage"], tmg_sense="non", arc_oirc=["0","","1",""], tmg_when="i0&!i1", specify=""),
+               MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","","i0",""], ival={"o":["d"],"i":["0","1"]}
+                           ,meas_types=["leakage"], tmg_sense="non", arc_oirc=["0","","0",""], tmg_when="!i0&i1", specify=""),
+               MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","","i0",""], ival={"o":["u"],"i":["1","1"]}
+                           ,meas_types=["leakage"], tmg_sense="non", arc_oirc=["1","","1",""], tmg_when="i0&i1", specify="", power_default=True),
              ]
     },
     #---------------------------------------------------------------------------------------
@@ -120,47 +120,47 @@ def get_logic_dict():
       "expect":
              [
                #--- delay + power_tout (related:I=i0, when:EN=i1=1, sense=neg)  #ISS-00101: mondrv_oirc 省略
-               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["1"],"i":["0","1"]}
+               MyExpectCell(pin_tr=["o0","i0"], pin_oirc=["o0","","i0",""], ival={"o":["1"],"i":["0","1"]}
                            ,meas_types=["delay","power_tout"], tmg_sense="neg", arc_oirc=["f","r","r",""], tmg_when="i1", specify=""),
-               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["0"],"i":["1","1"]}
+               MyExpectCell(pin_tr=["o0","i0"], pin_oirc=["o0","","i0",""], ival={"o":["0"],"i":["1","1"]}
                            ,meas_types=["delay","power_tout"], tmg_sense="neg", arc_oirc=["r","f","f",""], tmg_when="i1", specify="(i0 => o0) = (0,0);;"),
                #--- three_state_enable arc (EN rise -> ZN to active value, sense=pos)
                # I=1: ZN=0 (ext drive 1 -> internal 0, ZN fall)
-               MyExpectCell(pin_oirc=["o0","i0","i1",""], ival={"o":["1"],"i":["1","0"]}
+               MyExpectCell(pin_tr=["o0","i1"], pin_oirc=["o0","i0","i1",""], ival={"o":["1"],"i":["1","0"]}
                            ,meas_types=["three_state_enable","power_tout"], tmg_sense="pos", arc_oirc=["f","1","r",""], tmg_when="", specify=""),
                # I=0: ZN=1 (ext drive 0 -> internal 1, ZN rise)
-               MyExpectCell(pin_oirc=["o0","i0","i1",""], ival={"o":["0"],"i":["0","0"]}
+               MyExpectCell(pin_tr=["o0","i1"], pin_oirc=["o0","i0","i1",""], ival={"o":["0"],"i":["0","0"]}
                            ,meas_types=["three_state_enable","power_tout"], tmg_sense="pos", arc_oirc=["r","0","r",""], tmg_when="", specify=""),
                #--- three_state_disable arc (EN fall -> ZN to Hi-Z, sense=neg)
                # I=1: ZN was 0 -> ext pull-up -> ZN rise
-               MyExpectCell(pin_oirc=["o0","i0","i1",""], ival={"o":["0"],"i":["1","1"]}
+               MyExpectCell(pin_tr=["o0","i1"], pin_oirc=["o0","i0","i1",""], ival={"o":["0"],"i":["1","1"]}
                            ,meas_types=["three_state_disable"], tmg_sense="neg", arc_oirc=["r","1","f",""], tmg_when="", specify=""),
                # I=0: ZN was 1 -> ext pull-down -> ZN fall
-               MyExpectCell(pin_oirc=["o0","i0","i1",""], ival={"o":["1"],"i":["0","1"]}
+               MyExpectCell(pin_tr=["o0","i1"], pin_oirc=["o0","i0","i1",""], ival={"o":["1"],"i":["0","1"]}
                            ,meas_types=["three_state_disable"], tmg_sense="neg", arc_oirc=["f","0","f",""], tmg_when="", specify=""),
                #--- power_tin pin(EN) when:"!I" (i0=0): EN rise/fall, I=0 stable → ZN=!I=1 (active)
-               MyExpectCell(pin_oirc=["o0","i1","i1",""], ival={"o":["1"],"i":["0","0"]}
+               MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","","i1",""], ival={"o":["1"],"i":["0","0"]}
                            ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["1","r","r",""], tmg_when="!i0", specify=""),
-               MyExpectCell(pin_oirc=["o0","i1","i1",""], ival={"o":["1"],"i":["0","1"]}
+               MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","","i1",""], ival={"o":["1"],"i":["0","1"]}
                            ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["1","f","f",""], tmg_when="!i0", specify=""),
                #--- power_tin pin(EN) when:"I" (i0=1): EN rise/fall, I=1 stable → ZN=!I=0 (active)
-               MyExpectCell(pin_oirc=["o0","i1","i1",""], ival={"o":["0"],"i":["1","0"]}
+               MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","","i1",""], ival={"o":["0"],"i":["1","0"]}
                            ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["0","r","r",""], tmg_when="i0", specify=""),
-               MyExpectCell(pin_oirc=["o0","i1","i1",""], ival={"o":["0"],"i":["1","1"]}
+               MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","","i1",""], ival={"o":["0"],"i":["1","1"]}
                            ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["0","f","f",""], tmg_when="i0", specify=""),
                #--- power_tin pin(I) when:"!EN" (i1=0, output Hi-Z): I rise/fall in disabled state (ext drive = i0)
-               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["0"],"i":["0","0"]}
+               MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","","i0",""], ival={"o":["0"],"i":["0","0"]}
                            ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["0","r","r",""], tmg_when="!i1", specify=""),
-               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["1"],"i":["1","0"]}
+               MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","","i0",""], ival={"o":["1"],"i":["1","0"]}
                            ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["1","f","f",""], tmg_when="!i1", specify=""),
                #--- leakage (4 conditions: !EN&!I / EN&!I / !EN&I / EN&I)  #ISS-00101: arc=s→0/1
-               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["d"],"i":["0","0"]}
+               MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","","i0",""], ival={"o":["d"],"i":["0","0"]}
                            ,meas_types=["leakage"], tmg_sense="non", arc_oirc=["0","0","0",""], tmg_when="!i0&!i1", specify=""),
-               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["d"],"i":["1","0"]}
+               MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","","i0",""], ival={"o":["d"],"i":["1","0"]}
                            ,meas_types=["leakage"], tmg_sense="non", arc_oirc=["0","1","1",""], tmg_when="i0&!i1", specify=""),
-               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["u"],"i":["0","1"]}
+               MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","","i0",""], ival={"o":["u"],"i":["0","1"]}
                            ,meas_types=["leakage"], tmg_sense="non", arc_oirc=["1","0","0",""], tmg_when="!i0&i1", specify=""),
-               MyExpectCell(pin_oirc=["o0","i0","i0",""], ival={"o":["d"],"i":["1","1"]}
+               MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","","i0",""], ival={"o":["d"],"i":["1","1"]}
                            ,meas_types=["leakage"], tmg_sense="non", arc_oirc=["0","1","1",""], tmg_when="i0&i1", specify="", power_default=True),
              ]
     },
@@ -181,15 +181,15 @@ def get_logic_dict():
       "expect":
              [
                #--- power_tin (biport internal_power, 1D, no when)  #ISS-00101: mondrv_oirc 省略
-               MyExpectCell(pin_oirc=["b0","b0","b0",""], ival={"o":[],"i":[],"b":["0"]}
-                           ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["r","r","r",""], tmg_when="", specify=""),
-               MyExpectCell(pin_oirc=["b0","b0","b0",""], ival={"o":[],"i":[],"b":["1"]}
-                           ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["f","f","f",""], tmg_when="", specify=""),
+               MyExpectCell(pin_tr=["b0",""], pin_oirc=["b0","","b0",""], ival={"o":[],"i":[],"b":["0"]}
+                           ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["r","","r",""], tmg_when="", specify=""),
+               MyExpectCell(pin_tr=["b0",""], pin_oirc=["b0","","b0",""], ival={"o":[],"i":[],"b":["1"]}
+                           ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["f","","f",""], tmg_when="", specify=""),
                #--- leakage (when="!b0" / "b0")  #ISS-00101: mondrv_oirc 省略、 arc=s→0/1（ival 後半値）
-               MyExpectCell(pin_oirc=["b0","b0","b0",""], ival={"o":[],"i":[],"b":["0"]}
-                           ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["0","0","0",""], tmg_when="!b0", specify=""),
-               MyExpectCell(pin_oirc=["b0","b0","b0",""], ival={"o":[],"i":[],"b":["1"]}
-                           ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["1","1","1",""], tmg_when="b0", specify="", power_default=True),
+               MyExpectCell(pin_tr=["b0",""], pin_oirc=["b0","","b0",""], ival={"o":[],"i":[],"b":["0"]}
+                           ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["0","","0",""], tmg_when="!b0", specify=""),
+               MyExpectCell(pin_tr=["b0",""], pin_oirc=["b0","","b0",""], ival={"o":[],"i":[],"b":["1"]}
+                           ,meas_types=["leakage"] ,tmg_sense="non",arc_oirc=["1","","1",""], tmg_when="b0", specify="", power_default=True),
              ]
     },
   }

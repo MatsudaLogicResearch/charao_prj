@@ -443,24 +443,29 @@ function rebuildPlot() {
     paneEl.appendChild(labelEl); paneEl.appendChild(plotEl);
     chartEl.appendChild(paneEl);
 
-    const data = [tScaled, state.rawData.arrays[v.idx]];
+    const isI = v.name.toLowerCase().startsWith('i(');
+    const rawArr = state.rawData.arrays[v.idx];
+    const data = [tScaled, isI ? rawArr.map(x => (Math.abs(x) > 1e-15 ? Math.abs(x) : 1e-15)) : rawArr];
     const plotW = Math.max(200, chartW - 100);
     const opts = {
       width: plotW,
       height: paneH,
-      scales: { x: { time: false, range: (u, dataMin, dataMax) => [dataMin, dataMax] }, y: { range: [yMin, yMax] } },
+      scales: { x: { time: false, range: (u, dataMin, dataMax) => [dataMin, dataMax] },
+                y: isI ? { distr: 3, range: (u, dataMin, dataMax) => [Math.max(1e-15, dataMin), dataMax] } : { range: [yMin, yMax] } },
       series: [
         { label: 'time (' + tScale.label + ')',
           value: (u, val) => val == null ? '' : val.toFixed(4) + ' ' + tScale.label },
         { label: getDisplayName(v.name),
           stroke: v._color || '#3498db', width: 1.5,
-          value: (u, val) => val == null ? '' : val.toFixed(4) + ' V' }
+          value: (u, val) => val == null ? '' : (isI ? val.toExponential(3) + ' |A|' : val.toFixed(4) + ' V') }
       ],
       cursor: { x: true, y: true, drag: { x: true, y: false }, sync: { key: 'raw_viewer_group' } },
       legend: { show: false },
       axes: [
         { show: false },                       // x 軸 は専用 time pane に集約
-        { label: '', size: 50 }
+        isI
+          ? { label: '', size: 65, values: (u, splits) => splits.map(v => v == null ? '' : v.toExponential(0)) }
+          : { label: '', size: 50 }
       ],
       hooks: {
         draw: [refLineHook],

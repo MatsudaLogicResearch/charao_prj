@@ -46,6 +46,22 @@ testbench の時間軸を 3 期間に分ける：
 `c` / `r` / `s` は**遷移型信号**で、 `pin_oirc[3]`（clock スロット）にも使える。
 `b`（biport）は output/input/related を兼ねる単一 net。 ival キーは独自に `"b"`、 値は `0`/`1` のみ使用可能（例：`ival={"o":[],"i":[],"b":["0"]}`）。 HOLD 等の bus_hold セル用。
 
+### 3.1 ival キーと pin index 対応（2026-06-11 明示化）
+
+`ival` は dict 構造で、 各 key（`"o"`/`"i"`/`"c"`/`"r"`/`"s"`/`"b"`）の値は **list**（各 pin の値）。 list の index は同種 pin の番号に対応：
+
+| ival key | list の各 index 対応 pin |
+|---|---|
+| `ival["o"]` | `[o0, o1, ...]`：output pin 群（通常 1 個）|
+| `ival["i"]` | `[i0, i1, i2, ...]`：input pin 群（D, SI, SE 等）|
+| `ival["c"]` | `[c0, c1, ...]`：clock pin 群 |
+| `ival["r"]` | `[r0, r1, ...]`：reset pin 群 |
+| `ival["s"]` | `[s0, s1, ...]`：set pin 群 |
+| `ival["b"]` | `[b0, b1, ...]`：biport pin 群 |
+
+**例**：`ival={"o":["0"],"i":["1","0","0"],"c":["p"],"r":["1"],"s":["1"]}` は
+- `o0=0`、 `i0=1`/`i1=0`/`i2=0`（D=1, SI=0, SE=0）、 `c0=p`（CLK init pulse）、 `r0=1`（RN inactive）、 `s0=1`（SETN inactive）。
+
 ---
 
 ## 4. ival 値定義（確定）
@@ -95,12 +111,12 @@ testbench の時間軸を 3 期間に分ける：
 | `f` | fall（H→L、 以後 L 維持）| ○ | ○ | ○ | ○ |
 | `0` | static L | ○ | ○ | ○ | ○ |
 | `1` | static H | ○ | ○ | ○ | ○ |
-| `p` | pos-edge pulse（L→H→L、 1 パルス）|  |  |  | ○ |
-| `n` | neg-edge pulse（H→L→H、 1 パルス）|  |  |  | ○ |
+| `p` | pos-edge pulse（L→H→L、 1 パルス）|  |  | ○ | ○ |
+| `n` | neg-edge pulse（H→L→H、 1 パルス）|  |  | ○ | ○ |
 | `z` | Hi-Z | ○（予定）|  |  |  |
 
 - **`s`（旧 static）は廃止**。 移行期はコード側で後方互換受理するが、 mylogic 変換完了後に最終削除。
-- `p`/`n` は clock の min_pulse_width 計測用（clock[3] 専用）。
+- `p`/`n` は min_pulse_width 計測用。 **clock[3] と related[2] で使用可**：`pin_oirc[2]==pin_oirc[3]`（VREL と VCLK が同一 pin を駆動）のケースで arc[2]==arc[3]=p/n の整合性が必要なため、 related[2] も p/n 対応（jp2 で実装、 2026-06-11 確定）。
 - `z`：output[0] の three_state arc 用（使用予定）。 input/related の `z` は未サポート（ISS-00102）、 clock の `z` も未サポート。
 - `ival` の `r`/`f`（init 内遷移）と `arc_oirc` の `r`/`f`（計測フェーズ遷移）は同記号だが**期間が別**（二層構造）。
 
@@ -139,8 +155,8 @@ testbench の時間軸を 3 期間に分ける：
 | ポート | testbench 信号 | init 期間（`ival`）| 計測フェーズ（`arc_oirc`）|
 |--------|----------------|--------------------|---------------------------|
 | `o`（output）| WOUT | `0`/`1`/`u`/`d`→WOUT pre-charge SW（ISS-00076）＋`.IC` で L/H 強制（`u`=H／`d`=L）、 `z`→初期化なし | arc[0]=`r`/`f`→出力遷移を計測、 `0`/`1`→static（計測なし）、 `z`→Hi-Z（予定）|
-| `i`（input）| VIN | `0`/`1`→0ns 区間 PWL（`_tslew_min`〜`_t_in0`）、 **`u`/`d` は input 未サポート**（実装で使用例なし、 ISS-00101 で jp2 から VIN .IC 分岐削除）、 `r`/`f`/`p`/`n` 不可（遷移できない）| arc[1]=`0`/`1`→static PWL、 `r`/`f`→`_t_in0`〜`_t_in1` 遷移 PWL、 `p`/`n` 不可（input は pulse 不要） |
-| `r`/`s`（related）| VREL | **ival 不使用**（ISS-00101 で jp2 から val_oirc[2] 分岐削除、 arc_oirc[2] 一本化）| arc[2]=`0`/`1`→`_t_rel0` static、 `r`/`f`→`_t_rel1` まで edge、 `p`/`n`→`_t_rel3` まで round trip pulse |
+| `i`（input）| VIN | val_oirc[1]=`0`/`1`→init 部 PWL の初期値 `_vss_vin`/`_vdd_vin` 決定（2026-06-11 jp2 拡張）、 **`u`/`d`/`r`/`f`/`p`/`n` 不可**（input は遷移不可）| arc[1]=`0`/`1`→static PWL、 `r`/`f`→`_t_in0`〜`_t_in1` 遷移 PWL、 `p`/`n` 不可（input は pulse 不要） |
+| `r`/`s`（related）| VREL | val_oirc[2]=`0`/`1`→init 部 PWL の初期値 `_vss_vrel`/`_vdd_vrel` 決定（2026-06-11 jp2 拡張）、 **`u`/`d`/`r`/`f`/`p`/`n` 不可**（related は遷移不可）| arc[2]=`0`/`1`→`_t_rel0` static、 `r`/`f`→`_t_rel1` まで edge、 `p`/`n`→`_t_rel3` まで round trip pulse |
 | `c`（clock）| VCLK | `0`/`1`→stable、 `p`/`n`→init 内 1 パルス PWL（`_t_clk0..3`）、 `r`/`f`→init 内 rise/fall（戻さない）| arc[3]=`r`/`f`/`0`/`1`/`p`/`n`→`_t_clk4` 以降。 **`clk_role` 不使用**（arc[3] のみで決定）|
 | `b`（biport）| VIN/VREL/WOUT 共有（同 net 接続）| `b:0`/`b:1` で `.IC`+pre-charge SW により H/L 初期化（output 兼用）| arc[0]/[1]/[2] が揃って `r`/`f` で biport slew→`q_in_dyn` で power_tin / leakage を計測（HOLD 等 bus_hold セル）|
 
