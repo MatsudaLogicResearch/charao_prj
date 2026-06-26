@@ -4,6 +4,19 @@
 
 ---
 
+## [0.9.14a21] 2026-06-26
+
+Alpha pre-release. mylogic と jsonc の過不足解消（reset+set DFF の passive 欠落）＋ template load 軸（index_2）割当バグ修正。
+
+### Added
+- `mylogic_seq_ff.py`: `DFF_PC_NR_NS`（dffrsnq）/ `DFF_NC_NR_NS`（dffnrsnq）に passive measure を各 8 entry 追加（D×2・RN×2・SETN×2・CLK×2）。 兄弟 _NR/_NS・LATCH・SDFF は passive 保有、 orig .lib も入力ピン internal_power（CLK/D/RN/SETN）保有のところ、 reset+set 両対応の 2 logic だけ欠落していた定義漏れを補完。 過不足（mylogic 由来 kind vs jsonc template_kgn）を全 147 セルで突合し 0/147 達成
+
+### Changed / Fixed
+- `util_assign_templates.py`: load 軸（index_2）テンプレ割当バグ修正。 従来 `_read_grids_from_lib`/`_read_grids_from_csv` が delay の load 軸・constraint の slew 軸（0.02..4）・min_pulse の index_2 を全部 set に lump → constraint を持つ seq で長さ不一致 → max-only fallback で誤割当（dffq の load=0.001..0.24 を slew 軸 max=4 の d044 に誤マッチ, dev 55%）。 `_CONSTRAINT_TIMING_TYPES`（setup/hold/recovery/removal/min_period）blacklist で slew 軸を除外＋`_pick_load_grid` でアーク（pin/related/timing_type）単位の代表 load グリッド選定に修正。 多アーク（addf/bufz/invz）の fallback も解消
+- `std_seq.jsonc` / `std_comb.jsonc`: 上記修正に基づく template_kgn 再割当（std_seq 15 セル d016→d018/d014 load 軸 dev 2.3〜3.3%、 std_comb 4 セル addf/addh d017→d018 等）。 delay/power_tout 整合・comb 単一アーク（aoi222 d006/mux4 d010）は 0% 維持
+
+---
+
 ## [0.9.14a20] 2026-06-26
 
 Alpha pre-release. min_pulse_width 計測の刷新（ISS-00137 解消・ISS-00133 min_pulse 部ひとまず修正）＋ ISS-00135 pin_oirc/pin_tr reorg。（a19 は CHANGELOG 未記載のため a18→a20 の差分として記述）

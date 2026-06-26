@@ -38,45 +38,92 @@ python -m charao.script.util_assign_templates --dry_run ...
 
 import argparse
 import csv
+import math
 import re
 import shutil
+from collections import Counter
 from pathlib import Path
 
 from charao.script.util_extract_lib_csv import parse_lib_file
 
 
+# ── load 軸抽出の前処理 ───────────────────────────────────────────────────
+# constraint 系（setup/hold/recovery/removal/min_period）の index_2 は被制約ピンの
+# slew 軸（0.02..4）であり load 軸ではない。 lump すると seq で長さ不一致 → max-only
+# fallback に落ちて誤割当になる（例: dffq の load=0.001..0.24 を slew=0.02..4 の d044 に誤マッチ）。
+# よって delay 系（load 軸）だけを抽出する。 comb は timing_type="" のため blacklist 方式で除外する。
+_CONSTRAINT_TIMING_TYPES = {
+    "setup_rising", "setup_falling", "hold_rising", "hold_falling",
+    "recovery_rising", "recovery_falling", "removal_rising", "removal_falling",
+    "non_seq_setup_rising", "non_seq_setup_falling",
+    "non_seq_hold_rising", "non_seq_hold_falling",
+    "minimum_period", "min_pulse_width",
+}
+
+
+def _pick_load_grid(arc_grids):
+    """アーク単位の load グリッド群から代表 1 本を返す。
+
+    多アークセル（addf=CO/S、 bufz=comb/three_state）は微妙に異なる 10 点グリッドを
+    複数持つ。 lump せずアーク毎に集計し、 最頻グリッド（同数なら max が最大）を採用する。
+    """
+    grids = [g for g in arc_grids if len(g) > 1]
+    if not grids:
+        return None
+    cnt = Counter(grids)
+    return max(cnt.items(), key=lambda kv: (kv[1], max(kv[0])))[0]
+
+
 # ── orig 側 grid 取得 ─────────────────────────────────────────────────────
 
 def _read_grids_from_csv(csv_dir):
-    """timing.csv から per-cell の sorted index_2 リスト（全点）を返す。
+    """timing.csv から per-cell の代表 load グリッド（delay 系のみ）を返す。
 
-    複数アークが異なるグリッドを使う場合は最大長のグリッドを採用（保守的）。
-    実際にはセル内すべてのアークが同じ index_2 を使う想定。
+    constraint 系（slew 軸）を除外し、 アーク（pin/related_pin/timing_type）単位で
+    集計してから代表 1 本を選ぶ（_pick_load_grid）。
     """
     p = Path(csv_dir) / "timing.csv"
     if not p.exists():
         raise FileNotFoundError(f"timing.csv not found in {csv_dir}")
-    cell_grid = {}
+    cell_arc = {}  # cell -> arc_key -> set(load)
     with open(p, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         i2_col = next((c for c in reader.fieldnames if c.startswith("index2")), None)
         if i2_col is None:
             raise ValueError(f"index2 column not found in {p}")
+        tt_col = "timing_type" if "timing_type" in reader.fieldnames else None
         for r in reader:
+            tt = (r.get(tt_col) or "") if tt_col else ""
+            if tt in _CONSTRAINT_TIMING_TYPES:
+                continue
             try:
                 i2 = float(r[i2_col])
             except (ValueError, KeyError):
                 continue
+            if math.isnan(i2):
+                continue
             cell = r["cell_name"]
-            cell_grid.setdefault(cell, set()).add(i2)
-    return {c: tuple(sorted(s)) for c, s in cell_grid.items()}
+            arc = (r.get("pin"), r.get("related_pin"), tt)
+            cell_arc.setdefault(cell, {}).setdefault(arc, set()).add(i2)
+    out = {}
+    for cell, arcs in cell_arc.items():
+        g = _pick_load_grid([tuple(sorted(s)) for s in arcs.values()])
+        if g:
+            out[cell] = g
+    return out
 
 
 def _read_grids_from_lib(lib_path):
-    """orig .lib を直接パースして per-cell sorted index_2 タプルを返す。"""
+    """orig .lib を直接パースして per-cell の代表 load グリッド（delay 系のみ）を返す。
+
+    constraint 系（slew 軸）を除外し、 アーク単位で集計して代表 1 本を選ぶ。
+    """
     _units, _scales, _leak, _power, timing = parse_lib_file(Path(lib_path))
-    cell_grid = {}
+    cell_arc = {}  # cell -> arc_key -> set(load)
     for r in timing:
+        tt = r.get("timing_type") or ""
+        if tt in _CONSTRAINT_TIMING_TYPES:
+            continue
         i2_key = next((k for k in r if k.startswith("index2")), None)
         if i2_key is None:
             continue
@@ -84,9 +131,17 @@ def _read_grids_from_lib(lib_path):
             i2 = float(r[i2_key])
         except (ValueError, TypeError):
             continue
+        if math.isnan(i2):
+            continue
         cell = r["cell_name"]
-        cell_grid.setdefault(cell, set()).add(i2)
-    return {c: tuple(sorted(s)) for c, s in cell_grid.items()}
+        arc = (r.get("pin"), r.get("related_pin"), tt)
+        cell_arc.setdefault(cell, {}).setdefault(arc, set()).add(i2)
+    out = {}
+    for cell, arcs in cell_arc.items():
+        g = _pick_load_grid([tuple(sorted(s)) for s in arcs.values()])
+        if g:
+            out[cell] = g
+    return out
 
 
 # ── config_lib.jsonc から template max load 取得 ──────────────────────────
@@ -181,7 +236,9 @@ def _update_jsonc(jsonc_path, mappings, dry_run=False):
                 new_d = mappings[cell]
                 old = lines[pending_idx]
                 upd = _replace_dxx(old, "delay", new_d)
-                upd = _replace_dxx(upd, "power", new_d)
+                # ISS-00080 で power→power_tout/power_tin に分割済。 load(2D) grid は power_tout のみ。
+                # power_tin は 10x0 の入力 slew 1D（d000）なので load 再割当の対象外。
+                upd = _replace_dxx(upd, "power_tout", new_d)
                 if upd != old:
                     lines[pending_idx] = upd
                     changed_cells.append(cell)
