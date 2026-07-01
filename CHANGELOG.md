@@ -4,6 +4,18 @@
 
 ---
 
+## [0.9.14a22] 2026-07-01
+
+Alpha pre-release. ISS-00117: power_tout/energy2 の ngspice timestep collapse（最終 DC 点での理想電圧源 枝電流の行列特異による Newton 収束失敗）を、テール限定 SW 制御抵抗で解消。
+
+### Fixed
+- (ISS-00117) `temp_testbench.sp.jp2` / `charao_run.py`: power_tout/energy2 が full grid（特に小 slew）で `Timestep too small ... trouble with node <理想源>#branch` abort する問題を解消。 原因＝energy2 は INTEG のため autostop 不可 → 固定 sim_end へ最終ステップ強制着地 → 遷移後の高 Z 定常テールで理想電圧源の枝電流 i(源)#branch が cap-only ノードにより行列特異化 → Newton 収束失敗（timestep が 5e-24 まで半減して abort）。 積分法(gear)・margin・autostop-time はいずれも不可（whack-a-mole／条件数の問題）。
+  - **対策＝テール限定 SW 制御抵抗による de-singularization**：`SW_TAIL`（pullres 同型）で VIN/VREL を、 計測窓の後（`eend+1ps`→`sim_end`）だけ自分の vdd/vss 両レール（`_vdd_vrel`/`_vss_vrel`, VIN 同）へ clamp し DC 経路(導通)を与える。 SW は INTEG 窓 [estart,eend] では OFF ＝ **cin/energy/leakage は無影響**（時間ゲート）。 VREL/VIN に DC 経路を与えると行列全体の条件数が改善し、 vss_dyn#branch 等の他枝 collapse も同時に解消。
+  - `charao_run.py`: energy2 の `tsim_end2 = max(eend, param.t_rel1) + 2e-9`（SW が ON で居られる tail 区間を確保）。
+  - 検証: aoi222_1 full grid で **121→0 failures**、 collapse 0。
+
+---
+
 ## [0.9.14a21] 2026-06-26
 
 Alpha pre-release. mylogic と jsonc の過不足解消（reset+set DFF の passive 欠落）＋ template load 軸（index_2）割当バグ修正。

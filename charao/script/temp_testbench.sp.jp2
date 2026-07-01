@@ -395,7 +395,7 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
 {%- endif %}
 
 {%- if   param.meas_energy in [2,4,5] %}
-*** In/Out Q, Capacitance 
+*** In/Out Q, Capacitance
 .MEASURE TRAN q_rel_dyn INTEG I(VREL)  FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 .MEASURE TRAN q_in_dyn  INTEG I(VIN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 {%- if param.val_oirc[3] != "" %}
@@ -452,6 +452,28 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
 ** op
 ** *plot V(VIN) V(VOUT) 
 **.endc 
+
+{%- if param.meas_energy == 2 %}
+**** ISS-00117: テール(eend→sim_end)限定の SW 制御抵抗で、 入力源 VREL/VIN を「自分の確定レール」へ
+****   R 接続し DC 経路（導通）を与える。 両端同電位＝電流注入ゼロで、 最終 DC 点の理想源枝
+****   (vrel#/vin#branch) の悪条件＝Newton 収束失敗(timestep collapse) を解消。 eend+1ps で ON
+****   （計測窓 [estart,eend] は OFF＝cin/energy/leakage 不変）。 VTAIL_CTRL_*=1 で R ON。
+.model SW_TAIL SW(Ron=1e6 Roff=1G Vt={{param.prop_vth_oirc[0]}} Vh=0.3)
+{%- if param.arc_oirc[2] in ["r","f"] %}
+VREF_VDD_VREL VREF_VDD_VREL 0 DC {_vdd_vrel}
+VREF_VSS_VREL VREF_VSS_VREL 0 DC {_vss_vrel}
+VTAIL_CTRL_VREL VTAIL_CTRL_VREL 0 PWL(0 0 {{param.time_energy[1]}} 0 {{param.time_energy[1] + 1e-12}} {_vdd})
+STAIL_REL_H VREL VREF_VDD_VREL VTAIL_CTRL_VREL 0 SW_TAIL
+STAIL_REL_L VREL VREF_VSS_VREL VTAIL_CTRL_VREL 0 SW_TAIL
+{%- endif %}
+{%- if param.arc_oirc[1] in ["r","f"] %}
+VREF_VDD_VIN VREF_VDD_VIN 0 DC {_vdd_vin}
+VREF_VSS_VIN VREF_VSS_VIN 0 DC {_vss_vin}
+VTAIL_CTRL_VIN VTAIL_CTRL_VIN 0 PWL(0 0 {{param.time_energy[1]}} 0 {{param.time_energy[1] + 1e-12}} {_vdd})
+STAIL_IN_H VIN VREF_VDD_VIN VTAIL_CTRL_VIN 0 SW_TAIL
+STAIL_IN_L VIN VREF_VSS_VIN VTAIL_CTRL_VIN 0 SW_TAIL
+{%- endif %}
+{%- endif %}
 
 ** INSTANCE
 XCELL VCLK VREL VIN VOUT VHIGH VLOW VHIGH_IO VLOW_IO VDD_DYN VSS_DYN VNW_DYN VPW_DYN VDDIO_DYN VSSIO_DYN DUT

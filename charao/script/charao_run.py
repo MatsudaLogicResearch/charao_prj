@@ -703,7 +703,17 @@ def runSpicePowerToutSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_s
     param.timestep_tmax = float("{:.5g}".format(max(timestep_tstep * h.mls.time_mag, min(4*timestep_tstep * h.mls.time_mag, param.tslew_min * 20))))
     param.compute_timing()                       # t_in0/t_in1/t_rel0/t_rel1 確定（tsim_end 非依存）
     ## tsim_end は compute_timing 結果（t_rel1）を参照して算出（出力遷移 eend も考慮）
-    tsim_end2 = max(eend, param.t_rel1) + 1e-9
+    ## ISS-00117: energy2 の sim_end は energy1 の autostop 時刻（=実証済の安全停止点）を使う。
+    ##   固定 margin（eend+Nns）は、 深いと vrel/vss_dyn#branch の timestep collapse（テール深部の
+    ##   marginal 理想源枝に最終ステップ着地）、 浅い(=0)と energy_end の WHEN が bracket できず
+    ##   "out of interval"。 energy1 は autostop で eend 直後（+数 timestep）の安全点に止まり正常
+    ##   終了するので、 同じ点を energy2 でも sim_end にする（corner 適応・電流注入なし・leakage 無汚染）。
+    ##   fallback: autostop 時刻 未取得時のみ従来式（eend + 1e-9）。
+    ## ISS-00117: テール de-singularization SW（jp2: SW_TAIL on VIN/VREL, eend+1ps で ON）で最終 DC 点の
+    ##   collapse を解消する。 そのため sim_end は eend より十分後ろ（+2ns）にし、 SW が ON で居られる
+    ##   tail 区間を確保する（sim_end≈eend だと SW の ON 区間が無く効かない）。 INTEG 窓 [estart,eend]
+    ##   は SW OFF なので cin/energy/leakage は無影響。
+    tsim_end2 = max(eend, param.t_rel1) + 2e-9
     param.tsim_end      = tsim_end2
     param.tpulse_rel    = tsim_end2
     param.compute_timing()                       # tsim_end 反映（t_clk6/t_clk7 再計算）
@@ -840,7 +850,7 @@ def genFileLogic_PowerToutTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
     for inline in f:
       if(re.search("hspice", h.mls.simulator)):
         inline = re.sub(r'\=',' ',inline)
-      
+
       # search measure
       for key in res_list:
         if((re.search(key, inline, re.IGNORECASE))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
