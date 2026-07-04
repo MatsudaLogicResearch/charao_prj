@@ -4,6 +4,28 @@
 
 ---
 
+## [0.9.14a23] 2026-07-04
+
+Alpha pre-release. seq_ff の全 measure export 対応（フレームワーク修正）＋ dffrsnq 新方式の全 10 family 展開。 GF180 seq_ff 8 セルで full INDEX 検証完了（0 failures・orig オーダー一致）。
+
+### Fixed
+- `charao_run.py`: prop を `pin_tr[1]` で `prop_clk_out`（CLK 駆動）/`prop_rel_out`（REL 駆動）に出し分け（旧 決め打ちで seq が my_exit）。
+- `myTbParam.py`: `energy_trig_node`/`energy_trig_slot` 追加。 energy_start の TRIG ノードを related pin（VIN/VREL/VCLK）から選択（旧 `WHEN V(VREL)` 決め打ちで seq が不発）。
+- `temp_testbench.sp.jp2`: `i_rel_leak`/`i_clk_leak` を退化窓から `i_vdd_leak` と同じ遷移前安定窓へ統一。
+- `util_extract_lib_csv.py`: power table 認識を汎用化（`stable` テーブルで pin 丸ごと欠落するバグを修正）。
+- `mylogic_seq_ff.py`: NC 系 min_pulse_width_low の退化ハーネス（D がパルス前に init 値へ復帰 → Q 無遷移 → MEASURE 不発 → autostop 無効の擬似ハング）を arc `["f","f","","n"]`→`["r","r","","n"]` で解消（4 family）。
+
+### Changed
+- `mylogic_seq_ff.py`: dffrsnq（DFF_PC_NR_NS）新方式を全 10 family（GF180 7 + DFFB 2）へ展開。
+  - pin_oirc/arc slot2 の CLK/D 複製廃止（ISS-00135）
+  - hold の ival i=r/f 化＋arc 入替（ISS-00101）
+  - recovery/removal を VIN=i0(D) 駆動＋async-on-VREL 化
+  - const に tmg_when 付与（orig .lib 裏取り：_NR=`r0` / _NS=`s0` / NR_NS=`r0&s0`＋rec/rem `s0`/`r0`、 DFFB_PC_PR=`!r0`、 DFFB_PC_NS=`s0`）
+  - min_pulse clk の単一 entry 化（when 分割は ISS-00082）、 delay specify entry に `timing_default=True`
+- 検証: 8 GF180 セル full INDEX 0 failures、 compare --interpolate 点比較で |diff| 中央 delay 0.21〜0.43 / setup 0.13〜0.24 / hold 0.13〜0.31 ns（dffrsnq 07-02 と同水準）。 DFFB（TRIP62）の実行検証は ISS-00141。
+
+---
+
 ## [0.9.14a22] 2026-07-01
 
 Alpha pre-release. ISS-00117: power_tout/energy2 の ngspice timestep collapse（最終 DC 点での理想電圧源 枝電流の行列特異による Newton 収束失敗）を、テール限定 SW 制御抵抗で解消。
