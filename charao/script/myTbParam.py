@@ -46,6 +46,8 @@ class MyTbParam:
   pin_oirc     :list[str]=Field(default_factory=list);  # ISS-00101: pin name (o0/i0/r0/s0/c0 等) を testbench に渡す
   pin_tr       :list[str]=Field(default_factory=list);  # ISS-00133: Liberty 出力用 pin 識別 [target, related]
   is_lat       :bool      =False;  # ISS-00133: LATCH cell かどうか (level-sensitive)。 jp2 の judge_dly の TRIG/TARG 切替に使用
+  energy_trig_node :str    ="VREL"; # ISS-00133: energy_start のトリガノード（related pin pin_tr[1] のスロットで決定：VIN/VREL/VCLK）
+  energy_trig_slot :int    =2;      # ISS-00133: 同スロット index（ener_v0_oirc/arc_oirc4measure 参照用。 VIN=1/VREL=2/VCLK=3）
   setup_kind   :str       ="";     # ISS-00133: const 系の種別 "setup"/"hold"/"recovery"/"removal"、 jp2 の MEASURE 切替に使用
   measure_type :str       ="";     # ISS-00135: harness.measure_type を保持（compute_timing で leakage 判定用）
   val_oirc    :list[str]=Field(default_factory=list);
@@ -200,6 +202,19 @@ class MyTbParam:
     self.pin_tr       =list(getattr(h.mec, "pin_tr", []))
     # logic_type が "seq_lat" なら LATCH、 それ以外（"seq", "comb" 等）は FF or comb
     self.is_lat       = (getattr(h.mlc, "logic_type", "") == "seq_lat")
+    # ISS-00133: energy_start のトリガノードを related pin(pin_tr[1]) のスロットで選択。
+    #   related が pin_oirc の VIN(1)/VREL(2)/VCLK(3) のどこに居るかでノード決定する。
+    #   comb は入力を VREL に置くため slot2->VREL、 seq(CLK駆動)は pin_tr[1]=c0->slot3->VCLK。
+    #   pin_tr[1] 未設定/未一致なら VREL(slot2) を既定（従来動作を保持）。
+    _rel_pin = self.pin_tr[1] if len(self.pin_tr) > 1 else ""
+    self.energy_trig_slot = 2
+    self.energy_trig_node = "VREL"
+    if _rel_pin:
+      for _s, _nd in ((1, "VIN"), (2, "VREL"), (3, "VCLK")):
+        if _s < len(self.pin_oirc) and self.pin_oirc[_s] == _rel_pin:
+          self.energy_trig_slot = _s
+          self.energy_trig_node = _nd
+          break
     # ISS-00133: measure_type から setup_kind を判定（setup/hold/recovery/removal の文字列）
     _mt = getattr(h, "measure_type", "")
     self.measure_type = _mt   # ISS-00135: compute_timing で leakage 判定用

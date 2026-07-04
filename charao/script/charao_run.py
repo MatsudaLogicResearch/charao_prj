@@ -593,7 +593,13 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, param:Mtp) ->dict:
     spicelis = spicelis[:-3]+"mt0" 
 
   # read results
-  res_list=["prop_rel_out","trans_out"]
+  # ISS-00133: prop は related pin(pin_tr[1]) で選択。 clock(c*) 基準 = prop_clk_out(CLK->OUT)、
+  #   それ以外(input/async on VREL) = prop_rel_out(REL->OUT)。 comb は入力を VREL に置く(ISS-00135)ため
+  #   prop_rel_out、 seq_ff rising/falling_edge は pin_tr=[o0,c0] -> prop_clk_out、 seq_lat は
+  #   pin_tr[1]=input -> prop_rel_out。 pin_tr 未設定/短い場合は prop_rel_out（clock 基準でない）。
+  _rel_pin  = h.mec.pin_tr[1] if len(h.mec.pin_tr) > 1 else ""
+  _prop_key = "prop_clk_out" if _rel_pin.startswith("c") else "prop_rel_out"
+  res_list=[_prop_key,"trans_out"]
   res=dict()
   with open(spicelis,'r') as f:
     
@@ -618,7 +624,7 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, param:Mtp) ->dict:
 
   #-- result
   rslt=dict()
-  rslt["prop"] =float(res["prop_rel_out"])
+  rslt["prop"] =float(res[_prop_key])
   rslt["trans"]=float(res["trans_out"])
 
   

@@ -388,7 +388,7 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
 {%- if   param.meas_energy in [1,2] %}
 *** energy time
 .MEASURE TRAN energy_start
-+ WHEN V(VREL)={{param.ener_v0_oirc[2]}} {{param.arc_oirc4measure[2]}}=1 TD={_t_rel0 - 2*_tslew_min}
++ WHEN V({{param.energy_trig_node}})={{param.ener_v0_oirc[param.energy_trig_slot]}} {{param.arc_oirc4measure[param.energy_trig_slot]}}=1 TD={_t_rel0 - 2*_tslew_min}
 
 .MEASURE TRAN energy_end
 + WHEN V(VOUT)={{param.ener_v1_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={_t_rel0 - 2*_tslew_min}
@@ -420,10 +420,13 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
 * Gate leak current
 * ISS-00110: 計測対象は pin_oirc[2] = VREL の slew 期間に統一。 i_in_leak (VIN slew 期間) は廃止。
 *           VIN stable な entry（LATCH power_tin pin(E) 等）で _t_in0 == _t_in1 → MEASURE out-of-interval エラー回避のため。
-.MEASURE TRAN i_rel_leak AVG I(VREL) FROM={_t_rel0} TO={_t_rel1}
+* ISS-00133: VREL/VCLK は常に電源接続され I(node) は常に計測可能。 旧 {_t_rel0.._t_rel1} は
+*   seq(CLK/async 駆動)で _t_rel0==_t_rel1 に退化し out-of-interval となるため、 i_vdd_leak と同じ
+*   遷移前安定窓 {_t_in0-101*_tslew_min .. _t_in0-1*_tslew_min} に統一（静的 leak として一貫）。
+.MEASURE TRAN i_rel_leak AVG I(VREL) FROM={_t_in0 - 101*_tslew_min} TO={_t_in0 - 1*_tslew_min}
 *.MEASURE TRAN i_in_leak  AVG I(VIN)  FROM={_t_in0}  TO={_t_in1}
 {%- if param.val_oirc[3] != "" %}
-.MEASURE TRAN i_clk_leak AVG I(VCLK) FROM={_t_rel0} TO={_t_rel1}
+.MEASURE TRAN i_clk_leak AVG I(VCLK) FROM={_t_in0 - 101*_tslew_min} TO={_t_in0 - 1*_tslew_min}
 {%- endif %}
 
 {%- elif   param.meas_energy == 3 %}

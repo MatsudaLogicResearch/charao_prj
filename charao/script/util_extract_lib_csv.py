@@ -339,7 +339,11 @@ class LibertyParser:
         when = ""
         while self.i < self.n:
             line = self.peek()
-            m = re.match(r'(fall_power|rise_power)\s*\(\S+\)\s*\{', line)
+            # internal_power 内の power テーブルを認識。 rise_power/fall_power に加え、
+            # passive の stable (passive_energy_template) 等も拾う（table 名を限定すると
+            # 未知 table の内側 `}` で早期 break し、 以降の pin を取りこぼすため）。
+            # related_pin/when 行は `name : ...` で `(template){` 形を持たず誤マッチしない。
+            m = re.match(r'(\w+)\s*\(\S+\)\s*\{', line)
             if m:
                 pt_type = m.group(1)
                 self.advance()
