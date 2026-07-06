@@ -4,6 +4,18 @@
 
 ---
 
+## [0.9.14a24] 2026-07-06
+
+Alpha pre-release. power_tin の target スロット方式（ISS-00142）。
+
+### Fixed
+- `charao_run.py`（`runSpicePowerTinSingle`）: エネルギー積分窓・tsim_end・slope→tslew 割当・cin 選択を、計測対象ピン（pin_tr[0]）を駆動するスロット基準に統一（窓 = [t_X0, t_X1+1ns]）。旧実装（窓 t_rel0 決め打ち／slope→tslew_clk 決め打ち）により seq_ff の pin(CLK) internal_power 全 0・index_1 軸の空回り・cin 破綻が発生していた。
+- `myTbParam.py`: `energy_tgt_node`/`energy_tgt_slot` 追加（pin_tr[0] の c>r>i スロット逆引き。 power_tout 用 `energy_trig_*`（related）と対をなす target 版）。
+- `mylogic_seq_scan.py`: SDFF 4 family の power_tin 32 entry の slot2 重複を解消（`[o0,i0,"",c0]` 化、同一ピン重複指定不可ルール準拠）。
+
+### Verified
+- 51 セル × full slew（MEAS_ONLY=power_tin）で 0 failures。 dffq/dffnq の pin(CLK) が orig とオーダー一致（charao 0.081〜1.11 vs orig 0.28〜0.79）、 入力ピン power の slew 依存傾向を orig と整合して初再現。
+
 ## [0.9.14a23] 2026-07-04
 
 Alpha pre-release. seq_ff の全 measure export 対応（フレームワーク修正）＋ dffrsnq 新方式の全 10 family 展開。 GF180 seq_ff 8 セルで full INDEX 検証完了（0 failures・orig オーダー一致）。
