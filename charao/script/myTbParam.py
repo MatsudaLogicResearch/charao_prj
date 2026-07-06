@@ -48,6 +48,8 @@ class MyTbParam:
   is_lat       :bool      =False;  # ISS-00133: LATCH cell かどうか (level-sensitive)。 jp2 の judge_dly の TRIG/TARG 切替に使用
   energy_trig_node :str    ="VREL"; # ISS-00133: energy_start のトリガノード（related pin pin_tr[1] のスロットで決定：VIN/VREL/VCLK）
   energy_trig_slot :int    =2;      # ISS-00133: 同スロット index（ener_v0_oirc/arc_oirc4measure 参照用。 VIN=1/VREL=2/VCLK=3）
+  energy_tgt_node :str     ="VREL"; # power_tin: 計測対象ノード（target pin pin_tr[0] のスロットで決定：VIN/VREL/VCLK）
+  energy_tgt_slot :int     =2;      # 同スロット index（VIN=1/VREL=2/VCLK=3、 未検出は 2=従来動作の保持）
   setup_kind   :str       ="";     # ISS-00133: const 系の種別 "setup"/"hold"/"recovery"/"removal"、 jp2 の MEASURE 切替に使用
   measure_type :str       ="";     # ISS-00135: harness.measure_type を保持（compute_timing で leakage 判定用）
   val_oirc    :list[str]=Field(default_factory=list);
@@ -214,6 +216,19 @@ class MyTbParam:
         if _s < len(self.pin_oirc) and self.pin_oirc[_s] == _rel_pin:
           self.energy_trig_slot = _s
           self.energy_trig_node = _nd
+          break
+    # power_tin: 計測対象（target pin pin_tr[0]）のスロット逆引き。
+    #   estart/eend（積分窓）・slope→tslew 割当・cin 選択を「X を駆動するスロット」基準にするために使う。
+    #   優先順 c > r > i（旧方式の重複記載 entry でも実駆動源と一致させる）。
+    #   pin_tr[0] 未設定/未一致なら VREL(slot2) を既定（従来動作の保持、 biport 等の安全網）。
+    _tgt_pin = self.pin_tr[0] if len(self.pin_tr) > 0 else ""
+    self.energy_tgt_slot = 2
+    self.energy_tgt_node = "VREL"
+    if _tgt_pin:
+      for _s, _nd in ((3, "VCLK"), (2, "VREL"), (1, "VIN")):
+        if _s < len(self.pin_oirc) and self.pin_oirc[_s] == _tgt_pin:
+          self.energy_tgt_slot = _s
+          self.energy_tgt_node = _nd
           break
     # ISS-00133: measure_type から setup_kind を判定（setup/hold/recovery/removal の文字列）
     _mt = getattr(h, "measure_type", "")

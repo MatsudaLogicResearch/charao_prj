@@ -764,6 +764,19 @@ def runSpicePowerTinSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_sl
   tslew_min_s    = h.mls.simulation_slew_min
   timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
 
+  #-- 計測対象（target pin pin_tr[0]）のスロット逆引き（優先順 c > r > i、 未検出は slot2=VREL）
+  #   slope→tslew 割当と積分窓・cin 選択を「X を駆動するスロット」基準にする。
+  #   set_common_value でも同じ走査で param.energy_tgt_slot に設定されるが、
+  #   tslew_* は Mtp 生成時に必要なためここでも先行判定する。
+  _tgt_pin  = h.mec.pin_tr[0] if h.mec.pin_tr else ""
+  _tgt_slot = 2
+  if _tgt_pin:
+    for _s in (3, 2, 1):
+      if _s < len(h.mec.pin_oirc) and h.mec.pin_oirc[_s] == _tgt_pin:
+        _tgt_slot = _s
+        break
+  _slope_s = _tslew_from_template(index1_slope, h.mls)
+
   #-- param 早期 instantiate（meas_energy=5、 estart/eend は compute_timing 後に確定）
   is_dtp = h.measure_type.startswith(("delay","three","power"))
   param = Mtp(
@@ -772,7 +785,7 @@ def runSpicePowerTinSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_sl
     ,clk_init     = h.clk_init
     ,pullres_role = "nouse"
     ,meas_energy  = 5
-    ,time_energy  = [0,0]    # compute_timing 後に [t_rel0, t_rel0 + tslew_rel + 1e-9] で更新
+    ,time_energy  = [0,0]    # compute_timing 後に target スロットの遷移窓 [t_X0, t_X1 + 1e-9] で更新
     ,meas_o_max_min=0
     ,tslew_min    = float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
     ,timestep     = float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
@@ -783,18 +796,32 @@ def runSpicePowerTinSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_sl
     ,tdelay_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
     ,tdelay_in    = 1e-9   # ISS-00076 pre-force のため D→Q 待ち padding 不要
-    ,tslew_in     = float("{:.5g}".format(10*tslew_min_s    * h.mls.time_mag))
+    ## slope（index1 軸）は target スロットの tslew に割当てる（他スロットは従来の固定値）。
+    ##   旧実装は tslew_clk 固定割当のため、 slot2(comb)=1ns 固定 / slot1(seq D)=10ps 固定で
+    ##   index 軸が物理反映されていなかった。
+    ,tslew_in     = _slope_s if _tgt_slot == 1 else float("{:.5g}".format(10*tslew_min_s * h.mls.time_mag))
+    ,tslew_rel    = _slope_s if _tgt_slot == 2 else 1e-9
     ,tdelay_clk   = float("{:.5g}".format(h.mls.sim_d2c_max  * h.mls.time_mag))
-    ,tslew_clk    = _tslew_from_template(index1_slope, h.mls)
+    ,tslew_clk    = _slope_s if _tgt_slot == 3 else float("{:.5g}".format(10*tslew_min_s * h.mls.time_mag))
     ,tpulse_clk   = 1e-6      # 後で更新
     ,tsweep_clk   = 0.0
   )
   param.set_common_value(harness=h, arc_oirc=arc_oirc)
   param.compute_timing()
 
-  #-- estart/eend を param.t_rel0/t_rel1 から確定（VREL transition window）
-  estart   = param.t_rel0
-  eend     = param.t_rel0 + param.tslew_rel + 1e-9
+  #-- estart/eend: target スロットの遷移窓 [t_X0, t_X1 + 1ns] に anchoring
+  #   slot1(VIN)=[t_in0,t_in1] / slot2(VREL)=[t_rel0,t_rel1]（旧式 estart=t_rel0,
+  #   eend=t_rel0+tslew_rel+1ns と同値） / slot3(VCLK)=[t_clk4,t_clk5]（2nd edge）。
+  #   旧式は t_rel0 固定 anchoring のため、 slot3(CLK-target) で窓が edge を外し
+  #   かつ tsim_end < t_clk4 で edge 自体が sim 範囲外 → eintl 全 0 になっていた。
+  if   param.energy_tgt_slot == 1:
+    _t_x0, _t_x1 = param.t_in0, param.t_in1
+  elif param.energy_tgt_slot == 3:
+    _t_x0, _t_x1 = param.t_clk4, param.t_clk5
+  else:
+    _t_x0, _t_x1 = param.t_rel0, param.t_rel1
+  estart   = _t_x0
+  eend     = _t_x1 + 1e-9
   tsim_end = eend + 1e-9
   param.time_energy = [estart, eend]
   param.tsim_end    = tsim_end
@@ -1000,7 +1027,9 @@ def genFileLogic_PowerTinTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
   c_in  = abs(float(q_in_dyn))  / h.mls.vdd_voltage
   c_rel = abs(float(q_rel_dyn)) / h.mls.vdd_voltage
   c_clk = abs(float(q_clk_dyn)) / h.mls.vdd_voltage
-  cin = c_clk if h.target_relport == "c0" else c_rel
+  ## cin は計測対象スロットの電荷から決定（旧: target_relport=="c0" 分岐は pin_oirc[2] 依存で、
+  ##   slot2 空の新方式 entry では常に c_rel（遊休 VREL≈0）となり CLK/D target の cin が壊れるため）
+  cin = {1: c_in, 2: c_rel, 3: c_clk}.get(param.energy_tgt_slot, c_rel)
 
   q_vdd = abs(float(res["q_vdd_dyn"]))
   q_vss = abs(float(res["q_vss_dyn"]))
