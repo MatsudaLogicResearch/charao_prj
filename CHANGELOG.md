@@ -4,6 +4,17 @@
 
 ---
 
+## [0.9.14a25] 2026-07-06
+
+Alpha pre-release. seq_scan（SDFF 4 family）の新方式展開＋const 代表 1 when。 SDFF 4 セルで合格基準①〜⑤確定（対象 mylogic 全確定）。
+
+### Changed
+- `mylogic_seq_scan.py`: seq_ff a23 新方式（DFF_PC/NR/NS/NR_NS）の expect を全 4 family へ移植（140 entries）。 slot2 複製廃止（ISS-00135）、 hold の ival r/f 化（ISS-00101）、 recovery/removal の VIN=i0(D) 駆動＋async-on-VREL、 min_pulse/leakage 新方式化、 delay specify に timing_default。
+- const（setup/hold/recovery/removal 24 entry）に Phase B ハーネス状態と一致する代表 1 when を付与（例: sdffrsnq setup = "RN&!SE&SETN&!SI"）。 orig との constraint 照合が初成立。 SE/SI 全分解は ISS-00086B。
+
+### Verified
+- SDFF 4 セル × full INDEX × 全 measure で 0 failures。 constraint |diff| 中央: setup 0.19〜0.41 / hold 0.14〜0.41 / recovery 0.09〜0.12 / removal 0.21〜0.25 ns（seq_ff 同水準）。 delay は orig functional-mode 群と手動照合でオーダー一致。
+
 ## [0.9.14a24] 2026-07-06
 
 Alpha pre-release. power_tin の target スロット方式（ISS-00142）。
