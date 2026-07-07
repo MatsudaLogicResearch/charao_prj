@@ -4,6 +4,19 @@
 
 ---
 
+## [0.9.14a26] 2026-07-07
+
+Alpha pre-release. seq_lat（LAT 4 family）の新方式展開＋LAT const dispatch 修正（ISS-00143）。 LAT 4 セルで合格基準①〜⑤確定（const 値精度は ISS-00146 に切り出し）。 **対象 mylogic（comb 3 カテゴリ＋seq_ff＋seq_scan＋seq_lat）の優先課題 横断検証が完了**。
+
+### Fixed
+- `charao_run.py`: LAT の setup/hold/recovery dispatch が未定義関数 `runSpiceLatSetupMultiThread_orig` を呼んでいた取り残し（ISS-00133/00138 統一リファクタ時）を解消し、 統一パス `runSpiceConstMultiThread` へ（jp2 の is_lat 分岐が LAT の judge_dly を吸収）。 旧 `*Single_orig` 2 関数は不達の参照残置（削除候補）。
+
+### Changed
+- `mylogic_seq_lat.py`: 全 4 family を新方式へ。 LATCH_PE_NS の世代移行（mondrv_oirc 削除・arc "s" を ival から解決、 Q の d/u 14 箇所は latch 論理＝SETN=0→Q=1／opaque→Q=D init／transparent→Q=D で導出、 min_pulse の p/n 表記化）、 pin_tr 全付与（leakage は空ペア）、 slot2 重複解消、 E-target を [o0,i0,"",c0]（E=VCLK）へ統一、 recovery/removal を async-on-VREL 構造へ（ISS-00133 jp2 の TRIG v(VREL)=async 前提に整合）、 hold の arc[0] を stable 化（Q=旧 D 値保持。 遷移期待 arc は autostop 不発の擬似ハングを誘発）。 latrsnq の rec/rem に代表 when s0/r0 を付与（orig 実測）。
+
+### Verified
+- LAT 4 セル × full INDEX × 全 measure で 0 failures・collapse 0。 delay/power/removal は orig とオーダー一致（power_tin は when 構造ごと照合成立、 中央 0.03〜0.14）。 const の外れ（setup 16〜18%／recovery 31〜32%／hold 36〜39%）は 4 family 一貫で ISS-00146 として管理。
+
 ## [0.9.14a25] 2026-07-06
 
 Alpha pre-release. seq_scan（SDFF 4 family）の新方式展開＋const 代表 1 when。 SDFF 4 セルで合格基準①〜⑤確定（対象 mylogic 全確定）。
