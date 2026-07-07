@@ -196,10 +196,10 @@ def runExpectation(targetLib:Mls, targetCell:Mlc, expectationdictList:List[Mec])
 
       elif mt in ["setup_rising","setup_falling","hold_rising","hold_falling","recovery_rising","recovery_falling"]:
         # ISS-00138: setup/hold/recovery を degradation 判定で統一（runSpiceConst）。 FF/LAT は jp2 で吸収。
-        if targetCell.islatch:
-          rslt_Harness = runSpiceLatSetupMultiThread_orig(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
-        else:
-          rslt_Harness = runSpiceConstMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
+        # ISS-00143: LAT も統一パスを使用（jp2 の is_lat 分岐が judge_dly の TRIG/TARG を吸収済み。
+        #   旧 islatch 分岐が呼んでいた runSpiceLatSetupMultiThread_orig は ISS-00133/00138
+        #   リファクタで未定義となっていたため分岐を廃止。 Single_orig 実装は参照用に残置）
+        rslt_Harness = runSpiceConstMultiThread(num=ii, mls=targetLib, mlc=targetCell, mec=expectationdict)
 
       elif mt in ["removal_rising","removal_falling"]:
         # ISS-00138: removal のみ電圧判定（CLK の後で Q が遷移しないため degradation 不可）
