@@ -720,13 +720,19 @@ def runSpicePowerToutSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_s
     ##   tail 区間を確保する（sim_end≈eend だと SW の ON 区間が無く効かない）。 INTEG 窓 [estart,eend]
     ##   は SW OFF なので cin/energy/leakage は無影響。
     tsim_end2 = max(eend, param.t_rel1) + 2e-9
+    param.ener_estart   = estart   # ISS-00151: energy2 の WHEN 不成立時フォールバック用（energy1 の確定値）
+    param.ener_eend     = eend
     param.tsim_end      = tsim_end2
     param.tpulse_rel    = tsim_end2
     param.compute_timing()                       # tsim_end 反映（t_clk6/t_clk7 再計算）
     ## ISS-00094: energy 区間を .meas WHEN 依存（[estart,eend]）でなく既知時刻ベースに。
     ##   min(t_in0,t_rel0) 〜 max(t_in1,t_rel1,eend)（Liberty internal power の「1 スイッチング
     ##   イベントの全消費エネルギー」 を捕捉する区間）。 t_in/t_rel は compute_timing 済の既知時刻。
-    param.time_energy   = [min(param.t_in0, param.t_rel0), max(param.t_in1, param.t_rel1, eend)]
+    ## ISS-00151: TO に尻尾 margin を追加。 eend（VOUT の energy 閾値交差）以降にも出力・内部電流の
+    ##   指数尻尾が残り、 切り捨てられていた（icgtp_1 fall で 7.2% を実測、 2026-07-07）。
+    ##   SW_TAIL の ON 時刻は jp2 が time_energy[1] を参照するため margin に自動追従（窓は常に SW OFF）。
+    _EEND_MARGIN = 0.3e-9
+    param.time_energy   = [min(param.t_in0, param.t_rel0), max(param.t_in1, param.t_rel1, eend) + _EEND_MARGIN]
     rslt2 = genFileLogic_PowerToutTrial1x(targetHarness=h, spicef=spicefoe2, param=param)
 
     print(f'  [INFO] pleak={rslt2["pleak"]}, load={index2_load}, slope={index1_slope}')
@@ -871,7 +877,10 @@ def genFileLogic_PowerToutTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
     spicelis = spicelis[:-3]+"mt0" 
 
   #-- parse results
-  res_list=["energy_start","energy_end"]
+  ## ISS-00151: energy2 の energy_start/end WHEN は大 slew で out of interval になり得る（VOUT の
+  ##   閾値到達が tsim_end 後）。 meas2 では必須にせず、 不成立時は energy1 の確定値（param.ener_*）を使う。
+  res_list=["energy_start","energy_end"] if param.meas_energy == 1 else []
+  res_list_opt=["energy_start","energy_end"] if param.meas_energy == 2 else []
   res=dict()
   if(param.meas_energy == 2):
     res_list += ["q_in_dyn","q_rel_dyn","q_out_dyn","q_vdd_dyn","q_vss_dyn",
@@ -885,7 +894,7 @@ def genFileLogic_PowerToutTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
         inline = re.sub(r'\=',' ',inline)
 
       # search measure
-      for key in res_list:
+      for key in res_list + res_list_opt:
         if((re.search(key, inline, re.IGNORECASE))and not (re.search("failed",inline)) and not (re.search("Error",inline))):
           sparray = re.split(" +", inline) # separate words with spaces (use re.split)
           res[key]= "{:e}".format(float(sparray[2].strip()))
@@ -901,8 +910,9 @@ def genFileLogic_PowerToutTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
 
   # calculate result
   rslt=dict()
-  rslt["estart"]=float(res["energy_start"])
-  rslt["eend"]  =float(res["energy_end"])
+  ## ISS-00151: WHEN 成立時は実測値、 不成立時（meas2 の大 slew）は energy1 の確定値
+  rslt["estart"]=float(res["energy_start"]) if "energy_start" in res else param.ener_estart
+  rslt["eend"]  =float(res["energy_end"])   if "energy_end"   in res else param.ener_eend
   energy_time=rslt["eend"] - rslt["estart"]
   
   if(param.meas_energy == 2):
@@ -1402,6 +1412,13 @@ def runSpiceConstSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
         param.tsweep_clk = tsweep
         param.tsim_end   = tsim_end
         param.tpulse_clk = tsim_end
+        param.compute_timing()
+        ## ISS-00152: pass 側（Q 無遷移が成功＝ICG の E/TE fall setup、 LAT hold 等）は prop_clk_out が
+        ##   不成立で autostop が効かず、 tsim_end=1µs を極小 timestep で走る擬似ハングになる。
+        ##   判定情報（prop/dly/グリッチ）は CLK edge 直後に集中するため、 tsim_end を毎反復
+        ##   t_clk5+3ns の既知時刻に短縮する（autostop 成立ケースは元々それ以前に停止、 結果不変）。
+        param.tsim_end   = param.t_clk5 + 3e-9
+        param.tpulse_clk = param.tsim_end
         param.compute_timing()
 
         rslt=genFileLogic_Const1x(targetHarness=h, spicef=spicefo, param=param)

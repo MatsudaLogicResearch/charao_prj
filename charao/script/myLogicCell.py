@@ -60,6 +60,7 @@ class MyLogicCell(BaseModel):
   rail_connections:Dict[str,str]= Field(default_factory=dict); ## additional cell infomation
   pad_infos : Dict[str,Dict[str,Any]]= Field(default_factory=dict); ## PAD infomation
   oe_infos  : Dict[str,Dict[str,Any]]= Field(default_factory=dict); ## OE infomation
+  vout_infos: Dict[str,Dict[str,Any]]= Field(default_factory=dict); ## ISS-00152: const 計測の観測点差し替え（{"o0":{"node":"QD"}} 等、 xcell.xdut 配下の内部 net。 ICG の内部ラッチ出力等）
   vdd2_voltage:list[str] = Field(default_factory=list);       ## list of CORE2_VOLTAGE(vdd2)
   io_voltage:list[str] = Field(default_factory=list);       ## list of IO_VOLTAGE(vddio)
   

@@ -48,8 +48,11 @@ class MyTbParam:
   is_lat       :bool      =False;  # ISS-00133: LATCH cell かどうか (level-sensitive)。 jp2 の judge_dly の TRIG/TARG 切替に使用
   energy_trig_node :str    ="VREL"; # ISS-00133: energy_start のトリガノード（related pin pin_tr[1] のスロットで決定：VIN/VREL/VCLK）
   energy_trig_slot :int    =2;      # ISS-00133: 同スロット index（ener_v0_oirc/arc_oirc4measure 参照用。 VIN=1/VREL=2/VCLK=3）
+  ener_estart  :float     =0.0;    # ISS-00151: power_tout energy2 用。 energy1 で確定した estart/eend を保持し、
+  ener_eend    :float     =0.0;    #   energy2 の WHEN 不成立（大 slew で out of interval）時のフォールバックに使う
   energy_tgt_node :str     ="VREL"; # power_tin: 計測対象ノード（target pin pin_tr[0] のスロットで決定：VIN/VREL/VCLK）
   energy_tgt_slot :int     =2;      # 同スロット index（VIN=1/VREL=2/VCLK=3、 未検出は 2=従来動作の保持）
+  vout_node    :str       ="";     # ISS-00152: vout_infos による const 観測点（xcell.xdut.<net>）。 空なら VOUT
   setup_kind   :str       ="";     # ISS-00133: const 系の種別 "setup"/"hold"/"recovery"/"removal"、 jp2 の MEASURE 切替に使用
   measure_type :str       ="";     # ISS-00135: harness.measure_type を保持（compute_timing で leakage 判定用）
   val_oirc    :list[str]=Field(default_factory=list);
@@ -230,6 +233,14 @@ class MyTbParam:
           self.energy_tgt_slot = _s
           self.energy_tgt_node = _nd
           break
+    # ISS-00152: vout_infos（const 計測の観測点差し替え、 oe_infos と同じ xcell.xdut 階層参照）。
+    #   セル固有の内部 net（例 ICG の QD＝内部ラッチ出力）を const 系 MEASURE で VOUT の代わりに観測する。
+    #   jp2 側は setup_kind が非空（const 系）のときのみ置換するため、 ここでは無条件に解決してよい。
+    self.vout_node = ""
+    _vi = getattr(h.mlc, "vout_infos", {}) or {}
+    _o = h.mec.pin_oirc[0]
+    if _o and _o in _vi and _vi[_o].get("node"):
+      self.vout_node = "xcell.xdut." + str(_vi[_o]["node"])
     # ISS-00133: measure_type から setup_kind を判定（setup/hold/recovery/removal の文字列）
     _mt = getattr(h, "measure_type", "")
     self.measure_type = _mt   # ISS-00135: compute_timing で leakage 判定用
