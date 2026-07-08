@@ -632,6 +632,204 @@ def get_logic_dict():
                         ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["1","1","","1"],tmg_when="i0&c0&r0&s0", specify="", power_default=True),
            ]
     },
+    #---------------------------------------------------------------------------------------
+    # ICG_PC: Integrated Clock Gating, posedge (latch + AND). ISS-00070 ICG (2026-07-07).
+    #   GF180 target: icgtp_1/2/4. orig func: D0=E|TE -> udp_n_iq_latch(IQ2, EN=!CLK, D0) -> Q=CLK&IQ2.
+    #   Pin mapping: o0=Q, i0=E (enable), i1=TE (test enable), c0=CLK (posedge)。
+    #   const (E/TE vs CLK rise) は orig 同様 when なし。 delay/power_tout/min_pulse は
+    #   代表 when "i0&!i1"(=E&!TE, functional mode) で orig 群と照合（他 when は分解差＝既知扱い）。
+    #   負エッジ側 const は「Q 遷移なしが成功」= arc[0] stable（LAT hold と同じ流儀）。
+    "ICG_PC":{
+           "logic_type":"seq_lat",
+           "functions":{"o0":"(c0&Io0)"},
+           "latch":{"out":"Io0,IQB",
+                    "enable":"(!c0)",
+                    "data_in":"(i0|i1)"},
+           "vcode":"wire mgm_d0; wire mgm_en0; wire iq2; or (mgm_d0, i0, i1); not (mgm_en0, c0); udp_iq_latch_n inst (iq2, 1'b0, 1'b0, mgm_en0, mgm_d0, ); and (o0, c0, iq2);",
+           "expect":
+           [
+             #--- delay (CLK -> Q, comb 型) + power_tout -- when E&!TE（functional mode 代表）
+             MyExpectCell(pin_tr=["o0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["1","0"],"b":[],"c":["f"]}
+                         ,meas_types=["delay","power_tout"] ,tmg_sense="pos",arc_oirc=["r","1","","r"], tmg_when="i0&!i1", specify=""),
+             MyExpectCell(pin_tr=["o0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1","0"],"b":[],"c":["r"]}
+                         ,meas_types=["delay","power_tout"] ,tmg_sense="pos",arc_oirc=["f","1","","f"], tmg_when="i0&!i1", specify="(c0 => o0) = (0,0);", timing_default=True),
+             #--- setup E (vs CLK rise、 when なし=orig 一致)。 負エッジ側は latched=0 -> Q 遷移なし = arc[0] stable
+             MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0","0"],"b":[],"c":["p"]}
+                        ,meas_types=["setup_rising"] ,tmg_sense="non",arc_oirc=["r","r","","r"], tmg_when="", specify="$setup(posedge i0, posedge c0, 0, notifier);"),
+             MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["1","0"],"b":[],"c":["p"]}
+                        ,meas_types=["setup_rising"] ,tmg_sense="non",arc_oirc=["f","f","","r"], tmg_when="", specify="$setup(negedge i0, posedge c0, 0, notifier);"),
+             #--- hold E
+             MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["r","0"],"b":[],"c":["p"]}
+                        ,meas_types=["hold_rising"],tmg_sense="non",arc_oirc=["f","f","","r"], tmg_when="", specify="$hold(posedge c0, negedge i0, 0, notifier);"),
+             MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["f","0"],"b":[],"c":["p"]}
+                        ,meas_types=["hold_rising"],tmg_sense="non",arc_oirc=["r","r","","r"], tmg_when="", specify="$hold(posedge c0, posedge i0, 0, notifier);"),
+             #--- setup/hold TE（E=0 固定、 同型）
+             MyExpectCell(pin_tr=["i1","c0"], pin_oirc=["o0","i1","","c0"], ival={"o":["0"],"i":["0","0"],"b":[],"c":["p"]}
+                        ,meas_types=["setup_rising"] ,tmg_sense="non",arc_oirc=["r","r","","r"], tmg_when="", specify="$setup(posedge i1, posedge c0, 0, notifier);"),
+             MyExpectCell(pin_tr=["i1","c0"], pin_oirc=["o0","i1","","c0"], ival={"o":["0"],"i":["0","1"],"b":[],"c":["p"]}
+                        ,meas_types=["setup_rising"] ,tmg_sense="non",arc_oirc=["f","f","","r"], tmg_when="", specify="$setup(negedge i1, posedge c0, 0, notifier);"),
+             MyExpectCell(pin_tr=["i1","c0"], pin_oirc=["o0","i1","","c0"], ival={"o":["0"],"i":["0","r"],"b":[],"c":["p"]}
+                        ,meas_types=["hold_rising"],tmg_sense="non",arc_oirc=["f","f","","r"], tmg_when="", specify="$hold(posedge c0, negedge i1, 0, notifier);"),
+             MyExpectCell(pin_tr=["i1","c0"], pin_oirc=["o0","i1","","c0"], ival={"o":["0"],"i":["0","f"],"b":[],"c":["p"]}
+                        ,meas_types=["hold_rising"],tmg_sense="non",arc_oirc=["r","r","","r"], tmg_when="", specify="$hold(posedge c0, posedge i1, 0, notifier);"),
+             #--- power_tin pin(E) -- when CLK×(!TE) の代表 2 状態 × r/f
+             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0","0"],"b":[],"c":["p"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["0","r","","0"], tmg_when="!c0&!i1", specify=""),
+             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["1","0"],"b":[],"c":["p"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["0","f","","0"], tmg_when="!c0&!i1", specify=""),
+             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0","0"],"b":[],"c":["r"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["0","r","","1"], tmg_when="c0&!i1", specify=""),
+             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1","0"],"b":[],"c":["r"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["1","f","","1"], tmg_when="c0&!i1", specify=""),
+             #--- power_tin pin(TE)
+             MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","i1","","c0"], ival={"o":["0"],"i":["0","0"],"b":[],"c":["p"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["0","r","","0"], tmg_when="!c0&!i0", specify=""),
+             MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","i1","","c0"], ival={"o":["0"],"i":["0","1"],"b":[],"c":["p"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["0","f","","0"], tmg_when="!c0&!i0", specify=""),
+             MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","i1","","c0"], ival={"o":["0"],"i":["0","0"],"b":[],"c":["r"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["0","r","","1"], tmg_when="c0&!i0", specify=""),
+             MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","i1","","c0"], ival={"o":["1"],"i":["0","1"],"b":[],"c":["r"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["1","f","","1"], tmg_when="c0&!i0", specify=""),
+             #--- power_tin pin(CLK) -- ゲート閉（!E&!TE）で CLK r/f、 Q=0 不変
+             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0","0"],"b":[],"c":["p"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["0","0","","r"], tmg_when="!i0&!i1", specify=""),
+             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0","0"],"b":[],"c":["r"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["0","0","","f"], tmg_when="!i0&!i1", specify=""),
+             #--- min_pulse (CLK) -- when E&!TE（有効時のみ Q にパルスが通る）
+             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["1","0"],"b":[],"c":["p"]}
+                        ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","1","","p"], tmg_when="i0&!i1", specify="$width(posedge c0, 0, 0, notifier);"),
+             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1","0"],"b":[],"c":["r"]}
+                        ,meas_types=["min_pulse_width_low"],tmg_sense="non",arc_oirc=["r","1","","n"], tmg_when="i0&!i1", specify="$width(negedge c0, 0, 0, notifier);"),
+             #--- passive (E/TE/CLK)
+             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0","0"],"b":[],"c":["p"]}
+                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","","0"], tmg_when="", specify=""),
+             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["1","0"],"b":[],"c":["p"]}
+                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","f","","0"], tmg_when="", specify=""),
+             MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","i1","","c0"], ival={"o":["0"],"i":["0","0"],"b":[],"c":["p"]}
+                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","","0"], tmg_when="", specify=""),
+             MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","i1","","c0"], ival={"o":["0"],"i":["0","1"],"b":[],"c":["p"]}
+                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","f","","0"], tmg_when="", specify=""),
+             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0","0"],"b":[],"c":["p"]}
+                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","r"], tmg_when="", specify=""),
+             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0","0"],"b":[],"c":["p"]}
+                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","f"], tmg_when="", specify=""),
+             #--- leakage (8 states: CLK x E x TE、 Q = CLK&(E|TE))
+             MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0","0"],"c":["p"]}
+                        ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["0","0","","0"],tmg_when="!c0&!i0&!i1", specify=""),
+             MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0","1"],"c":["p"]}
+                        ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["0","0","","0"],tmg_when="!c0&!i0&i1", specify=""),
+             MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["1","0"],"c":["p"]}
+                        ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["0","1","","0"],tmg_when="!c0&i0&!i1", specify=""),
+             MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["1","1"],"c":["p"]}
+                        ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["0","1","","0"],tmg_when="!c0&i0&i1", specify=""),
+             MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0","0"],"c":["r"]}
+                        ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["0","0","","1"],tmg_when="c0&!i0&!i1", specify=""),
+             MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["0","1"],"c":["r"]}
+                        ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["1","0","","1"],tmg_when="c0&!i0&i1", specify=""),
+             MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1","0"],"c":["r"]}
+                        ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["1","1","","1"],tmg_when="c0&i0&!i1", specify=""),
+             MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1","1"],"c":["r"]}
+                        ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["1","1","","1"],tmg_when="c0&i0&i1", specify="", power_default=True),
+           ]
+    },
+    #---------------------------------------------------------------------------------------
+    # ICG_NC: Integrated Clock Gating, negedge (latch + OR). ISS-00070 ICG (2026-07-07).
+    #   GF180 target: icgtn_1/2/4. orig func: D0=E|TE -> udp_n_iq_latch(IQ3, EN=CLKN, D0) -> Q=CLKN|!IQ3.
+    #   Pin mapping: o0=Q, i0=E, i1=TE, c0=CLKN (negedge)。 CLKN=1 で透過、 CLKN fall で E を latch。
+    #   有効時（latched=1）: Q は CLKN に追従。 無効時: Q=1 固定（negedge FF は発火しない）。
+    "ICG_NC":{
+           "logic_type":"seq_lat",
+           "functions":{"o0":"(c0|(!Io0))"},
+           "latch":{"out":"Io0,IQB",
+                    "enable":"c0",
+                    "data_in":"(i0|i1)"},
+           "vcode":"wire mgm_d0; wire iq3; wire iq3n; or (mgm_d0, i0, i1); udp_iq_latch_n inst (iq3, 1'b0, 1'b0, c0, mgm_d0, ); not (iq3n, iq3); or (o0, c0, iq3n);",
+           "expect":
+           [
+             #--- delay (CLKN -> Q) + power_tout -- when E&!TE
+             MyExpectCell(pin_tr=["o0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1","0"],"b":[],"c":["1"]}
+                         ,meas_types=["delay","power_tout"] ,tmg_sense="pos",arc_oirc=["f","1","","f"], tmg_when="i0&!i1", specify=""),
+             MyExpectCell(pin_tr=["o0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["1","0"],"b":[],"c":["f"]}
+                         ,meas_types=["delay","power_tout"] ,tmg_sense="pos",arc_oirc=["r","1","","r"], tmg_when="i0&!i1", specify="(c0 => o0) = (0,0);", timing_default=True),
+             #--- setup E (vs CLKN fall)。 負エッジ側は latched=0 -> Q=1 のまま = arc[0] stable
+             MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["0","0"],"b":[],"c":["1"]}
+                        ,meas_types=["setup_falling"] ,tmg_sense="non",arc_oirc=["r","r","","f"], tmg_when="", specify="$setup(posedge i0, negedge c0, 0, notifier);"),
+             MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1","0"],"b":[],"c":["1"]}
+                        ,meas_types=["setup_falling"] ,tmg_sense="non",arc_oirc=["f","f","","f"], tmg_when="", specify="$setup(negedge i0, negedge c0, 0, notifier);"),
+             #--- hold E
+             MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["r","0"],"b":[],"c":["1"]}
+                        ,meas_types=["hold_falling"],tmg_sense="non",arc_oirc=["f","f","","f"], tmg_when="", specify="$hold(negedge c0, negedge i0, 0, notifier);"),
+             MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["f","0"],"b":[],"c":["1"]}
+                        ,meas_types=["hold_falling"],tmg_sense="non",arc_oirc=["r","r","","f"], tmg_when="", specify="$hold(negedge c0, posedge i0, 0, notifier);"),
+             #--- setup/hold TE
+             MyExpectCell(pin_tr=["i1","c0"], pin_oirc=["o0","i1","","c0"], ival={"o":["1"],"i":["0","0"],"b":[],"c":["1"]}
+                        ,meas_types=["setup_falling"] ,tmg_sense="non",arc_oirc=["r","r","","f"], tmg_when="", specify="$setup(posedge i1, negedge c0, 0, notifier);"),
+             MyExpectCell(pin_tr=["i1","c0"], pin_oirc=["o0","i1","","c0"], ival={"o":["1"],"i":["0","1"],"b":[],"c":["1"]}
+                        ,meas_types=["setup_falling"] ,tmg_sense="non",arc_oirc=["f","f","","f"], tmg_when="", specify="$setup(negedge i1, negedge c0, 0, notifier);"),
+             MyExpectCell(pin_tr=["i1","c0"], pin_oirc=["o0","i1","","c0"], ival={"o":["1"],"i":["0","r"],"b":[],"c":["1"]}
+                        ,meas_types=["hold_falling"],tmg_sense="non",arc_oirc=["f","f","","f"], tmg_when="", specify="$hold(negedge c0, negedge i1, 0, notifier);"),
+             MyExpectCell(pin_tr=["i1","c0"], pin_oirc=["o0","i1","","c0"], ival={"o":["1"],"i":["0","f"],"b":[],"c":["1"]}
+                        ,meas_types=["hold_falling"],tmg_sense="non",arc_oirc=["r","r","","f"], tmg_when="", specify="$hold(negedge c0, posedge i1, 0, notifier);"),
+             #--- power_tin pin(E) -- CLKN=0: opaque（Q=!latched 固定）/ CLKN=1: 透過（Q=1 固定）
+             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["0","0"],"b":[],"c":["p"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["1","r","","0"], tmg_when="!c0&!i1", specify=""),
+             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["1","0"],"b":[],"c":["p"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["0","f","","0"], tmg_when="!c0&!i1", specify=""),
+             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["0","0"],"b":[],"c":["r"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["1","r","","1"], tmg_when="c0&!i1", specify=""),
+             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1","0"],"b":[],"c":["r"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["1","f","","1"], tmg_when="c0&!i1", specify=""),
+             #--- power_tin pin(TE)
+             MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","i1","","c0"], ival={"o":["1"],"i":["0","0"],"b":[],"c":["p"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["1","r","","0"], tmg_when="!c0&!i0", specify=""),
+             MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","i1","","c0"], ival={"o":["0"],"i":["0","1"],"b":[],"c":["p"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["0","f","","0"], tmg_when="!c0&!i0", specify=""),
+             MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","i1","","c0"], ival={"o":["1"],"i":["0","0"],"b":[],"c":["r"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["1","r","","1"], tmg_when="c0&!i0", specify=""),
+             MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","i1","","c0"], ival={"o":["1"],"i":["0","1"],"b":[],"c":["r"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["1","f","","1"], tmg_when="c0&!i0", specify=""),
+             #--- power_tin pin(CLKN) -- ゲート閉（!E&!TE、 latched=0 -> Q=1 固定）で CLKN r/f
+             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["0","0"],"b":[],"c":["p"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["1","0","","r"], tmg_when="!i0&!i1", specify=""),
+             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["0","0"],"b":[],"c":["r"]}
+                        ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["1","0","","f"], tmg_when="!i0&!i1", specify=""),
+             #--- min_pulse (CLKN) -- when E&!TE
+             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["1","0"],"b":[],"c":["p"]}
+                        ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","1","","p"], tmg_when="i0&!i1", specify="$width(posedge c0, 0, 0, notifier);"),
+             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1","0"],"b":[],"c":["r"]}
+                        ,meas_types=["min_pulse_width_low"],tmg_sense="non",arc_oirc=["r","1","","n"], tmg_when="i0&!i1", specify="$width(negedge c0, 0, 0, notifier);"),
+             #--- passive (E/TE/CLKN)
+             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["0","0"],"b":[],"c":["p"]}
+                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","r","","0"], tmg_when="", specify=""),
+             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["1","0"],"b":[],"c":["p"]}
+                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","f","","0"], tmg_when="", specify=""),
+             MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","i1","","c0"], ival={"o":["1"],"i":["0","0"],"b":[],"c":["p"]}
+                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","r","","0"], tmg_when="", specify=""),
+             MyExpectCell(pin_tr=["i1",""], pin_oirc=["o0","i1","","c0"], ival={"o":["0"],"i":["0","1"],"b":[],"c":["p"]}
+                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","f","","0"], tmg_when="", specify=""),
+             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["0","0"],"b":[],"c":["p"]}
+                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","0","","r"], tmg_when="", specify=""),
+             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["0","0"],"b":[],"c":["p"]}
+                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","0","","f"], tmg_when="", specify=""),
+             #--- leakage (8 states: CLKN x E x TE、 Q = CLKN | !(E|TE))
+             MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["0","0"],"c":["p"]}
+                        ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["1","0","","0"],tmg_when="!c0&!i0&!i1", specify=""),
+             MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0","1"],"c":["p"]}
+                        ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["0","0","","0"],tmg_when="!c0&!i0&i1", specify=""),
+             MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["1","0"],"c":["p"]}
+                        ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["0","1","","0"],tmg_when="!c0&i0&!i1", specify=""),
+             MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["1","1"],"c":["p"]}
+                        ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["0","1","","0"],tmg_when="!c0&i0&i1", specify=""),
+             MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["0","0"],"c":["r"]}
+                        ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["1","0","","1"],tmg_when="c0&!i0&!i1", specify=""),
+             MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["0","1"],"c":["r"]}
+                        ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["1","0","","1"],tmg_when="c0&!i0&i1", specify=""),
+             MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1","0"],"c":["r"]}
+                        ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["1","1","","1"],tmg_when="c0&i0&!i1", specify=""),
+             MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1","1"],"c":["r"]}
+                        ,meas_types=["leakage"],tmg_sense="non",arc_oirc=["1","1","","1"],tmg_when="c0&i0&i1", specify="", power_default=True),
+           ]
+    },
   }
 
 ###############################################################################

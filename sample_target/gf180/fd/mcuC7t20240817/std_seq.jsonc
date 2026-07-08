@@ -114,6 +114,22 @@
    "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__latsnq_1","logic":"LATCH_PE_NS","area":46.0992,
    "primitive":"udp_iq_latch_n",
    "ports_dict":{"D":"i0","E":"c0","SETN":"s0","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  // ---- ICG posedge: integrated clock gating (latch + AND, ISS-00070 ICG, 2026-07-07) ----
+  // SPICE port order: CLK E TE Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"],["power_tin","10x0","d000"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__icgtp_1",
+   "vout_infos":{"o0":{"node":"QD"}},"logic":"ICG_PC","area":61.4656,
+   "primitive":"udp_iq_latch_n",
+   "ports_dict":{"CLK":"c0","E":"i0","TE":"i1","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- ICG negedge: integrated clock gating (latch + OR, ISS-00070 ICG, 2026-07-07) ----
+  // SPICE port order: CLKN E TE Q VDD VNW VPW VSS
+  {"template_kgn":[["leakage","0x0","d00"],["const","10x10","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"],["power_tin","10x0","d000"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__icgtn_1",
+   "vout_infos":{"o0":{"node":"QD"}},"logic":"ICG_NC","area":68.0512,
+   "primitive":"udp_iq_latch_n",
+   "ports_dict":{"CLKN":"c0","E":"i0","TE":"i1","Q":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
 
   // ---- LATCH pos-level enable + active-low reset + active-low set (ISS-00070 LAT Phase B) ----
   // SPICE port order: D E RN SETN Q VDD VNW VPW VSS
