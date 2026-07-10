@@ -4,6 +4,21 @@
 
 ---
 
+## [0.9.14a27] 2026-07-08
+
+Alpha pre-release. ICG 2 family（icgtp/icgtn）新規実装＋framework 改善 3 件（ISS-00151/00152）。
+
+### Added
+- `mylogic_seq_lat.py`: ICG_PC / ICG_NC（integrated clock gating、latch+AND / latch+OR）各 36 entry を新規実装（ISS-00070 の ICG 残）。 CLK↔Q の comb 型 delay＋power_tout（代表 when E&!TE で orig 照合）、 E/TE の setup/hold（内部ラッチ closure 基準）、 leakage 8 状態（orig when 完全一致）、 power_tin/passive/min_pulse。
+- **vout_infos 機構**（ISS-00152、 ダーマツ発案）: const 計測の観測点をセル固有の内部 net へ差し替える汎用機構。 `myLogicCell.py` に vout_infos field、 `myTbParam.py` に vout_node、 jp2 の const 系 8 箇所（prop_clk_out/prop_in_out/judge_dly×4/judge_vlt×2）を setup_kind 非空時のみ条件置換。 出力がクロックにマスクされるセル（ICG: Q=CLK&IQ2）で内部ラッチ出力 QD を観測し、 setup/hold を LAT 完全同型で計測。 `std_seq.jsonc` に icgtp_1/icgtn_1 登録（node=QD、 両セルの GF180 netlist で実在確認）。
+
+### Fixed
+- `charao_run.py`（ISS-00151、 全セルの power_tout に影響）: ① energy INTEG 窓の TO に尻尾 margin 0.3ns 追加（eend 以降の指数尻尾 7.2% 切り捨てを実測、 ISS-00075 系統誤差の一因。 SW_TAIL は time_energy[1] 参照のため自動追従）② energy2 の energy_start/end WHEN が大 slew で out of interval → 0 埋めとなる問題を、 energy1 確定値（Mtp.ener_estart/eend 新設）へのフォールバックで解消。
+- `charao_run.py`（ISS-00152(a)）: const の tsim_end=1µs 固定を毎反復 t_clk5+3ns に短縮。「出力無遷移が成功」型ハーネス（ICG E/TE fall setup、 LAT hold）で autostop 不発 → 極小 timestep で 1µs 走行する擬似ハング（100 分実測）を解消。
+
+### Verified
+- icgtp_1 の measure 別確認（2x2）: leakage/delay/power_tin/passive/min_pulse は orig オーダー一致。 power_tout は 4/4 点実値化（orig との差は帰属分解の方式差＝pin(CLK)/pin(Q) 分解 vs 総量計上、 合算ではオーダー一致）。 setup/hold は vout_infos で実値化し、 hold は orig とほぼ一致（−0.87〜−0.01 vs −0.96〜0.01）。 残（hold 大 slew 隅 1 corner・ICG_NC 確認・full INDEX）は ISS-00152 で管理。
+
 ## [0.9.14a26] 2026-07-07
 
 Alpha pre-release. seq_lat（LAT 4 family）の新方式展開＋LAT const dispatch 修正（ISS-00143）。 LAT 4 セルで合格基準①〜⑤確定（const 値精度は ISS-00146 に切り出し）。 **対象 mylogic（comb 3 カテゴリ＋seq_ff＋seq_scan＋seq_lat）の優先課題 横断検証が完了**。
