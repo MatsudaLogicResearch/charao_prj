@@ -1324,6 +1324,8 @@ def runSpiceConstSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
    - is_async (recovery)  : 制約信号を VREL(async) 駆動（setup/hold は VIN=D 駆動）
    - is_hold  (hold)      : 制約信号が CLK の後 → CLK を正方向に掃引（setup/recovery は負方向）
   値 = dly（setup→dly_in_clk / hold→dly_clk_in / recovery→dly_rel_clk）、 判定 = prop_clk_out の degradation。
+  ISS-00153: hold × seq_lat（LAT/ICG、 保持成功＝Q 無遷移）のみ degradation 不可のため
+  removal と同方式の電圧化け判定（judge_vlt_max/min、 vout_infos 観測ノード置換対応）に分岐。
   removal は電圧判定のため本関数では扱わない。
   """
   h=targetHarness
@@ -1380,8 +1382,17 @@ def runSpiceConstSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
     #   tsweep_clk = tsweep（符号付き）、 掃引向き direction は sign(seg_end - seg_start) で自動決定。
     if is_hold:
       #-- 制約信号(D-fall)が CLK の後：_t_clk4 を「D 手前(pass)」→「t_in0(fail 境界)」へ
+      ## ISS-00152: 旧 seg_end = t_in0（D 遷移開始とちょうど同時刻）では fail 側（D 戻りが透過に
+      ##   食い込む領域）に一歩も入らず、 大 slew で境界未検出（latrsnq (9,9) で secant 終端＝同時刻を実測）。
+      ##   D 遷移完了 t_in1 ＋ CLK slew 2 本分まで延長し、 full-swing の乱れが必ず現れる領域まで掃引する。
       seg_start  = param.tsweep_for_clk4_at(param.t_in0) - 0.5*(param.t_in0 - param.t_init3) - param.tslew_clk
-      seg_end    = param.tsweep_for_clk4_at(param.t_in0)
+      seg_end    = param.tsweep_for_clk4_at(param.t_in1 + 2*param.tslew_clk)
+      ## ISS-00153: 保持型（is_lat）の電圧判定は judge 窓が _t_clk4 から始まる。 VIN の capture
+      ##   遷移は _t_init3 固定アンカーのため、 clk_init pulse を持つセル（ICG）では seg_start が
+      ##   _t_init3 と衝突し、 観測ノードの正当な capture 遷移が窓に入って初手 FAIL（探索不能）に
+      ##   なる（icgtp CLK 大 slew corner で実測）。 capture 完了＋settle 以後へ clamp する。
+      if param.is_lat:
+        seg_start = max(seg_start, param.tsweep_for_clk4_at(param.t_init3 + 2e-9))
     else:
       #-- 制約信号が CLK の前(setup/recovery)：_t_clk4 を「nominal(pass)」→「(t_init3+t_in0)/2(fail)」へ
       seg_start  = 0.0
@@ -1391,6 +1402,12 @@ def runSpiceConstSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
 
     ratio      = h.mls.sim_segment_timestep_ratio
     threshold  = h.mls.sim_time_const_threshold * h.mls.time_mag
+
+    #-- ISS-00153: 保持型 hold（LAT/ICG=seq_lat）は電圧判定（removal と同方式）に使う閾値
+    #   is_lat は set_common_value 済の param から取る（logic_type は mls.logic_dict 辞書引きのため）
+    is_lat          = param.is_lat
+    threshold_high  = h.mls.hold_meas_high_threshold * h.mls.vdd_voltage
+    threshold_low   = h.mls.hold_meas_low_threshold  * h.mls.vdd_voltage
 
     tsweep_pass=seg_start
     const_pass =0
@@ -1416,20 +1433,32 @@ def runSpiceConstSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
         ## ISS-00152: pass 側（Q 無遷移が成功＝ICG の E/TE fall setup、 LAT hold 等）は prop_clk_out が
         ##   不成立で autostop が効かず、 tsim_end=1µs を極小 timestep で走る擬似ハングになる。
         ##   判定情報（prop/dly/グリッチ）は CLK edge 直後に集中するため、 tsim_end を毎反復
-        ##   t_clk5+3ns の既知時刻に短縮する（autostop 成立ケースは元々それ以前に停止、 結果不変）。
-        param.tsim_end   = param.t_clk5 + 3e-9
+        ##   既知時刻に短縮する（autostop 成立ケースは元々それ以前に停止、 結果不変）。
+        ##   hold は D 戻り（t_in1/t_rel1）が closure の後に来るため max で含める（切り落とすと
+        ##   dly_clk_in 不成立＝値が出ない。 latrsnq (9,9) で実測）。
+        param.tsim_end   = max(param.t_clk5, param.t_in1, param.t_rel1) + 3e-9
         param.tpulse_clk = param.tsim_end
         param.compute_timing()
 
         rslt=genFileLogic_Const1x(targetHarness=h, spicef=spicefo, param=param)
 
-        #- degradation 判定（FF/LAT 共通、 prop_clk_out=CLK→Q delay）
-        prop_last =abs(rslt["prop_clk_out"])
         const_last=rslt["setup"]   # = dly（_dly_key 経由で setup/hold/recovery を切替済）
 
-        prop_min=min(prop_min, prop_last)
-        if prop_last > prop_min + threshold:
-          break;
+        if is_hold and is_lat:
+          #- ISS-00153: 保持型 hold（LAT/ICG）は電圧化け判定（removal と同方式）。
+          #   閉じた後の観測ノード（vout_infos 適用可）が保持値から動いたら fail。
+          #   arc[0] の意味: "0"/"r"=保持 L（違反で上昇）、 "1"/"f"=保持 H（違反で下降）。
+          _held_o = arc_oirc[0]
+          if   (_held_o in ("0","r")) and (threshold_low  < rslt["vlt_max"]):
+            break
+          elif (_held_o in ("1","f")) and (threshold_high > rslt["vlt_min"]):
+            break
+        else:
+          #- degradation 判定（FF、 prop_clk_out=CLK→Q delay）
+          prop_last =abs(rslt["prop_clk_out"])
+          prop_min=min(prop_min, prop_last)
+          if prop_last > prop_min + threshold:
+            break;
 
         tsim_end=rslt["chg_out"] + 10e-9
         tsweep_pass=tsweep
@@ -1481,7 +1510,12 @@ def genFileLogic_Const1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
   else:                                        _dly_key = "dly_rel_clk"
   res_list=["chg_out", _dly_key, "prop_clk_out"]
   res={"chg_out":1, _dly_key:1, "prop_clk_out":1}
-  
+
+  # ISS-00153: LAT/ICG(seq_lat) の hold は電圧判定（removal と同方式）→ judge_vlt_max/min も読む
+  if h.measure_type.startswith("hold") and param.is_lat:
+    res_list += ["judge_vlt_max", "judge_vlt_min"]
+    res.update({"judge_vlt_max":1, "judge_vlt_min":1})
+
   with open(spicelis,'r') as f:
     
     for inline in f:
@@ -1502,7 +1536,9 @@ def genFileLogic_Const1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
   rslt={
     "chg_out"     :float(res["chg_out"]),
     "setup"       :float(res[_dly_key]),
-    "prop_clk_out":float(res["prop_clk_out"])}
+    "prop_clk_out":float(res["prop_clk_out"]),
+    "vlt_max"     :float(res.get("judge_vlt_max", 1)),   # ISS-00153: seq_lat hold のみ実値
+    "vlt_min"     :float(res.get("judge_vlt_min", 1))}
 
   return (rslt)
 

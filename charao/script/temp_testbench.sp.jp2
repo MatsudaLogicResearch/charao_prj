@@ -355,8 +355,15 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
 .MEASURE TRAN dly_clk_in
 + TRIG v(VCLK) VAL={{param.prop_vth_oirc[3]}} {{param.arc_oirc4measure[3]}}=1 TD={_t_clk3 - 2*_tslew_min}
 + TARG v(VIN)  VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc4measure[1]}}=1 TD={_t_clk3 - 2*_tslew_min}
-*** ISS-00138: hold は prop_clk_out の degradation で判定するため judge_vlt_max/min は不要。
-***            MAX/MIN measure は autostop を無効化するため削除（autostop 復活で高速化）。
+  {%- if param.is_lat %}
+*** ISS-00153 hold LAT/ICG: 保持型（closure 後 Q 無遷移が成功）は degradation 不可 → removal と同方式の
+***            電圧判定。 judge_vlt_max/min（closure 後窓 _t_clk4.._tsim_end、 vout_infos で観測ノード置換可）。
+.MEASURE TRAN judge_vlt_max MAX V({{param.vout_node if (param.vout_node and param.setup_kind) else "VOUT"}}) FROM={_t_clk4} TO={_tsim_end}
+.MEASURE TRAN judge_vlt_min MIN V({{param.vout_node if (param.vout_node and param.setup_kind) else "VOUT"}}) FROM={_t_clk4} TO={_tsim_end}
+  {%- else %}
+*** ISS-00138: FF hold は prop_clk_out の degradation で判定するため judge_vlt_max/min は不要。
+***            MAX/MIN measure は autostop を無効化するため出さない（autostop 維持で高速化）。
+  {%- endif %}
 
 {%- elif param.setup_kind == "recovery" %}
 *** ISS-00133 recovery: dly_rel_clk (VREL -> VCLK)

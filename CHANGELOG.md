@@ -4,6 +4,22 @@
 
 ---
 
+## [0.9.14a28] 2026-07-10
+
+Alpha pre-release. LAT/ICG const 判定基盤の修正（ISS-00153）＝ ISS-00146（LAT const 値精度）解決。
+
+### Fixed
+- `myTbParam.py`（ISS-00153、 致命）: is_lat 判定が `getattr(h.mlc, "logic_type", "")` で**常に False** だった問題を修正（logic_type は Mlc の属性ではなく `mls.logic_dict[mlc.logic]` の辞書引き）。 このバグにより **jp2 の LAT 用 judge 分岐（setup/recovery の judge_dly）が ISS-00133 導入以来一度も描画されていなかった**。 ISS-00146 の setup 16〜18%／recovery 31〜32% 外れの本因。
+- `temp_testbench.sp.jp2` / `charao_run.py`（ISS-00153）: **保持型 hold（LAT/ICG、 保持成功＝Q 無遷移）を degradation 判定から電圧化け判定へ分岐**。 jp2 hold ブロックに is_lat 時のみ judge_vlt_max/min（closure 後窓 _t_clk4.._tsim_end、 vout_infos 観測ノード置換対応）を出力し、 runSpiceConstSingle に removal と同方式の判定を追加（arc[0] 規約: "0"/"r"＝保持 L・違反で上昇、 "1"/"f"＝保持 H・違反で下降）。 FF hold は従来どおり degradation（autostop 維持）。 ISS-00146 の hold 36〜39% 外れ・逆符号の本因。
+- `charao_run.py`（ISS-00152 続き）: hold の seg_end を t_in0 → t_in1+2*tslew_clk へ延長（fail 領域まで掃引しないと境界未検出）、 tsim_end の毎反復短縮に t_in1/t_rel1 を包含（D 戻り切り落とし防止）。
+- `charao_run.py`（ISS-00153）: 保持型 hold の seg_start を _t_init3+2ns 以後に clamp。 clk_init pulse を持つセル（ICG）で seg_start が VIN の capture 遷移（_t_init3 固定アンカー）と衝突し、 観測ノードの正当な取り込み遷移を保持化けと誤判定 → 初手 FAIL で二分探索が進めず const=0 になる問題を解消。
+- `myTbParam.py`: wave_raw 時に vout_infos ノード（判定対象）も raw へ保存。
+
+### Verified
+- **LAT 4 family（latq/latrnq/latsnq/latrsnq）× const 全 kind × full INDEX 真打ち（2,400 点、 0 failures）**: orig 比較で **|diff|>2ns 外れ 0.0%**（従来 setup 16〜18%／recovery 31〜32%／hold 36〜39%）、 median +0.05〜+0.45ns、 max|d| 1.58ns、 removal 無回帰。 ＝ **ISS-00146 解決**
+- hold 電圧判定の境界分解能を波形で実証（latrsnq (4,4): last-pass は Q が 3.63V まで乱れて復帰、 first-fail は 1ps 差で完全反転）
+- ICG 2 セル hold 露払い（2x2）: 0.0／1e9 全解消・全 corner 実値化・orig とオーダー一致（diff sub-ns〜1ns）。 setup+hold の full INDEX 真打ちは実行中（結果は課題ファイルに追記）
+
 ## [0.9.14a27] 2026-07-08
 
 Alpha pre-release. ICG 2 family（icgtp/icgtn）新規実装＋framework 改善 3 件（ISS-00151/00152）。

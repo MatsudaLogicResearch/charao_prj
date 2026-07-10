@@ -206,7 +206,9 @@ class MyTbParam:
     # ISS-00133: pin_tr (Liberty 出力用 [target, related]) と is_lat (LATCH 判定) を jp2 に渡す
     self.pin_tr       =list(getattr(h.mec, "pin_tr", []))
     # logic_type が "seq_lat" なら LATCH、 それ以外（"seq", "comb" 等）は FF or comb
-    self.is_lat       = (getattr(h.mlc, "logic_type", "") == "seq_lat")
+    # ISS-00153: logic_type は Mlc の属性ではなく mls.logic_dict[mlc.logic] の辞書引き。
+    #   旧 getattr(h.mlc,...) は常に "" → is_lat が全セル False（jp2 の LAT 分岐が不達）だった。
+    self.is_lat       = (getattr(h.mls, "logic_dict", {}).get(h.mlc.logic, {}).get("logic_type", "") == "seq_lat")
     # ISS-00133: energy_start のトリガノードを related pin(pin_tr[1]) のスロットで選択。
     #   related が pin_oirc の VIN(1)/VREL(2)/VCLK(3) のどこに居るかでノード決定する。
     #   comb は入力を VREL に置くため slot2->VREL、 seq(CLK駆動)は pin_tr[1]=c0->slot3->VCLK。
@@ -241,6 +243,9 @@ class MyTbParam:
     _o = h.mec.pin_oirc[0]
     if _o and _o in _vi and _vi[_o].get("node"):
       self.vout_node = "xcell.xdut." + str(_vi[_o]["node"])
+      # ISS-00153: wave_raw 時は判定対象ノード（vout_infos）も raw に保存（ngspice write は小文字要求）
+      if self.wave_raw and self.wave_save_list:
+        self.wave_save_list += f" v({self.vout_node.lower()})"
     # ISS-00133: measure_type から setup_kind を判定（setup/hold/recovery/removal の文字列）
     _mt = getattr(h, "measure_type", "")
     self.measure_type = _mt   # ISS-00135: compute_timing で leakage 判定用
