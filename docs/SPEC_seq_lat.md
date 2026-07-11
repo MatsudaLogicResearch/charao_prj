@@ -4,7 +4,18 @@
 キャラクタライズ規約をまとめたものです。
 GF180 PDK の `latq` / `latrnq` / `latsnq` / `latrsnq` を対象とします。
 
-D-Flip-Flop / Scan-DFF は `docs/SPEC_seq_ff.md` を、 Clock-gate は別 SPEC（追加予定）を参照。
+D-Flip-Flop / Scan-DFF は `docs/SPEC_seq_ff.md` を参照。
+
+> **改訂（2026-07-11、 TAG:0.9.14a27〜a28 反映）**
+> - **ICG（clock gating cell、 icgtp/icgtn）は本 SPEC の枠組みで `mylogic_seq_lat.py` に実装済み**
+>   （logic_type="seq_lat"、 ICG_PC/ICG_NC 各 36 entry。 内部ラッチ＋AND/OR 構造、
+>   E/TE の setup/hold は内部ラッチ closure 基準＝LAT と同型）。 「別 SPEC 追加予定」 は解消
+> - **vout_infos 機構（ISS-00152）**：ICG は Q がクロックにマスクされる（Q=CLK&IQ2）ため、
+>   const 系 MEASURE の観測点を jsonc の `"vout_infos":{"o0":{"node":"QD"}}` で内部ラッチ出力へ置換する
+> - **const の判定方式（ISS-00138/00153）**：setup/recovery＝prop_clk_out の degradation、
+>   **LAT/ICG の hold＝電圧化け判定（judge_vlt、 removal と同方式）**。 詳細は `SPEC_const.md` §1 の
+>   現行表を参照。 §7-1 の旧関数（runSpiceLat*Single）は ISS-00143 で統一パスに置換済み（dead code、
+>   ISS-00148 で削除予定）
 
 ## 1. 目的
 

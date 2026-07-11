@@ -103,6 +103,11 @@ charao 内部で使用される measure_type 全体：
 **.lib 出力**：
 - `pin (Q) { timing { related_pin: "CLK"/"E"; timing_type: "rising_edge"/"falling_edge"; cell_rise / cell_fall ... } }`
 
+> **判定方式の現行仕様（2026-07-11）**：const 系（setup/hold/recovery/removal）の掃引は
+> 実装上 **CLK 側（_t_clk4）を動かす**（D/async の遷移時刻は固定）。 pass/fail 判定は
+> 遷移型（FF setup/hold、 recovery、 LAT setup）＝prop_clk_out の degradation、
+> 保持型（LAT/ICG hold、 removal）＝電圧化け判定（judge_vlt）。 詳細は `SPEC_const.md` §1/§4 参照。
+
 ### 4.3 `setup_rising` / `setup_falling`
 
 **計測内容**：

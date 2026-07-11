@@ -285,7 +285,7 @@ def runSpiceDelayMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mcar]:
   else:
     kind=h_delay.measure_type.replace("three_state_enable","delay").replace("three_state_disable","delay_disable")
 
-  temp=mlc.template[kind]
+  temp=mlc.get_template(kind, mec.pin_oirc[0])   # ISS-00150: 出力 port 別 template 対応（adder S/CO）
   if not temp:
     print(f"[Error] not defined template={kind} in cell_xx.jsonc .")
     my_exit()
@@ -371,7 +371,7 @@ def runSpicePowerToutMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mc
     else:
       kind=h_power.measure_type.replace("delay","power").replace("three_state_enable","power")
 
-    temp=mlc.template[kind]
+    temp=mlc.get_template(kind, mec.pin_oirc[0])   # ISS-00150: 出力 port 別 template 対応（adder S/CO）
     if not temp:
       print(f"[Error] not defined template={kind} in cell_xx.jsonc .")
       my_exit()

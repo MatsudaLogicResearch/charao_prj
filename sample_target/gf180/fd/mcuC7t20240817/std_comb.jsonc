@@ -554,7 +554,8 @@
   {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"]],
    "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__addh_1","logic":"ADDH","area":39.5136,
    "ports_dict":{"A":"i0","B":"i1","CO":"o1","S":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
-  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"]],
+  // ISS-00150: addh_2 は S(o0)=d023 / CO(o1)=d028 の per-pin 割当（第 4 要素=出力 port）
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["delay","10x10","d023","o0"],["power_tout","10x10","d028"],["power_tout","10x10","d023","o0"]],
    "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__addh_2","logic":"ADDH","area":48.2944,
    "ports_dict":{"A":"i0","B":"i1","CO":"o1","S":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
   {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d034"],["power_tout","10x10","d034"]],
@@ -563,10 +564,12 @@
   {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"]],
    "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__addf_1","logic":"ADDF","area":72.4416,
    "ports_dict":{"A":"i0","B":"i1","CI":"i2","CO":"o1","S":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
-  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d026"],["power_tout","10x10","d026"]],
+  // ISS-00150: addf_2 は S(o0)=d025 / CO(o1)=d026
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d026"],["delay","10x10","d025","o0"],["power_tout","10x10","d026"],["power_tout","10x10","d025","o0"]],
    "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__addf_2","logic":"ADDF","area":79.0272,
    "ports_dict":{"A":"i0","B":"i1","CI":"i2","CO":"o1","S":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
-  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"]],
+  // ISS-00150: addf_4 は S(o0)=d035 / CO(o1)=d036
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["delay","10x10","d035","o0"],["power_tout","10x10","d036"],["power_tout","10x10","d035","o0"]],
    "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__addf_4","logic":"ADDF","area":96.5888,
    "ports_dict":{"A":"i0","B":"i1","CI":"i2","CO":"o1","S":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
 

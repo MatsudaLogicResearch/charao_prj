@@ -20,26 +20,32 @@ target_relport = pin_oirc[2]    # set_target_relport()  ← related_pin (Y) を�
 target_clkport = pin_oirc[3]    # set_target_clkport()  ← .lib には出ない
 ```
 
-## 3. 全 measure_type × spice 駆動 × Liberty 出力 網羅表
+## 3. 全 measure_type × spice 駆動 × Liberty 出力 網羅表（2026-07-11 改訂＝ISS-00135 reorg 後の現行）
 
-| # | measure_type | template_kind | spice 駆動の pin_oirc 意味 | spice 計測 | Liberty 出力 |
+> **現行の大原則（ISS-00135 reorg、 2026-06 確定）**：
+> - **同一 DUT pin を複数 slot に重複指定することは不可**（旧「[2]=同[1]」記法は廃止）。 各 pin は「それを駆動する 1 slot」 にのみ書く
+> - Liberty の target/related pin は **`pin_tr` で明示**（pin_oirc は spice 駆動専用）
+> - ある pin がどの slot で駆動されているかの逆引きは **c > r > i の優先順**（`myTbParam.set_common_value` 参照）
+> - power_tin の積分窓・slope・cin は **target スロット方式**（ISS-00142）：`pin_tr[0]` の逆引きで `energy_tgt_slot/node` を決め、 その slot の遷移時刻（t_in0/1、 t_clk4/5、 t_rel0/1）を窓に使う。 energy_start のトリガは `pin_tr[1]` の逆引き（`energy_trig_slot`）
+
+| # | measure_type | template_kind | spice 駆動の pin_oirc（現行例） | spice 計測 | Liberty 出力 |
 |---|---|---|---|---|---|
-| 1 | `delay`（CLK 無し） | delay | [0]=VOUT 観察, [1]=VIN slew input, [2]=同 [1], [3]=- | input → output delay | `pin([0]) timing { related_pin=[2], timing_type="delay" }` |
-| 2 | `rising_edge` / `falling_edge` | delay | [0]=VOUT 観察, [1]=stable D, [2]=related (CLK 等), [3]=CLK | CLK edge → output delay | `pin([0]) timing { related_pin=[2], timing_type="rising_edge"\|"falling_edge" }` |
-| 3 | `clear` | delay | [0]=VOUT 観察, [1]=stable D, **[2]=RN (active edge 元)**, [3]=CLK | RN active → Q clear delay | `pin([0]) timing { related_pin=[2] (=RN), timing_type="clear" }` |
-| 4 | `preset` | delay | [0]=VOUT 観察, [1]=stable D, **[2]=SETN (active edge 元)**, [3]=CLK | SETN active → Q preset delay | `pin([0]) timing { related_pin=[2] (=SETN), timing_type="preset" }` |
-| 5 | `three_state_enable` / `three_state_disable` | delay | [0]=VOUT 観察, [1]=stable D, **[2]=EN pin**, [3]=- | EN switching → Z 遷移 delay | `pin([0]) timing { related_pin=[2] (=EN), timing_type="three_state_*" }` |
-| 6 | `power_tout` | power_tout | （同 delay/rising_edge） | output 遷移時 energy | `pin([0]) internal_power { related_pin=[2], when }` |
-| 7 | `power_c2c` / `i2c` / `c2i` / `i2i` | power_* | 同 | clk-to-clk 等の power | `pin([0]) internal_power { related_pin=[2] }` |
-| 8 | **`power_tin` (input pin X)** | power_tin | [0]=VOUT 観察, **[1]=X 駆動 (計測対象 input)**, [2]=同 [1] (VREL=同 X), [3]=他 CLK 駆動 | X switching 時 energy | `pin([1] = X) internal_power { related_pin omitted (=same X), when }` |
-| 9 | `power_tin` (biport HOLD 等) | power_tin | [0]=biport pin, [1]=- (or biport), [2]=同, [3]=- | biport switching | `pin([0] = biport) internal_power { related_pin omitted }` |
-| 10 | `passive` (input stable state) | passive | [1]=input X stable, [2]=同 | static state での energy | `pin([1] = X) internal_power` |
-| 11 | `setup_rising` / `setup_falling` | const | [0]=VOUT 観察, **[1]=D (計測 input)**, [2]=CLK (active edge), [3]=CLK | D vs CLK 距離 bisection | `pin([1] = D) timing { related_pin=[2] (=CLK), timing_type="setup_*" }` |
-| 12 | `hold_rising` / `hold_falling` | const | 同 setup | 同 | `pin([1] = D) timing { related_pin=[2] (=CLK), timing_type="hold_*" }` |
-| 13 | `recovery_rising` / `recovery_falling` | const | [0]=VOUT 観察, **[1]=async pin (RN/SETN)** (setup/hold コード流用都合), [2]=CLK, [3]=CLK | async vs CLK 距離 bisection | `pin([1] = RN/SETN) timing { related_pin=[2] (=CLK), timing_type="recovery_*" }` |
-| 14 | `removal_rising` / `removal_falling` | const | 同 recovery | 同 | `pin([1] = RN/SETN) timing { related_pin=[2] (=CLK), timing_type="removal_*" }` |
-| 15 | `min_pulse_width_high/low` | （専用 logic） | [0]=VOUT 観察, **[1]=計測対象 pin (CLK/E/RN/SETN)**, [2]=同, [3]=同 | pulse 幅 bisection | `pin([1]) timing { rise/fall_constraint scalar, timing_type="min_pulse_width" }` |
-| 16 | `leakage` | leakage | static state（[1]/[2]/[3] で各 input 値） | static current | **cell-level** `leakage_power { when (各 input state), value }` |
+| 1 | `delay`（comb） | delay | `[o0, "", i0, ""]`＝[0]=VOUT 観察, **[2]=VREL が入力駆動**, [1]/[3]=空 | input → output delay | `pin(pin_tr[0]=o0) timing { related_pin=pin_tr[1]=i0 }` |
+| 2 | `rising_edge` / `falling_edge` | delay | `[o0, i0, "", c0]`＝[1]=VIN=D（初期値）, [3]=VCLK=CLK | CLK edge → output delay | `pin_tr=[o0, c0]` |
+| 3 | `clear` | delay | `[o0, i0, r0, c0]`＝**[2]=VREL=RN（active edge 元）** | RN active → Q clear delay | `pin_tr=[o0, r0]` |
+| 4 | `preset` | delay | `[o0, i0, s0, c0]`＝**[2]=VREL=SETN** | SETN active → Q preset delay | `pin_tr=[o0, s0]` |
+| 5 | `three_state_enable` / `three_state_disable` | delay | [2]=VREL=EN pin | EN switching → Z 遷移 delay | `pin_tr=[o0, EN]` |
+| 6 | `power_tout` | power_tout | （同 delay/rising_edge。 併記 meas_types） | output 遷移時 energy | `pin(pin_tr[0]) internal_power { related_pin=pin_tr[1], when }` |
+| 7 | `power_c2c` / `i2c` / `c2i` / `i2i` | power_* | 同 | clk-to-clk 等の power | 同 |
+| 8 | **`power_tin`（input pin X）** | power_tin | X の駆動 slot は種別で異なる：pin(D)=`[o0, i0, "", c0]`（slot1）、 pin(CLK)=`[o0, i0, "", c0]` で **X=CLK は slot3 駆動**、 pin(RN)=slot2。 **窓/slope/cin は `pin_tr[0]` の逆引き（energy_tgt_slot、 ISS-00142）** | X switching 時 energy | `pin(pin_tr[0]=X) internal_power { related 省略 }`（`pin_tr=[X, ""]`） |
+| 9 | `power_tin`（biport HOLD 等） | power_tin | [0]=biport pin | biport switching | `pin_tr=[biport, ""]` |
+| 10 | `passive`（input stable state） | passive | `["", "", i0, ""]`＝[2]=VREL が入力駆動 | static state での energy | `pin_tr=[i0, ""]` |
+| 11 | `setup_rising` / `setup_falling` | const | `[o0, i0, "", c0]`＝[1]=VIN=D（constrained）, [3]=VCLK=CLK/E, **[2]=空** | D vs CLK 距離 secant | `pin_tr=[i0, c0]` |
+| 12 | `hold_rising` / `hold_falling` | const | 同 setup | 同（判定は SPEC_const.md §1 参照） | `pin_tr=[i0, c0]` |
+| 13 | `recovery_rising` / `recovery_falling` | const | `[o0, i0, r0/s0, c0]`＝**[2]=VREL=async（RN/SETN）駆動**（async-on-VREL、 a26〜） | async vs CLK 距離 secant | `pin_tr=[r0/s0, c0]` |
+| 14 | `removal_rising` / `removal_falling` | const | 同 recovery | 同 | `pin_tr=[r0/s0, c0]` |
+| 15 | `min_pulse_width_high/low` | （専用 logic） | `[o0, i0, "", c0]`＝**計測対象 CLK は slot3 駆動**（`ival c=["p"/"n"]` でパルス生成）。 RN/SETN 対象は slot2 | pulse 幅 secant | `pin_tr=[c0, ""]` 等（`pin(pin_tr[0])` に scalar constraint） |
+| 16 | `leakage` | leakage | static state（[1]/[2]/[3] で各 input 値。 `pin_tr=["",""]` 必須） | static current | **cell-level** `leakage_power { when, value }` |
 
 ## 4. spice 制御 と Liberty 出力 が ずれるパターン
 
@@ -81,22 +87,22 @@ mylogic に 2 つの field を持つ：
 - `arc_oirc` も `pin_oirc` と同じ構造（4 要素、 各位置 o/i/r/c）
 - 端子機能の優先順：**c > r > i**（同じ DUT pin が複数位置に出る場合、 VCLK が最優先で active edge 制御として扱う）
 
-### 5.2 measure 別の具体例
+### 5.2 measure 別の具体例（2026-07-11 改訂＝現行 mylogic の実パターン。 重複指定なし）
 
 | measure | `pin_oirc`（spice 駆動）| `pin_tr`（Liberty 出力）| 解説 |
 |---|---|---|---|
-| `delay` / `rising_edge` | [o0, i0, c0, c0] | [**o0**, c0] | target=output Q、 related=CLK |
-| `power_tout` | [o0, i0, c0, c0] | [**o0**, c0] | 同上、 internal_power(output) |
-| `power_tin` pin(E) | [o0, **c0**, c0, c0] | [**c0**, ""] | target=E、 related 省略（=same input）|
-| `power_tin` pin(D) | [o0, **i0**, i0, c0] | [**i0**, ""] | target=D、 related 省略 |
-| `passive` | [o0, i0, i0, ""] | [**i0**, ""] | target=D static、 related 省略 |
-| `setup_rising` / `hold_rising` | [o0, i0, c0, c0] | [**i0**, c0] | target=D（input）、 related=CLK |
-| `recovery_rising` / `removal_rising` | [o0, **r0**, c0, c0] | [**r0**, c0] | target=async (RN/SETN)、 related=CLK |
+| `delay`（comb）/ `power_tout` | [o0, "", **i0**, ""] | [**o0**, i0] | 入力は VREL（slot2）駆動。 target=output、 related=入力 |
+| `rising_edge` / `power_tout`（seq） | [o0, i0, "", **c0**] | [**o0**, c0] | CLK は VCLK（slot3）駆動、 D は VIN（初期値） |
+| `power_tin` pin(D) | [o0, **i0**, "", c0] | [**i0**, ""] | target=D（slot1 駆動、 energy_tgt_slot=1） |
+| `power_tin` pin(CLK) | [o0, i0, "", **c0**] | [**c0**, ""] | target=CLK（slot3 駆動、 energy_tgt_slot=3。 ISS-00142） |
+| `passive` | ["", "", **i0**, ""] | [**i0**, ""] | 入力は VREL 駆動、 target=input static |
+| `setup_*` / `hold_*` | [o0, **i0**, "", c0] | [**i0**, c0] | slot2 は空（旧 [2]=c0 重複は廃止）。 target=D、 related=CLK/E |
+| `recovery_*` / `removal_*` | [o0, i0, **r0/s0**, c0] | [**r0/s0**, c0] | async は VREL（slot2）駆動（async-on-VREL、 a26〜）。 target=async、 related=CLK/E |
 | `clear` | [o0, i0, **r0**, c0] | [**o0**, r0] | target=output Q、 related=RN |
 | `preset` | [o0, i0, **s0**, c0] | [**o0**, s0] | target=output Q、 related=SETN |
 | `three_state_enable/disable` | [o0, i0, **i1**, c0] | [**o0**, i1] | target=Z output、 related=EN |
-| `min_pulse_width_high/low` | [o0, **c0**, c0, c0] | [**c0**, ""] | target=計測対象 pin、 related なし |
-| `leakage` | static state | （cell-level、 `pin_tr` 不要）| - |
+| `min_pulse_width_high/low`（CLK） | [o0, i0, "", **c0**] | [**c0**, ""] | 計測対象 CLK は slot3 駆動（ival c=["p"/"n"]）、 related なし |
+| `leakage` | static state | [**""**, ""]（空ペア必須） | cell-level 出力 |
 
 ### 5.3 互換性（後方互換ロジック）
 
@@ -135,3 +141,4 @@ ISS-00118 は「pin_oirc[1]/[2] の measure 別意味の整理」 を扱う。 �
 | 日付 | 内容 | 関連 ISS |
 |---|---|---|
 | 2026-06-08 | 初版作成（ISS-00126） | ISS-00126、 ISS-00118 |
+| 2026-07-11 | §3/§5.2 を現行実装に改訂（ISS-00144 対応）：同一 pin の重複指定不可を明記、 「[2]=同[1]」記法を廃止、 const の slot2 空／async-on-VREL、 power_tin の target スロット方式（energy_tgt_slot/energy_trig_slot）を追記 | ISS-00144、 ISS-00135、 ISS-00142 |

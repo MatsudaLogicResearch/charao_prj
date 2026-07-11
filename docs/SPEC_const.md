@@ -4,22 +4,31 @@ charao の **const 系 measure**（setup / hold / recovery / removal、 別名 t
 
 ISS-00133（2026-06-15 ダーマツ承認、 2026-06-11 起票）に基づく確定設計。
 
+> **改訂（2026-07-11、 TAG:0.9.14a28 時点の現行実装）**
+> 本書の初版（ISS-00133 設計）から以下が更新されている。 §1/§2/§4 は現行に改訂済み、 それ以外の節は初版のまま（考え方は有効）。
+> - **ISS-00138**：setup/hold/recovery を統一パス `runSpiceConstMultiThread/Single` に集約し、 判定を **`prop_clk_out` の degradation（遅延劣化）** に統一（judge_dly は jp2 に出力されるが判定には未使用）。 removal のみ電圧判定の別関数のまま
+> - **ISS-00143**：LAT の dispatch も統一パスへ（旧 LAT 専用関数は不達 dead code、 ISS-00148 で削除予定）
+> - **ISS-00152**：**vout_infos 機構**＝const 系 MEASURE の観測点（VOUT）をセル固有の内部 net に置換可能（ICG は QD。 jsonc の `vout_infos` で指定）。 tsim_end を毎反復 `max(t_clk5, t_in1, t_rel1)+3ns` に短縮（擬似ハング解消）
+> - **ISS-00153**：**保持型 hold（LAT/ICG＝is_lat、 保持成功＝Q 無遷移）は degradation 不可のため電圧化け判定に分岐**（judge_vlt_max/min、 窓=`_t_clk4.._tsim_end`）。 FF hold は degradation のまま。 is_lat は `mls.logic_dict[mlc.logic]["logic_type"]=="seq_lat"` の辞書引き（Mlc 属性ではない）。 hold の seg_end を `t_in1+2*tslew_clk` へ延長、 保持型は seg_start を `_t_init3+2ns` に clamp
+
 ---
 
 ## 1. 計測対象（4 measure × FF/LAT × clock/async）
 
-8 entry の全体像：
+8 entry の全体像（判定列は 2026-07-11 現行）：
 
 | # | measure | FF/LAT | pin_tr | pin_oirc | 計測対象遅延 | 判定対象 | 判定種別 | sweep |
 |---|---|---|---|---|---|---|---|---|
-| 1 | setup | FF | `[i0, c0]` | `[o0, i0, c0, c0]` | `dly_in_clk`: VIN→VCLK | `judge_dly`: VCLK→VOUT | 遅延 | `_t_clk4` |
-| 2 | setup | LAT | `[i0, c0]` | `[o0, i0, c0, c0]` | `dly_in_clk`: VIN→VCLK(E↓) | `judge_dly`: VIN→VOUT | 遅延 | `_t_clk4` |
-| 3 | hold | FF | `[i0, c0]` | `[o0, i0, c0, c0]` | `dly_clk_in`: VCLK→VIN | `judge_vlt_max/min` | 電圧 | `_t_clk4` |
-| 4 | hold | LAT | `[i0, c0]` | `[o0, i0, c0, c0]` | `dly_clk_in`: VCLK(E↓)→VIN | `judge_vlt_max/min` | 電圧 | `_t_clk4` |
-| 5 | recovery | FF | `[r0/s0, c0]` | `[o0, i0, r0/s0, c0]` | `dly_rel_clk`: VREL→VCLK | `judge_dly`: VCLK→VOUT | 遅延 | `_t_clk4` |
-| 6 | recovery | LAT | `[r0/s0, c0]` | `[o0, i0, r0/s0, c0]` | `dly_rel_clk`: VREL→VCLK(E↓) | `judge_dly`: VREL→VOUT | 遅延 | `_t_clk4` |
+| 1 | setup | FF | `[i0, c0]` | `[o0, i0, "", c0]` | `dly_in_clk`: VIN→VCLK | `prop_clk_out` | 遅延 degradation | `_t_clk4` |
+| 2 | setup | LAT | `[i0, c0]` | `[o0, i0, "", c0]` | `dly_in_clk`: VIN→VCLK(E↓) | `prop_clk_out`（vout_infos 置換可） | 遅延 degradation | `_t_clk4` |
+| 3 | hold | FF | `[i0, c0]` | `[o0, i0, "", c0]` | `dly_clk_in`: VCLK→VIN | `prop_clk_out` | 遅延 degradation | `_t_clk4` |
+| 4 | hold | LAT/ICG | `[i0, c0]` | `[o0, i0, "", c0]` | `dly_clk_in`: VCLK(E↓)→VIN | `judge_vlt_max/min`（vout_infos 置換可） | **電圧（ISS-00153）** | `_t_clk4` |
+| 5 | recovery | FF | `[r0/s0, c0]` | `[o0, i0, r0/s0, c0]` | `dly_rel_clk`: VREL→VCLK | `prop_clk_out` | 遅延 degradation | `_t_clk4` |
+| 6 | recovery | LAT | `[r0/s0, c0]` | `[o0, i0, r0/s0, c0]` | `dly_rel_clk`: VREL→VCLK(E↓) | `prop_clk_out`（vout_infos 置換可） | 遅延 degradation | `_t_clk4` |
 | 7 | removal | FF | `[r0/s0, c0]` | `[o0, i0, r0/s0, c0]` | `dly_clk_rel`: VCLK→VREL | `judge_vlt_max/min` | 電圧 | `_t_clk4` |
 | 8 | removal | LAT | `[r0/s0, c0]` | `[o0, i0, r0/s0, c0]` | `dly_clk_rel`: VCLK(E↓)→VREL | `judge_vlt_max/min` | 電圧 | `_t_clk4` |
+
+**判定方式の選択則**：出力挙動の型で決まる。 **遷移型**（capture/解放で Q が必ず遷移＝FF setup/hold、 FF/LAT recovery、 LAT setup）→ degradation。 **保持型**（保持成功＝Q 無遷移＝LAT/ICG hold、 removal）→ 電圧化け判定（full-swing 反転で fail、 arc[0] 規約："0"/"r"=保持 L・違反で上昇、 "1"/"f"=保持 H・違反で下降）。
 
 ---
 
@@ -34,13 +43,17 @@ ISS-00133（2026-06-15 ダーマツ承認、 2026-06-11 起票）に基づく確
 | `dly_rel_clk` | TRIG VREL → TARG VCLK | recovery 関数 |
 | `dly_clk_rel` | TRIG VCLK → TARG VREL | removal 関数 |
 
-### 2.2 判定対象（3 個、 setup/recovery と hold/removal で共通）
+### 2.2 判定対象（2026-07-11 現行）
 
-| MEASURE 名 | 内容 | 使用関数 |
+| MEASURE 名 | 内容 | 使用箇所 |
 |---|---|---|
-| `judge_dly` | TRIG/TARG は **pin_tr × is_lat で切替**（次節参照） | setup / recovery 関数（遅延判定） |
-| `judge_vlt_max` | `MAX V(VOUT) FROM={_t_clk4} TO={_t_clk5+10e-9}` | hold / removal 関数（電圧判定） |
-| `judge_vlt_min` | `MIN V(VOUT) FROM={_t_clk4} TO={_t_clk5+10e-9}` | hold / removal 関数（電圧判定） |
+| `prop_clk_out` | TRIG VCLK → TARG VOUT（vout_infos 置換可）。 **degradation 判定の実体**（ISS-00138。 pass 側で不成立なら default=1 → step 検出） | 統一 const（setup / recovery / FF hold） |
+| `judge_dly` | TRIG/TARG は **pin_tr × is_lat で切替**（次節参照）。 jp2 に出力されるが**現行判定では未使用**（補助計測） | setup / recovery（is_lat 分岐あり） |
+| `judge_vlt_max` | hold: `MAX V(観測ノード) FROM={_t_clk4} TO={_tsim_end}`（ISS-00153、 is_lat のみ出力）／ removal: `TO={_t_clk5+10e-9}` | LAT/ICG hold・removal（電圧判定） |
+| `judge_vlt_min` | 同上の MIN | 同上 |
+
+観測ノードは `vout_infos` 指定時 `v(xcell.xdut.<net>)`、 未指定時 `v(VOUT)`（ISS-00152）。
+FF hold に judge_vlt を出さないのは MAX/MIN measure が autostop を無効化するため（ISS-00138 の高速化を維持）。
 
 ---
 
@@ -105,18 +118,24 @@ ISS-00133（2026-06-15 ダーマツ承認、 2026-06-11 起票）に基づく確
 
 ---
 
-## 4. charao_run.py の 4 関数化
+## 4. charao_run.py の関数構成（2026-07-11 現行）
 
-const 系を **4 関数** に整理。 FF/LAT 共通（関数内に FF/LAT 分岐なし、 jp2 で吸収）。
+初版の「4 関数化」案から、 **ISS-00138 で setup/hold/recovery を統一 1 関数に集約**（removal のみ別関数）した。
+FF/LAT 共通（jp2 の is_lat 分岐で吸収）。
 
-| 関数 | 対象 measure | sweep | 計測 MEASURE | 判定 MEASURE |
+| 関数 | 対象 measure | sweep | 計測 MEASURE | 判定 |
 |---|---|---|---|---|
-| `runSpiceSetupSingle` | setup_rising / setup_falling | `_t_clk4` | `dly_in_clk` | `judge_dly`（遅延判定、 degradation 検出） |
-| `runSpiceHoldSingle` | hold_rising / hold_falling | `_t_clk4` | `dly_clk_in` | `judge_vlt_max` / `judge_vlt_min`（電圧判定） |
-| `runSpiceRecoverySingle` | recovery_rising / recovery_falling | `_t_clk4` | `dly_rel_clk` | `judge_dly`（遅延判定） |
+| `runSpiceConstSingle`（統一） | setup_\* / hold_\* / recovery_\* | `_t_clk4` | `dly_in_clk` / `dly_clk_in` / `dly_rel_clk`（measure_type で切替） | degradation（`prop_clk_out`）。 **hold × is_lat のみ電圧判定**（`judge_vlt_max/min`、 ISS-00153） |
 | `runSpiceRemovalSingle` | removal_rising / removal_falling | `_t_clk4` | `dly_clk_rel` | `judge_vlt_max` / `judge_vlt_min`（電圧判定） |
 
-### 4.1 関数の擬似コード
+### 4.0 統一 const の sweep 範囲（ISS-00152/00153）
+
+- setup/recovery：`seg_start=0` → `seg_end = tsweep_for_clk4_at((t_init3+t_in0)/2)`
+- hold：`seg_start = tsweep_for_clk4_at(t_in0) − 0.5*(t_in0−t_init3) − tslew_clk` → `seg_end = tsweep_for_clk4_at(t_in1 + 2*tslew_clk)`（fail 領域まで掃引）
+- **保持型（is_lat）hold の clamp**：`seg_start = max(seg_start, tsweep_for_clk4_at(t_init3 + 2ns))`。 clk_init pulse を持つセル（ICG）は VIN の capture 遷移が `_t_init3` 固定アンカーのため、 clamp なしでは judge 窓に正当な取り込み遷移が入り初手 FAIL で探索不能になる
+- tsim_end は毎反復 `max(t_clk5, t_in1, t_rel1) + 3ns` に短縮（autostop 不成立ケースの擬似ハング防止、 hold の D 戻りは max に含めて保護）
+
+### 4.1 初版設計（ISS-00133）の擬似コード（参考。 現行実装は §4.0/§4.2 のとおり）
 
 ```python
 # setup（遅延判定、 degradation 検出）
@@ -154,15 +173,13 @@ def runSpiceRemovalSingle(harness, ...):
     ...
 ```
 
-### 4.2 既存関数との対応
+### 4.2 既存関数との対応（現行）
 
-| 旧関数 | 新関数 |
+| 旧関数 | 現行 |
 |---|---|
-| `runSpiceSetupSingle`（既存、 FF 専用） | `runSpiceSetupSingle`（FF/LAT 統合） |
-| `runSpiceLatSetupSingle`（既存、 LAT 専用） | `runSpiceSetupSingle` に統合 |
-| `runSpiceHoldSingle`（既存、 FF 専用） | `runSpiceHoldSingle`（FF/LAT 統合） |
-| `runSpiceLatHoldSingle`（既存、 LAT 専用） | `runSpiceHoldSingle` に統合 |
-| （recovery/removal は既存関数で setup/hold と共用） | `runSpiceRecoverySingle` / `runSpiceRemovalSingle` で分離 |
+| `runSpiceSetupSingle` / `runSpiceHoldSingle`（FF 用） | `runSpiceConstSingle` に統合（ISS-00138） |
+| `runSpiceLatSetupSingle_orig` / `genFileLogic_LatSetup1x_orig`（LAT 用） | 不達 dead code（ISS-00143 で dispatch 統一、 ISS-00148 で削除予定） |
+| `runSpiceRemovalSingle` | 電圧判定のまま存置（保持型のため degradation 不可） |
 
 ---
 

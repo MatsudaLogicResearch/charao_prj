@@ -74,7 +74,11 @@ class MyLogicCell(BaseModel):
 
   cins      : dict[str,float] = Field(default_factory=dict); ## inport caps. cins={"inport",cap}
   
-  template_kgn: list[list[str]]= Field(default_factory=list);     ## kind/grid/name of template
+  template_kgn: list[list[str]]= Field(default_factory=list);     ## kind/grid/name[/oport] of template
+  ## ISS-00150: 出力 port 別 template（key="<kind>@<oport>"、例 "delay@o0"）。
+  ##   orig は同一セルでも出力ピンごとに load 軸が異なる場合がある（adder の S/CO）。
+  ##   template_kgn の第 4 要素（logic 出力 port 名）で指定。未指定の kind/port は従来のセル単位 template。
+  template_pin: dict[str,MyItemTemplate] = Field(default_factory=dict);
   template: dict[str,MyItemTemplate] = Field(default_factory=lambda:{
     "leakage":None,
     "const"  :None,
@@ -155,6 +159,7 @@ class MyLogicCell(BaseModel):
       k=kgn[0]
       g=kgn[1]
       n=kgn[2]
+      oport = kgn[3] if len(kgn) > 3 else ""   # ISS-00150: 第 4 要素＝出力 port 別割当（省略時は従来動作）
 
       # check kind/grid/name in library
       idx_src = next(
@@ -165,17 +170,29 @@ class MyLogicCell(BaseModel):
       if idx_src is None:
         print(f"[Error] unique template ={k}/{g}/{n} is not exist in targetLib.templates.")
         my_exit()
-        
+
       # check kind in targetCell
       #print(self.template.keys())
-      
+
       if k in self.template.keys():
-        self.template[k] = self.mls.templates[idx_src]
-        print(f"   [Info] add template={k}{g}{n}.")
+        if oport:
+          self.template_pin[f"{k}@{oport}"] = self.mls.templates[idx_src]
+          print(f"   [Info] add template={k}{g}{n} for oport={oport}.")
+        else:
+          self.template[k] = self.mls.templates[idx_src]
+          print(f"   [Info] add template={k}{g}{n}.")
 
       else:
         print(f"   [Error] unknown template kind={k}.")
         my_exit()
+
+  def get_template(self, kind:str, oport:str=""):
+    """ISS-00150: 出力 port 別 template があればそれを、無ければセル単位 template を返す。"""
+    if oport:
+      t = self.template_pin.get(f"{kind}@{oport}")
+      if t is not None:
+        return t
+    return self.template.get(kind)
         
   def update_max_trans4in(self, port_name:str, new_value:float):
 

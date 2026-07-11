@@ -103,6 +103,35 @@ Map to Liberty:
 `["power_tin", ...]` is added only to cells whose original Liberty has input
 pin `internal_power` (see section 4 for the rule).
 
+### 出力 port 別 template（第 4 要素、ISS-00150）
+
+orig（vendor lib）は同一セルでも**出力ピンごとに異なる load 軸**を使う場合がある
+（GF180 では adder のみ：addh_2 は S/CO で最終値が 25.7% 異なる。addf_2=7.0%、addf_4=11.7%。
+他の複数出力セル addh_1/addh_4/addf_1 はピン間差 <1% でセル単位割当のまま）。
+
+このため `template_kgn` の各エントリは**省略可能な第 4 要素＝logic 出力 port 名**を取れる：
+
+```jsonc
+{"template_kgn": [
+   ["leakage",    "0x0",   "d00"],
+   ["delay",      "10x10", "d028"],          // セル単位（第 4 要素なし）＝未指定 port の既定
+   ["delay",      "10x10", "d023", "o0"],    // pin S(o0) だけ d023 を使う
+   ["power_tout", "10x10", "d028"],
+   ["power_tout", "10x10", "d023", "o0"]
+ ], ...}
+```
+
+- **解決順**：`Mlc.get_template(kind, oport)` が `template_pin["<kind>@<oport>"]` →
+  `template[kind]`（セル単位）の順で解決する。第 4 要素なしの既存記述は完全に従来動作
+- **格納**：`myLogicCell.py` の `add_template()` が第 4 要素付きエントリを
+  `Mlc.template_pin`（key=`"delay@o0"` 形式）へ、なしを従来の `Mlc.template[kind]` へ格納
+- **参照側**：`charao_run.py` の delay / power_tout の template 選択が
+  `mlc.get_template(kind, mec.pin_oirc[0])`（entry の出力 port で per-pin 解決）
+- **対象 kind**：load 軸（index_2）を持つ delay / power_tout を想定
+  （power_tin / passive は slew 1 軸、const は slew×slew のため通常は不要）
+- **注意**：jsonc は行末コメント不可（jsoncomment は行頭 `//` のみ対応）。
+  コメントは独立行に書くこと
+
 ---
 
 ## 3. mylogic entry rules for power_tin
@@ -177,10 +206,20 @@ Output is stable, so the standard `.MEASURE TRAN ... WHEN V(VOUT)=...` for
 
 - `tb_template` skips `.option autostop` and the `energy_start` / `energy_end` `.MEASURE TRAN` blocks.
 - `q_*` / `i_*` integrations (`q_in_dyn`, `q_rel_dyn`, `i_vdd_leak`, ...) run as in `meas_energy=2`.
-- charao sets `estart = t_rel0` and `eend = t_rel0 + tslew_rel + 1ns` (absolute time anchored
-  at `t_rel0`, not a relative `tdelay_rel + tslew_rel` window); `tsim_end = eend + 1ns`.
+- **ISS-00142（2026-07-06 改訂、 target スロット方式）**：積分窓は旧仕様の `estart = t_rel0` 固定ではなく、
+  **`pin_tr[0]`（target pin X）を c > r > i で逆引きした駆動スロット（`energy_tgt_slot/node`）** の
+  遷移時刻に取る：slot1(VIN)→`[t_in0, t_in1+1ns]`、 slot3(VCLK)→`[t_clk4, t_clk5+1ns]`、
+  slot2(VREL)→`[t_rel0, t_rel1+1ns]`。 slope（index_1 軸の tslew 反映先）と cin も同スロット基準。
+  （旧仕様＝t_rel0 固定・slope=tslew_clk 固定は、 CLK target で窓外→pin(CLK) 全 0、
+  index_1 軸が物理反映されない、 cin≈0 の同根 3 バグの原因だった）
 - charao sets `time_energy = [estart, eend]` directly (no SPICE measurement of energy_start/end).
 - `eintl` is then computed by the same min-rail formula as power_tout.
+
+> **power_tout 側の窓（ISS-00151、 2026-07-08）**：energy2 の INTEG 窓は
+> `[min(t_in0, t_rel0), max(t_in1, t_rel1, eend) + 0.3ns]`。 margin 0.3ns は eend（VOUT 閾値交差）
+> 以降の指数尻尾（fall で 7.2% 実測）の取りこぼし対策（SW_TAIL は time_energy[1] 参照で自動追従）。
+> energy_start/end の WHEN が大 slew で out of interval の場合は energy1 確定値
+> （`ener_estart/eend`）へフォールバック。
 
 `runSpicePowerTinSingle` takes no `index2_load` argument (1D template, output
 load fixed at 0 pF). The result is stored in `dict_list2["eintl"][slope][0.0]`.

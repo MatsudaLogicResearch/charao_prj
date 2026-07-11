@@ -4,6 +4,25 @@
 
 ---
 
+## [0.9.14a29] 2026-07-11
+
+Alpha pre-release. ISS-00150（adder per-pin template）＋docs 整合性監査（ISS-00144 含む）。
+
+### Added
+- **出力 port 別 template（ISS-00150）**: `template_kgn` に省略可能な第 4 要素（logic 出力 port 名、 例 `["delay","10x10","d023","o0"]`）を追加。 `myLogicCell.py` に `template_pin`（key="<kind>@<oport>"）と `get_template(kind, oport)`（per-pin → セル単位フォールバック）、 `charao_run.py` の delay/power_tout の template 選択を `get_template(kind, mec.pin_oirc[0])` に変更。 第 4 要素なしの既存記述は完全従来動作。
+- `std_comb.jsonc`: addh_2（S=d023）/ addf_2（S=d025）/ addf_4（S=d035）に S(o0) 用 per-pin 割当（CO は現行のまま）。 orig は同一セルでも出力ピン別 load 軸（addh_2 で S/CO 間 25.7% 差、 該当は adder 3 セルのみ・全ピンに ≤5% 既存テンプレあり）。
+
+### Changed（docs 整合性監査、 2026-07-11）
+- `SPEC_const.md`: ISS-00138/00143/00152/00153 を反映（判定方式の現行表＝degradation／保持型電圧判定の選択則、 統一 const パス・sweep 範囲・seg_start clamp、 prop_clk_out が判定実体で judge_dly は補助）。
+- `SPEC_pin_oirc.md`（**ISS-00144 対応**）: §3/§5.2 を現行実パターンへ全面改訂＝同一 pin の重複指定不可（「[2]=同[1]」廃止）、 const の slot2 空・async-on-VREL、 power_tin の target スロット方式（energy_tgt_slot/energy_trig_slot）。
+- `SPEC_internal_power.md`: ISS-00142（power_tin target スロット窓）・ISS-00151（power_tout 窓 margin 0.3ns＋フォールバック）・per-pin template 仕様（「出力 port 別 template」節）。
+- `SPEC_seq_lat.md`: ICG は本 SPEC 枠で実装済み（別 SPEC 予定を解消）・vout_infos・判定方式・旧 LAT 関数の dead code 注記。
+- `SPEC_measure.md`: const 判定方式の現行注記（掃引は CLK 側、 判定選択則、 SPEC_const 参照）。
+
+### Verified
+- adder 3 セル露払い（0 failures）: index 5% 超逸脱 **46 群 → 0**＝全 179 登録セルで orig index 構造一致。
+- 全 179 セルの per-pin 軸調査: 複数出力 6 セル中、 per-pin 割当が必要なのは上記 3 セルのみ。 新規テンプレ定義は不要（全ピンに ≤5% の既存テンプレ実在）。
+
 ## [0.9.14a28] 2026-07-10
 
 Alpha pre-release. LAT/ICG const 判定基盤の修正（ISS-00153）＝ ISS-00146（LAT const 値精度）解決。
