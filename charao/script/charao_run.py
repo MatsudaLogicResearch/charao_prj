@@ -120,8 +120,11 @@ def _tslew_from_template(slew:float, mls:Mls) -> float:
   slew_lower_threshold_pct -> slew_upper_threshold_pct transit time, so the
   full-rail linear ramp duration is slew / (high - low). time_mag is then
   applied to convert to SPICE seconds."""
+  # ISS-00155 cal: index_1(stored slew) と実波形の関係は slew_derate_from_library で決まる。
+  #   Liberty: 30-70% 遷移時間 = index_1 * slew_derate、full-rail(線形) = その / span。
+  #   旧実装は derate を無視して slew/span としており、derate=0.5 のとき ramp が 2x 過大だった。
   span = mls.logic_threshold_high - mls.logic_threshold_low
-  return float("{:.5g}".format(slew / span * mls.time_mag))
+  return float("{:.5g}".format(slew * mls.slew_derate_from_library / span * mls.time_mag))
 
 
 def _build_spicef_base(mls:Mls, mlc:Mlc, mec:Mec, num:int) -> str:
@@ -533,6 +536,20 @@ def runSpiceDelaySingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
   #-- is_dtp: 短い init で OK な系 (delay/three_state)。 FF 系 (rising_edge/falling_edge/clear/preset) は False で長い init
   #-- runSpiceDelaySingle には power 系は来ないため "power" は判定不要
   is_dtp = h.measure_type.startswith(("delay","three"))
+
+  ## ISS-00155: index1(slew) を related(切替)入力のスロットに割当てる。
+  ##   related pin = pin_tr[1] を pin_oirc 逆引き（優先 c>r>i）。comb は slot2(rel/VREL)、
+  ##   seq(clk->Q) は slot3(clk/VCLK)。旧実装は slew を tslew_clk 固定割当していたため、
+  ##   comb(slot2)は VREL エッジが tslew_rel 既定=1ns 固定となり入力 slew が反映されていなかった。
+  _rel_pin  = h.mec.pin_tr[1] if (len(h.mec.pin_tr) > 1 and h.mec.pin_tr[1]) else ""
+  _rel_slot = 3   # 既定 clk（pin_tr[1] 空時は従来動作を維持）
+  if _rel_pin:
+    for _s in (3, 2, 1):
+      if _s < len(h.mec.pin_oirc) and h.mec.pin_oirc[_s] == _rel_pin:
+        _rel_slot = _s
+        break
+  _slope_s = _tslew_from_template(index1_slope, h.mls)
+
   param = Mtp(
      cap          = float("{:.5g}".format(cap  * h.mls.capacitance_mag))
     ,clk_role     = h.clk_role
@@ -549,9 +566,10 @@ def runSpiceDelaySingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
     ,tdelay_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
     ,tdelay_in    = 1e-9   # ISS-00076 WOUT pre-charge SW で Q を init 段で強制設定するため、 D→Q 待ち padding (sim_c2d_max) は不要
-    ,tslew_in     = float("{:.5g}".format(tslew_min_s    * h.mls.time_mag))
+    ,tslew_in     = _slope_s if _rel_slot == 1 else float("{:.5g}".format(tslew_min_s    * h.mls.time_mag))
+    ,tslew_rel    = _slope_s if _rel_slot == 2 else 1e-9
     ,tdelay_clk   = float("{:.5g}".format(h.mls.sim_d2c_max  * h.mls.time_mag))
-    ,tslew_clk    = _tslew_from_template(index1_slope, h.mls)
+    ,tslew_clk    = _slope_s if _rel_slot == 3 else float("{:.5g}".format(10*tslew_min_s * h.mls.time_mag))
     ,tpulse_clk   = tsim_end
     ,tsweep_clk   = 0.0
   )
@@ -659,6 +677,18 @@ def runSpicePowerToutSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_s
   if h.timing_type == "three_state_enable":
     pullres_role = "down" if arc_oirc[0]=="r" else "up" if arc_oirc[0]=="f" else "nouse"
 
+  ## ISS-00155: index1(slew) を related(切替)入力のスロットに割当てる（delay と同じ。
+  ##   power_tout は related pin(pin_tr[1]) 基準。旧実装は tslew_clk 固定割当で、comb(slot2=VREL)の
+  ##   入力エッジが tslew_rel 既定=1ns 固定となり slew 依存(貫通/crowbar エネルギー)が反映されていなかった。
+  _rel_pin  = h.mec.pin_tr[1] if (len(h.mec.pin_tr) > 1 and h.mec.pin_tr[1]) else ""
+  _rel_slot = 3   # 既定 clk（pin_tr[1] 空時は従来動作を維持）
+  if _rel_pin:
+    for _s in (3, 2, 1):
+      if _s < len(h.mec.pin_oirc) and h.mec.pin_oirc[_s] == _rel_pin:
+        _rel_slot = _s
+        break
+  _slope_s = _tslew_from_template(index1_slope, h.mls)
+
   #-- param 早期 instantiate（共通部分、 sim 毎の変動 fields は loop で更新）
   param = Mtp(
      cap          = float("{:.5g}".format(index2_load * h.mls.capacitance_mag))
@@ -675,9 +705,10 @@ def runSpicePowerToutSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_s
     ,tdelay_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
     ,tdelay_in    = 1e-9   # ISS-00076 pre-force のため D→Q 待ち padding 不要
-    ,tslew_in     = float("{:.5g}".format(10*tslew_min_s    * h.mls.time_mag))
+    ,tslew_in     = _slope_s if _rel_slot == 1 else float("{:.5g}".format(10*tslew_min_s    * h.mls.time_mag))
+    ,tslew_rel    = _slope_s if _rel_slot == 2 else 1e-9
     ,tdelay_clk   = float("{:.5g}".format(h.mls.sim_d2c_max  * h.mls.time_mag))
-    ,tslew_clk    = _tslew_from_template(index1_slope, h.mls)
+    ,tslew_clk    = _slope_s if _rel_slot == 3 else float("{:.5g}".format(10*tslew_min_s * h.mls.time_mag))
     ,tpulse_clk   = 1e-6        # 各 sim で更新
     ,tsweep_clk   = 0.0
   )
