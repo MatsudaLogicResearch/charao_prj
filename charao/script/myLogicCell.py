@@ -192,7 +192,15 @@ class MyLogicCell(BaseModel):
       t = self.template_pin.get(f"{kind}@{oport}")
       if t is not None:
         return t
-    return self.template.get(kind)
+      # per-port miss → cell-level フォールバック（診断出力）
+      print(f"   [TEMPLATE-FALLBACK] cell={self.cell} kind={kind} oport={oport} -> cell-level (no per-port key)")
+    t = self.template.get(kind)
+    if t is None:
+      # 2026-07-12 ダーマツ判断(A)：template を取得できなかった場合は停止する
+      print(f"[TEMPLATE-FAIL] cell={self.cell} kind={kind} oport={oport} "
+            f"template_pin_keys={list(self.template_pin.keys())} template_keys={list(self.template.keys())}")
+      my_exit()
+    return t
         
   def update_max_trans4in(self, port_name:str, new_value:float):
 
