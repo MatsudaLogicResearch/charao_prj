@@ -4,6 +4,25 @@
 
 ---
 
+## [0.9.14a30] 2026-07-15
+
+Alpha pre-release. 入力 slew が delay/power_tout の実切替ピンに反映されないバグ修正＋slew_derate 反映（ISS-00155）、.md の full-index 化、template 取得エラー処理、debug_run env 拡張。
+
+### Fixed
+- **入力 slew の切替スロット取り違え（ISS-00155）**: `charao_run.py` の `runSpiceDelaySingle`/`runSpicePowerToutSingle` で index1(slew) を `tslew_clk`（VCLK, slot3）に固定割当していたため、comb（切替入力=VREL, slot2）で VREL エッジが `tslew_rel` 既定 1ns 固定となり、入力 slew 依存（遅延・貫通/crowbar 電力）が未生成だった。related pin(pin_tr[1]) のスロットを pin_oirc 逆引きし `_slope_s` をそのスロットの tslew に割当（comb→tslew_rel / seq→tslew_clk、power_tin の ISS-00142 と同方式）。seq(clk→Q) は元々 clk 切替のため従来動作維持。
+- **slew→ramp 換算が slew_derate_from_library を無視（ISS-00155 cal）**: `_tslew_from_template` が `slew/span` としていたため derate=0.5 で ramp が 2× 過大（過応答）。`slew*slew_derate/span` に修正（inv_20 slew4.0 の rise_power 29.1→14.2、orig 16.9 に接近）。
+
+### Added
+- **.md の DELAY/THREE_STATE/CONSTRAINTS を full index（10×10）テーブル化**（`myExportDoc.py`）: 従来の代表 1 点から index1(slew)×index2(load) の全格子を arc 別に出力。THREE_STATE の disable は 1D（load 非依存）、CONSTRAINTS は `constrained-slew × related-slew`（const は index1=constrained/index2=related、旧 rep の const/rel 逆表示バグも是正）。pandoc で A4 縦 PDF / HTML 両出力可。
+- **`debug_run.sh` に `RESULT_ITEMS`/`SOURCE_ITEMS` env**: lrPymRPC の `--RESULT`/`--SOURCE` を上書き可（未指定時は従来動作）。`RESULT_ITEMS="rslt"` で work 回収を除外（full grid 大量 sim で高速化・省ディスク）。
+
+### Changed
+- **`myLogicCell.py get_template` にエラー処理**: per-port template miss 時に `[TEMPLATE-FALLBACK]`（cell-level フォールバック）、最終取得不能時に `[TEMPLATE-FAIL]`（cell/kind/oport＋keys）＋ my_exit。全 179 セル単点で TEMPLATE-FAIL=0 を確認。
+
+### Verified
+- 全 179 セル full grid 再回帰（両修正込み）: **0 failures**。統合 .lib の orig 比較（316,503 点）＝ cell_fall −0.162 / cell_rise −0.192 / const −0.05〜−0.08 / power −0.08〜−0.14（tail max|diff|≈2.7、修正前 −14.6 から激減）/ rise_transition −0.805（系統差 ISS-00075 残）。
+- 全 21,425 sim.sp で slew が切替ピンに正しく適用されることを確認（delay/power_tout/power_tin/const/passive、comb/seq とも）。
+
 ## [0.9.14a29] 2026-07-11
 
 Alpha pre-release. ISS-00150（adder per-pin template）＋docs 整合性監査（ISS-00144 含む）。
