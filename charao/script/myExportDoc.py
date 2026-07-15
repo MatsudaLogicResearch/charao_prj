@@ -244,32 +244,35 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
 
       if sorted_h:
         outlines.append(f'### CONSTRAINTS ({setup_hold})')
-        outlines.append(f'| Constraint Pin | Related pin | Constraint Pin Slew({targetLib.time_unit}) | Related pin Slew({targetLib.time_unit}) | When | {setup_hold}({targetLib.time_unit})|')
-        outlines.append(f'|----|----|----|----|----|----|')
+        outlines.append(f'')
 
         for (timing_type, inport, relport, constraint,timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.lib_target_pin,x.lib_related_pin, x.direction_in_lib["constraint"], x.timing_when)):
           group_list=list(group);
           size=len(group_list)
         
-          for g in group_list:
-            ## ISS-00121: aux (dummy) は dict_list2["setup_hold"] が未設定 → skip。 rep のみ出力。
-            if "setup_hold" not in g.dict_list2:
-              continue
-            index1_pos=len(g.template.index_1)//2
-            index2_pos=len(g.template.index_2)//2
-            index1_val=g.template.index_1[index1_pos]
-            index2_val=g.template.index_2[index2_pos]
+          ## ISS-00121: aux (dummy) は dict_list2["setup_hold"] 未設定 → rep のみ使用。
+          g=next((h for h in group_list if "setup_hold" in h.dict_list2), None)
+          if g is None:
+            continue
+          const_arc=constraint.replace('_constraint',"")
+          rel_arc  =timing_type.replace(setup_hold+"_","")
+          const_pin=f'{targetCell.replace_by_portmap(inport)}({const_arc})'
+          rel_pin  =f'{targetCell.replace_by_portmap(relport)}({rel_arc})'
+          when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
 
-            const_arc=constraint.replace('_constraint',"")
-            rel_arc  =timing_type.replace(setup_hold+"_","")
-
-            const_pin=f'{targetCell.replace_by_portmap(inport)}({const_arc})'
-            rel_pin  =f'{targetCell.replace_by_portmap(relport)}({rel_arc})'
-            const_slew=index2_val
-            rel_slew=index1_val
-            when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
-            val     = g.dict_list2["setup_hold"][index1_val][index2_val] / targetLib.time_mag
-            outlines.append(f'| {const_pin} | {rel_pin} | {const_slew} | {rel_slew} | {when} | {f2s_ceil(f=val, sigdigs=sigdigs)}|')
+          # md-format 2026-07-12: full grid。index1=constrained-pin slew(行) / index2=related-pin slew(列)
+          #   （myLibrarySetting var_1=constrained / var_2=related、set_lut と整合。旧 rep は const/rel 逆で表示バグ）。
+          outlines.append(f'#### constrained {const_pin} vs related {rel_pin} (when {when})')
+          outlines.append(f'')
+          i1=list(g.template.index_1)   # constrained-pin slew
+          i2=list(g.template.index_2)   # related-pin slew
+          outlines.append(f'**{setup_hold} ({targetLib.time_unit})**')
+          outlines.append(f'')
+          outlines.append(f'| constrained-slew / related-slew | ' + ' | '.join(str(x) for x in i2) + ' |')
+          outlines.append(f'|----|' + '----|'*len(i2))
+          for s in i1:
+            vals=[f2s_ceil(f=g.dict_list2["setup_hold"][s][ld]/targetLib.time_mag, sigdigs=sigdigs) for ld in i2]
+            outlines.append(f'| {s} | ' + ' | '.join(vals) + ' |')
             
         #
         outlines.append(f'')
@@ -277,81 +280,78 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
     
     ##-------------------------------------------------    
     h_list = [h for h in harnessList if (h.template_kind.startswith("delay") and (not h.timing_type.startswith("three_state")))]
-    sorted_h=sorted(h_list, key=lambda x: (x.target_outport, x.timing_when, x.target_relport, x.timing_type, x.direction_in_lib["tran"]))
+    sorted_h=sorted(h_list, key=lambda x: (x.target_outport, x.target_relport, x.timing_when, x.direction_in_lib["tran"]))
 
     if sorted_h:
       outlines.append(f'### DELAY AND OUTPUT TRANSITION TIME')
-      outlines.append(f'| Input Pin | Output pin | When | Input Pin Slew({targetLib.time_unit}) | Out Load({targetLib.capacitance_unit}) | Delay({targetLib.time_unit})| Transition({targetLib.time_unit}) |')
-      outlines.append(f'|----|----|----|----|----|----|----|')
-
-      for (timing_type, relport, outport, direction_tran, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_in_lib["tran"], x.timing_when)):
-        group_list=list(group);
-        size=len(group_list)
-      
-        for g in group_list:
-          index1_pos=len(g.template.index_1)//2
-          index1_val=g.template.index_1[index1_pos]
-          if len(g.template.index_2) > 0:
-            index2_pos=len(g.template.index_2)//2
-            index2_val=g.template.index_2[index2_pos]
-          else:
-            index2_val=0.0   # 1D template (delay_disable): load-independent
-          
-          rel_dir="LH" if g.mec.arc_oirc[2]=='r' else "HL"
-          tran =direction_tran.replace("_transition","")
-      
-          rel_pin=f'{targetCell.replace_by_portmap(relport)}({rel_dir})'
-          out_pin=f'{targetCell.replace_by_portmap(outport)}({tran})'
-          when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
-          rel_slew =index1_val
-          out_load=index2_val
-          delay_val = g.dict_list2["prop"][index1_val][index2_val] / targetLib.time_mag
-          trans_val = g.dict_list2["trans"][index1_val][index2_val] / targetLib.time_mag
-      
-          outlines.append(f'| {rel_pin} | {out_pin} | {when} | {rel_slew} | {out_load} | {f2s_ceil(f=delay_val, sigdigs=sigdigs)} | {f2s_ceil(f=trans_val, sigdigs=sigdigs)} |')
-      #
       outlines.append(f'')
+
+      # md-format 2026-07-12: アークごとに index1(slew)×index2(load) の full grid テーブルを出力する。
+      #   1 アーク (relport->outport, when) につき Cell delay(fall/rise)・Output transition(fall/rise) の 4 表。
+      #   fall/rise は同アーク内の別 harness（sorted_h が direction_in_lib["tran"] 昇順なので fall→rise の順）。
+      for (outport, relport, timing_when),group in groupby(sorted_h, key=lambda x:(x.target_outport, x.target_relport, x.timing_when)):
+        glist=list(group)
+        rel_pin=targetCell.replace_by_portmap(relport)
+        out_pin=targetCell.replace_by_portmap(outport)
+        when   ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
+        outlines.append(f'#### {rel_pin} -> {out_pin} (when {when})')
+        outlines.append(f'')
+
+        for datakey,dlabel in [("prop","Cell delay"),("trans","Output transition")]:
+          for g in glist:
+            edge=g.direction_in_lib["tran"].replace("_transition","")
+            i1=list(g.template.index_1)
+            i2=list(g.template.index_2) if len(g.template.index_2)>0 else [0.0]   # 1D template は load 非依存
+            outlines.append(f'**{dlabel} ({edge})** ({targetLib.time_unit})')
+            outlines.append(f'')
+            outlines.append(f'| slew / load | ' + ' | '.join(str(x) for x in i2) + ' |')
+            outlines.append(f'|----|' + '----|'*len(i2))
+            for s in i1:
+              vals=[f2s_ceil(f=g.dict_list2[datakey][s][ld]/targetLib.time_mag, sigdigs=sigdigs) for ld in i2]
+              outlines.append(f'| {s} | ' + ' | '.join(vals) + ' |')
+            outlines.append(f'')
 
     
     ##-------------------------------------------------    
     #h_list = [h for h in harnessList if (h.template_kind in ["delay"])]
     h_list = [h for h in harnessList if (h.template_kind.startswith("delay") and  h.timing_type.startswith("three_state"))]
-    sorted_h=sorted(h_list, key=lambda x: (x.target_outport, x.timing_when, x.target_relport, x.timing_type, x.direction_in_lib["tran"]))
-    
-    if sorted_h:
-      outlines.append(f'### THREE_STSTE AND OUTPUT TRANSITION TIME')
-      outlines.append(f'| OE | Input Pin | Output pin | When | Input Pin Slew({targetLib.time_unit}) | Out Load({targetLib.capacitance_unit}) | Delay({targetLib.time_unit})| Transition({targetLib.time_unit}) |')
-      outlines.append(f'|----|----|----|----|----|----|----|----|')
+    sorted_h=sorted(h_list, key=lambda x: (x.target_outport, x.target_relport, x.timing_when, x.timing_type, x.direction_in_lib["tran"]))
 
-      for (timing_type, relport, outport, direction_tran, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_in_lib["tran"], x.timing_when)):
-        group_list=list(group);
-        size=len(group_list)
-      
-        for g in group_list:
-          index1_pos=len(g.template.index_1)//2
-          index1_val=g.template.index_1[index1_pos]
-          if len(g.template.index_2) > 0:
-            index2_pos=len(g.template.index_2)//2
-            index2_val=g.template.index_2[index2_pos]
-          else:
-            index2_val=0.0   # 1D template (delay_disable): load-independent
-          
-          rel_dir="LH" if g.mec.arc_oirc[2]=='r' else "HL"
-          tran =direction_tran.replace("_transition","")
-      
-          #timing_type=g.timing_type
-          timing_type="enable" if g.timing_type.startswith("three_state_enable") else "disable"
-          rel_pin=f'{targetCell.replace_by_portmap(relport)}({rel_dir})'
-          out_pin=f'{targetCell.replace_by_portmap(outport)}({tran})'
-          when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
-          rel_slew =index1_val
-          out_load=index2_val
-          delay_val = g.dict_list2["prop"][index1_val][index2_val] / targetLib.time_mag
-          trans_val = g.dict_list2["trans"][index1_val][index2_val] / targetLib.time_mag
-      
-          outlines.append(f'| {timing_type} | {rel_pin} | {out_pin} | {when} | {rel_slew} | {out_load} | {f2s_ceil(f=delay_val, sigdigs=sigdigs)} | {f2s_ceil(f=trans_val, sigdigs=sigdigs)} |')
-      #
+    if sorted_h:
+      outlines.append(f'### THREE_STATE AND OUTPUT TRANSITION TIME')
       outlines.append(f'')
+
+      # md-format 2026-07-12: DELAY と同様に arc ごとの full grid テーブル。
+      #   OE=enable(2D: slew x load) / disable(1D: slew のみ、load 非依存) を分けて出力。
+      for (outport, relport, timing_when, oe),group in groupby(sorted_h, key=lambda x:(x.target_outport, x.target_relport, x.timing_when, "enable" if x.timing_type.startswith("three_state_enable") else "disable")):
+        glist=list(group)
+        rel_pin=targetCell.replace_by_portmap(relport)
+        out_pin=targetCell.replace_by_portmap(outport)
+        when   ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
+        outlines.append(f'#### OE={oe}: {rel_pin} -> {out_pin} (when {when})')
+        outlines.append(f'')
+
+        for datakey,dlabel in [("prop","Cell delay"),("trans","Output transition")]:
+          for g in glist:
+            edge=g.direction_in_lib["tran"].replace("_transition","")
+            i1=list(g.template.index_1)
+            has2=len(g.template.index_2)>0
+            outlines.append(f'**{dlabel} ({edge})** ({targetLib.time_unit})')
+            outlines.append(f'')
+            if has2:
+              i2=list(g.template.index_2)
+              outlines.append(f'| slew / load | ' + ' | '.join(str(x) for x in i2) + ' |')
+              outlines.append(f'|----|' + '----|'*len(i2))
+              for s in i1:
+                vals=[f2s_ceil(f=g.dict_list2[datakey][s][ld]/targetLib.time_mag, sigdigs=sigdigs) for ld in i2]
+                outlines.append(f'| {s} | ' + ' | '.join(vals) + ' |')
+            else:
+              outlines.append(f'| slew | value (load-independent) |')
+              outlines.append(f'|----|----|')
+              for s in i1:
+                v=f2s_ceil(f=g.dict_list2[datakey][s][0.0]/targetLib.time_mag, sigdigs=sigdigs)
+                outlines.append(f'| {s} | {v} |')
+            outlines.append(f'')
 
     
     ##-------------------------------------------------
