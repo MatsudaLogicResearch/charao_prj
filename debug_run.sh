@@ -89,6 +89,11 @@ _setup_args() {
     SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE .spice .ngspice .sp .jsonc .py"
     SOURCE_MATCH_ARG="--SOURCE_MATCH gf180 ${MYLOGIC_USER_MATCH}"
   fi
+
+  # env override: SOURCE_ITEMS で --SOURCE の対象一式を上書き（未指定時は上記 MODE 別デフォルト）
+  [ -n "${SOURCE_ITEMS}" ] && SOURCE_ARG="--SOURCE ${SOURCE_ITEMS}"
+  # env override: RESULT_ITEMS で --RESULT の回収対象を上書き（未指定時は rslt work。例: RESULT_ITEMS="rslt" で work 除外）
+  RESULT_ARG="--RESULT ${RESULT_ITEMS:-rslt work}"
 }
 
 cmd_clean() {
@@ -127,7 +132,7 @@ cmd_run_all() {
     $SOURCE_INCLUDE_ARG \
     $SOURCE_MATCH_ARG \
     $RUN_NAME_OPT \
-    --RESULT rslt work \
+    $RESULT_ARG \
     --CMD "$CMD" 2>&1 | tee "$LOG"
   { set +x; } 2>/dev/null
   echo ""
@@ -169,7 +174,7 @@ cmd_run_each() {
       $SOURCE_INCLUDE_ARG \
       $SOURCE_MATCH_ARG \
       $RUN_NAME_OPT \
-      --RESULT rslt work \
+      $RESULT_ARG \
       --CMD "$CMD" 2>&1 | tee "$LOG"
     { set +x; } 2>/dev/null
     [ -d "$WORK_PATH" ] && mv "$WORK_PATH" "$WORK_DEST"
