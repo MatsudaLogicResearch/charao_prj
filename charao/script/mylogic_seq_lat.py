@@ -102,9 +102,9 @@ def get_logic_dict():
              MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"]}
                         ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","f"], tmg_when="", specify=""),
              #--- min_pulse_width_high (E) -- H pulse 計測。D 2 分割（when:!D/D）。!D 側は t_init で D=1→Q=1 を作り t_in で D=0
-             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["p"]}
+             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["f"]}
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["f","f","","p"], tmg_when="!i0", specify="$width(posedge c0, 0, 0, notifier);"),
-             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"]}
+             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["f"]}
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","","p"], tmg_when="i0", specify="$width(posedge c0, 0, 0, notifier);"),
              # min_pulse_width_low (E) は orig latq lib に無いため削除
              #--- leakage (4 conditions: !D&!E / !D&E / D&!E / D&E)
@@ -224,14 +224,14 @@ def get_logic_dict():
              MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"r":["1"]}
                         ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","f"], tmg_when="", specify=""),
              #--- min_pulse_width_high (E) -- D 2 分割（when:!D&RN/D&RN）
-             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["p"],"r":["1"]}
+             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["f"],"r":["1"]}
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["f","f","","p"], tmg_when="!i0&r0", specify="$width(posedge c0, 0, 0, notifier);"),
-             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"r":["1"]}
+             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["f"],"r":["1"]}
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","","p"], tmg_when="i0&r0", specify="$width(posedge c0, 0, 0, notifier);"),
              #--- min_pulse_width_low (RN)  -- RN L pulse。D 2 分割（when:!D&!E/D&!E）
-             MyExpectCell(pin_tr=["r0",""], pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["p"],"r":["1"]}
-                        ,meas_types=["min_pulse_width_low"] ,tmg_sense="non",arc_oirc=["f","0","n","0"], tmg_when="!i0&!c0", specify="$width(negedge r0, 0, 0, notifier);"),
-             MyExpectCell(pin_tr=["r0",""], pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["p"],"r":["1"]}
+             MyExpectCell(pin_tr=["r0",""], pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["f"],"r":["1"]}
+                        ,meas_types=["min_pulse_width_low"] ,tmg_sense="non",arc_oirc=["f","f","n","0"], tmg_when="!i0&!c0", specify="$width(negedge r0, 0, 0, notifier);"),
+             MyExpectCell(pin_tr=["r0",""], pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["f"],"r":["1"]}
                         ,meas_types=["min_pulse_width_low"] ,tmg_sense="non",arc_oirc=["f","1","n","0"], tmg_when="i0&!c0", specify="$width(negedge r0, 0, 0, notifier);"),
              #--- leakage (8 conditions: i0 x c0 x r0)
              MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["d","u"],"i":["0"],"c":["p"],"r":["0"]}
@@ -358,14 +358,14 @@ def get_logic_dict():
              MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"s":["1"]}
                         ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","f"], tmg_when="", specify=""),
              #--- min_pulse_width_high (E) -- D 2 分割（when:!D&SETN/D&SETN）
-             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["0"],"s":["1"]}
+             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["f"],"s":["1"]}
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["f","f","","p"], tmg_when="!i0&s0", specify="$width(posedge c0, 0, 0, notifier);"),
-             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"s":["1"]}
+             MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["f"],"s":["1"]}
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","","p"], tmg_when="i0&s0", specify="$width(posedge c0, 0, 0, notifier);"),
              #--- min_pulse_width_low (SETN) -- D 2 分割（when:!D&!E/D&!E）
-             MyExpectCell(pin_tr=["s0",""], pin_oirc=["o0","i0","s0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"s":["1"]}
+             MyExpectCell(pin_tr=["s0",""], pin_oirc=["o0","i0","s0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["f"],"s":["1"]}
                         ,meas_types=["min_pulse_width_low"] ,tmg_sense="non",arc_oirc=["r","0","n","0"], tmg_when="!i0&!c0", specify="$width(negedge s0, 0, 0, notifier);"),
-             MyExpectCell(pin_tr=["s0",""], pin_oirc=["o0","i0","s0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["0"],"s":["1"]}
+             MyExpectCell(pin_tr=["s0",""], pin_oirc=["o0","i0","s0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["f"],"s":["1"]}
                         ,meas_types=["min_pulse_width_low"] ,tmg_sense="non",arc_oirc=["r","r","n","0"], tmg_when="i0&!c0", specify="$width(negedge s0, 0, 0, notifier);"),
              #--- leakage (8 conditions)
              MyExpectCell(pin_tr=["",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["0"],"c":["0"],"s":["0"]}
