@@ -66,6 +66,8 @@
     {"kind":"leakage","grid":"0x0","name":"d00","index_1":[],"index_2":[]}
        ,{"kind":"passive","grid":"10x0","name":"d00","index_1":[0.02,0.04747,0.1439,0.328,0.6149,1.017,1.547,2.214,3.029,4.0],"index_2":[]}
        ,{"kind":"const","grid":"10x10","name":"d00","index_1":[0.02,0.04747,0.1439,0.328,0.6149,1.017,1.547,2.214,3.029,4.0],"index_2":[0.02,0.04747,0.1439,0.328,0.6149,1.017,1.547,2.214,3.029,4.0]}
+       // ISS-00160: min_pulse は kind=mpw の 1D template（index_1=pulse 対象ピン slew）。index_1 の要素数は任意（PDK 依存）。gf180 は 3 点。
+       ,{"kind":"mpw","grid":"3x0","name":"d000","index_1":[0.02,0.8,4.0],"index_2":[]}
 
     //---- delay: 46 groups
        ,{"kind":"delay","grid":"10x10","name":"d000","index_1":[0.02,0.04747,0.1439,0.328,0.6149,1.017,1.547,2.214,3.029,4.0],"index_2":[0.001,0.001423,0.002906,0.005739,0.01015,0.01634,0.02449,0.03476,0.04729,0.06222]}
@@ -221,8 +223,7 @@
   ,"simulation_timestep_max"    : 1.0
   ,"simulation_timestep_min"    : 0.001
   ,"simulation_slew_min"        : 0.001
-  // ISS-00133: min_pulse のパルス源(VCLK/VREL)slew(ns)。 目安=setup/hold LUT の最小 slew index1[0]
-  ,"simulation_slew_for_pulse"  : 0.02
+  // ISS-00160: min_pulse のパルス slew は templates の kind=mpw（index_1）で指定するため simulation_slew_for_pulse は廃止（2026-07-17）
   ,"sim_pulse_max"              : 5.0
   ,"sim_prop_max"               : 25.0
   ,"sim_prop_tri_max"           : 25.0

@@ -699,27 +699,27 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
     #   pin attribute（min_pulse_width_high/low・min_period）は when 横断 max（worst case、 orig も併用）、
     #   timing(min_pulse_width) block は when ごとに出力（when 空なら従来どおり when 無し block）。
     #   high/low が別 pin に分かれるセル（LAT: high=E / low=RN）にも対応。min_period は high/low 双方ある時のみ。
-    _mpwh = {k[1]:v for k,v in targetCell.min_pulse_width_high.items() if k[0]==port}  # when -> value
+    _mpwh = {k[1]:v for k,v in targetCell.min_pulse_width_high.items() if k[0]==port}  # when -> (lut 行リスト, template grid)
     _mpwl = {k[1]:v for k,v in targetCell.min_pulse_width_low.items()  if k[0]==port}
-    if _mpwh:
-      outlines.append(f'      min_pulse_width_high : {f2s_ceil(f=max(_mpwh.values()), sigdigs=sigdigs)};')
-    if _mpwl:
-      outlines.append(f'      min_pulse_width_low : {f2s_ceil(f=max(_mpwl.values()), sigdigs=sigdigs)};')
     if _mpwh or _mpwl:
-      if _mpwh and _mpwl:
-        outlines.append(f'      min_period : {f2s_ceil(f=2*max(max(_mpwh.values()), max(_mpwl.values())), sigdigs=sigdigs)};')
+      # ISS-00160: min_pulse を slew-index テーブル化。scalar 属性(min_pulse_width_high/low)・min_period は撤去
+      #   （Liberty 仕様上 timing() constraint が authoritative で scalar 属性は冗長）。min_period は保留。
       for w in sorted(set(_mpwh.keys()) | set(_mpwl.keys())):
         outlines.append(f'      timing () {{')
         outlines.append(f'        timing_type : "min_pulse_width";')
         if w:
           outlines.append(f'        when  : "{targetCell.replace_by_portmap(w)}";')
         if w in _mpwh:
-          outlines.append(f'        rise_constraint(scalar) {{')
-          outlines.append(f'          values("{f2s_ceil(f=_mpwh[w], sigdigs=sigdigs)}");')
+          _lut, _grid = _mpwh[w]
+          outlines.append(f'        rise_constraint(mpw_template_{_grid}) {{')
+          for _ln in _lut:
+            outlines.append(f'          {_ln}')
           outlines.append(f'        }}')
         if w in _mpwl:
-          outlines.append(f'        fall_constraint(scalar) {{')
-          outlines.append(f'          values("{f2s_ceil(f=_mpwl[w], sigdigs=sigdigs)}");')
+          _lut, _grid = _mpwl[w]
+          outlines.append(f'        fall_constraint(mpw_template_{_grid}) {{')
+          for _ln in _lut:
+            outlines.append(f'          {_ln}')
           outlines.append(f'        }}')
         outlines.append(f'      }}')
       

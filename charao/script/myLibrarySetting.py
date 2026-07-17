@@ -129,7 +129,7 @@ class MyLibrarySetting(BaseModel):
   simulation_timestep_max : float = 1.0     # .tran TSTEP の上限 (ns)。 timestep_tstep = max(_min, min(slope*0.0099, _max))
   simulation_timestep_min : float = 0.001   # .tran TSTEP の下限 (ns、 default 1 ps)。 ngspice LTE 暴走の間接抑制 (ISS-00087)
   simulation_slew_min : float = 0.001   # min_pulse_width / setup / hold 等の PWL slew 用（ns 単位、 default 1 ps）
-  simulation_slew_for_pulse : float = 0.02   # ISS-00133: min_pulse のパルス源(VCLK/VREL)slew（ns、 目安=setup/hold LUT 最小 slew index1[0]）
+  # ISS-00160: simulation_slew_for_pulse は廃止。min_pulse のパルス slew は templates の kind=mpw（index_1）で指定。
   sim_pulse_max       : float = 2.0
   sim_prop_max        : float =10.0
   sim_prop_tri_max    : float =20.0
@@ -370,7 +370,7 @@ class MyLibrarySetting(BaseModel):
                 "delay_i2c"  :"input_net_transition",
                 "delay_c2i"  :"input_net_transition",
                 "delay_i2i"  :"input_net_transition",
-                "mpw"    :"related_pin_transition",
+                "mpw"    :"constrained_pin_transition",   # ISS-00160: min_pulse は自己参照制約（pulse 対象ピン自身の transition）
                 "passive":"input_transition_time",
                 "power_tout":"input_transition_time",
                 "power_tin" :"input_transition_time",

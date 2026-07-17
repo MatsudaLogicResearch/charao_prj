@@ -37,12 +37,12 @@ from .myFunc import my_exit, f2s_ceil
 #                "eintl","ein","cin", "pleak"]
 #DictKey=Literal["prop","trans","setup_hold",
 #                "eintl","ein","cin"]
-DictKey=Literal["prop","trans","setup_hold","setup_hold_raw",
+DictKey=Literal["prop","trans","setup_hold","setup_hold_raw","min_pulse",
                 "eintl","cin","crel","cclk",
                 "c_in","c_rel","c_clk","slew_in","slew_rel","slew_clk","load_out"]
-  
+
 #LutKey = Literal["prop","trans","setup_hold","eintl","ein"]
-LutKey = Literal["prop","trans","setup_hold","eintl"]
+LutKey = Literal["prop","trans","setup_hold","min_pulse","eintl"]
 
 NestedDefaultDict = Annotated[
     DefaultDict[float, float],  # slope -> value
@@ -499,7 +499,7 @@ class MyConditionsAndResults(BaseModel):
         print(f"[Error] value_name={value_name}/template_kind={self.template_kind} are missmatch.")
         my_exit()
     else:
-      if not self.template_kind in ["delay","delay_disable","const", "delay_c2c", "delay_i2c", "delay_c2i", "delay_i2i"]:
+      if not self.template_kind in ["delay","delay_disable","const", "delay_c2c", "delay_i2c", "delay_c2i", "delay_i2i", "mpw"]:
         print(f"[Error] value_name={value_name}/template_kind={self.template_kind} are missmatch.")
         my_exit()
 

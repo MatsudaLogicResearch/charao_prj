@@ -217,16 +217,19 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
     if targetCell.min_pulse_width_high.keys() or targetCell.min_pulse_width_low.keys():
 
       outlines.append(f'### MIN PULSE WIDTH')
+      outlines.append(f'（ISS-00160: slew-index テーブル。値は index_1 順のカンマ区切り）')
       outlines.append(f'| Input Pin| When | Width for L({targetLib.time_unit}) | Width for H({targetLib.time_unit})|')
       outlines.append(f'|----|----|----|----|')
 
-      # ISS-00082: min_pulse_width_high/low の key は (port, when)。 (port,when) ごとに 1 行出力
+      # ISS-00082/00160: min_pulse_width_high/low の値は (lut 行リスト, grid) tuple。values 行(最終行)から index_1 順の値列を抽出
       mpw_keys = sorted(set(targetCell.min_pulse_width_high.keys()) | set(targetCell.min_pulse_width_low.keys()))
       for (port, when) in mpw_keys:
         port_name = targetCell.replace_by_portmap(port)
         when_disp = targetCell.replace_by_portmap(when) if when else "-"
-        val_low = f2s_ceil(f=targetCell.min_pulse_width_low[(port,when)] , sigdigs=sigdigs)  if (port,when) in targetCell.min_pulse_width_low  else "-"
-        val_high= f2s_ceil(f=targetCell.min_pulse_width_high[(port,when)], sigdigs=sigdigs)  if (port,when) in targetCell.min_pulse_width_high else "-"
+        _vl = targetCell.min_pulse_width_low.get((port,when))
+        _vh = targetCell.min_pulse_width_high.get((port,when))
+        val_low = _vl[0][-1].strip().strip('"') if (isinstance(_vl,tuple) and _vl[0]) else "-"
+        val_high= _vh[0][-1].strip().strip('"') if (isinstance(_vh,tuple) and _vh[0]) else "-"
 
         if (val_low !="-")  or (val_high !="-") :
           outlines.append(f'| {port_name} | {when_disp} | {val_low} | {val_high} |')

@@ -2471,7 +2471,8 @@ def runSpiceMinPulseMultiThread(num:int, mls:Mls, mlc:Mlc, mec:Mec)  -> list[Mca
 
   #------ set min_pulse
   # ISS-00135 U7: min_pulse のパルス対象ピンは pin_tr[t](=pin_tr[0])。 旧 target_relport は reorg で廃止(空)。
-  mlc.set_min_pulse_width(port_name=h_min_pulse.mec.pin_tr[0], value=h_min_pulse.min_pulse_width, measure_type=h_min_pulse.measure_type, when=h_min_pulse.timing_when)
+  # ISS-00160: scalar 廃止。value=(lut 行リスト, template grid) を格納し、出力は timing() constraint テーブルで行う。
+  mlc.set_min_pulse_width(port_name=h_min_pulse.mec.pin_tr[0], value=(h_min_pulse.lut["min_pulse"], h_min_pulse.template.grid), measure_type=h_min_pulse.measure_type, when=h_min_pulse.timing_when)
     
   ###################################################################
   return [h_min_pulse]
@@ -2493,13 +2494,21 @@ def runSpiceMinPulseSingle(poolg_sema, targetHarness:Mcar, spicef:str):
   timestep_tstep = max(h.mls.simulation_timestep_min, h.mls.simulation_timestep_max)
   timestep_tmax  = max(100 * h.mls.simulation_timestep_max, timestep_tstep)
 
-  #-- ISS-00133: 全 slew(tslew_in/rel/clk) を jsonc simulation_slew_for_pulse（ns、目安=LUT index1[0]）に統一。
-  tslew = _tslew_from_template(h.mls.simulation_slew_for_pulse, h.mls)
+  #-- ISS-00160: パルス slew は mpw template の index_1 を汎用ループ（要素数は PDK 依存、gf180=3）。
+  #   simulation_slew_for_pulse（スカラー固定）は廃止。cell の template_kgn に ["mpw","3x1","d000"] が必要。
+  _mpw_temp = h.mlc.template.get("mpw") if (h.mlc is not None and hasattr(h.mlc, "template")) else None
+  if _mpw_temp is None or len(_mpw_temp.index_1) < 1:
+    print(f"[Error] min_pulse: mpw template not found. cell の template_kgn に ['mpw','3x1','d000'] を追加してください。")
+    my_exit()
+  h.template      = _mpw_temp
+  h.template_kind = "mpw"
+  _slews = list(_mpw_temp.index_1)
 
-  #-- param 早期 instantiate（tpulse_rel/tpulse_clk/tsim_end は secant で更新）
+  #-- param 早期 instantiate（tslew は slew(index_1) ごとに更新、tpulse_rel/tpulse_clk/tsim_end は secant で更新）
   #   ISS-00133: パルス対象ピン pin_tr[0] で能動側(delay)を切替（c*→clk 能動 / async→rel 能動）。
   _is_clk = (h.mec.pin_tr[0] if h.mec.pin_tr else "").startswith("c")
   _d2c    = float("{:.5g}".format(h.mls.sim_d2c_max * h.mls.time_mag))
+  _tslew0 = _tslew_from_template(_slews[0], h.mls)
   param = Mtp(
     cap           = 0.0
     ,clk_role     =h.clk_role
@@ -2514,77 +2523,82 @@ def runSpiceMinPulseSingle(poolg_sema, targetHarness:Mcar, spicef:str):
     ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))   # min_pulse には delay 系 measure_type は来ないため固定
     ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
     ,tdelay_in    =float("{:.5g}".format(sim_c2d_max         * h.mls.time_mag))
-    ,tslew_in     =tslew
+    ,tslew_in     =_tslew0
     ,tdelay_rel   = 1.0E-9 if _is_clk else _d2c
-    ,tslew_rel    =tslew
+    ,tslew_rel    =_tslew0
     ,tpulse_rel   =0.0
     ,tdelay_clk   = _d2c if _is_clk else 1.0E-9
-    ,tslew_clk    =tslew
+    ,tslew_clk    =_tslew0
     ,tpulse_clk   =0.0
     ,tsweep_clk   =0.0
   )
   param.set_common_value(harness=h, arc_oirc=arc_oirc)
-  param.compute_timing()
 
   with poolg_sema:
-    seg_start  = h.mls.sim_pulse_max * h.mls.time_mag
-    seg_end    = 0.0
-    tstep_min  = h.mls.sim_segment_timestep_min * h.mls.time_mag
-    ratio      = h.mls.sim_segment_timestep_ratio
-    threshold  = h.mls.sim_time_const_threshold * h.mls.time_mag
+    #-- ISS-00160: index_1(slew) ごとに探索し dict_list2["min_pulse"][slew][0] に格納（1D）
+    for si, _slew_idx in enumerate(_slews):
+      tslew = _tslew_from_template(_slew_idx, h.mls)
+      param.tslew_in  = tslew
+      param.tslew_rel = tslew
+      param.tslew_clk = tslew
+      param.compute_timing()
 
-    tsweep_pass=seg_start
-    pulse_pass =seg_start
-    prop_min   =1.0
-    trans_min  =1.0
-    tsim_end_dyn=1.0E-6
+      seg_start  = h.mls.sim_pulse_max * h.mls.time_mag
+      seg_end    = 0.0
+      tstep_min  = h.mls.sim_segment_timestep_min * h.mls.time_mag
+      ratio      = h.mls.sim_segment_timestep_ratio
+      threshold  = h.mls.sim_time_const_threshold * h.mls.time_mag
 
-    tstep = h.mls.sim_segment_timestep_start * h.mls.time_mag
-    cnt=0
-    while tstep> tstep_min:
-      cnt=cnt+1
+      tsweep_pass=seg_start
+      pulse_pass =seg_start
+      prop_min   =1.0
+      trans_min  =1.0
+      tsim_end_dyn=1.0E-6
 
-      tsweep_list=np.arange(seg_start, seg_end, -1.0*tstep)
-      tsweep_list=np.append(tsweep_list, 0.0)
+      tstep = h.mls.sim_segment_timestep_start * h.mls.time_mag
+      cnt=0
+      while tstep> tstep_min:
+        cnt=cnt+1
 
-      for id,tsweep in enumerate(tsweep_list):
+        tsweep_list=np.arange(seg_start, seg_end, -1.0*tstep)
+        tsweep_list=np.append(tsweep_list, 0.0)
 
-        spicefo  = _make_sim_path(f"{spicef}_s{cnt*100+id}")
+        for id,tsweep in enumerate(tsweep_list):
 
-        #-- ISS-00080 / ISS-00133: param 更新。 min_pulse の sweep は pin_tr[0] で振り分け
-        #   （CLK パルス c*→tpulse_clk を sweep・tpulse_rel=1ns、 async/data r*/s*/i*→tpulse_rel を sweep・tpulse_clk=1us parked）。
-        _pt = h.mec.pin_tr[0] if h.mec.pin_tr else ""
-        param.tpulse_clk = tsweep if _pt.startswith("c") else 1.0e-6
-        param.tpulse_rel = 1.0e-9 if _pt.startswith("c") else tsweep
-        param.tsim_end   = tsim_end_dyn
-        param.compute_timing()
+          spicefo  = _make_sim_path(f"{spicef}_sl{si}_s{cnt*100+id}")
 
-        rslt=genFileLogic_MinPulse1x(targetHarness=h, spicef=spicefo, param=param)
+          #-- ISS-00080 / ISS-00133: param 更新。 min_pulse の sweep は pin_tr[0] で振り分け
+          _pt = h.mec.pin_tr[0] if h.mec.pin_tr else ""
+          param.tpulse_clk = tsweep if _pt.startswith("c") else 1.0e-6
+          param.tpulse_rel = 1.0e-9 if _pt.startswith("c") else tsweep
+          param.tsim_end   = tsim_end_dyn
+          param.compute_timing()
 
-        prop_last =abs(rslt["prop"])
-        prop_min  =min(prop_min, prop_last)
-        trans_last=abs(rslt["trans"])
-        trans_min =min(trans_min, trans_last)
+          rslt=genFileLogic_MinPulse1x(targetHarness=h, spicef=spicefo, param=param)
 
-        # ISS-00133: prop(CLK→Q delay) と trans(出力 slew) のどちらか劣化で境界とする
-        if (prop_last > prop_min + threshold) or (trans_last > trans_min + threshold):
-          break;
+          prop_last =abs(rslt["prop"])
+          prop_min  =min(prop_min, prop_last)
+          trans_last=abs(rslt["trans"])
+          trans_min =min(trans_min, trans_last)
 
-        tsweep_pass=tsweep
-        #-- ISS-00101: tsim_end_dyn は 1 sim 目（s100）でのみ確定、 以降は固定。
-        #   measure 失敗時 rslt["chg_out"]=1 (default) で汚染され、 次 segment で
-        #   tsim_end=1.00000001 秒となり ngspice が 1 秒 transient で hang する問題対策。
-        #   min_pulse_width_high / low 共通（本関数は high/low の両方から呼ばれる）。
-        if cnt == 1 and id == 0:
-          tsim_end_dyn=rslt["chg_out"] + 10e-9
-        pulse_pass =rslt["pulse"]
+          # ISS-00133: prop(CLK→Q delay) と trans(出力 slew) のどちらか劣化で境界とする
+          if (prop_last > prop_min + threshold) or (trans_last > trans_min + threshold):
+            break;
 
-      tstep_old=tstep
-      tstep    =tstep*ratio
-      seg_start = tsweep_pass + 2*tstep
+          tsweep_pass=tsweep
+          #-- ISS-00101: tsim_end_dyn は 1 sim 目（s100）でのみ確定、 以降は固定（measure 失敗時 chg_out=1 汚染で 1s hang 対策）。
+          if cnt == 1 and id == 0:
+            tsim_end_dyn=rslt["chg_out"] + 10e-9
+          pulse_pass =rslt["pulse"]
 
-    with h._lock:
-      h.min_pulse_width = pulse_pass
+        tstep    =tstep*ratio
+        seg_start = tsweep_pass + 2*tstep
+
+      with h._lock:
+        h.dict_list2["min_pulse"][_slew_idx][0] = pulse_pass
+
+  #-- ISS-00160: 汎用 set_lut で 1D テーブル(index_1+values)化 → h.lut["min_pulse"]
+  h.set_lut("min_pulse")
 
 
 #--------------------------------------------------------------------------------------------------

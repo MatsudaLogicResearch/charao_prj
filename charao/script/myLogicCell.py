@@ -457,7 +457,7 @@ class MyLogicCell(BaseModel):
     return(new_str)
 
     
-  def set_min_pulse_width(self, port_name:str, value:float, measure_type:str, when:str=""):
+  def set_min_pulse_width(self, port_name:str, value, measure_type:str, when:str=""):
 
     ## check port
     if not port_name in [p for p in (self.inports + [self.clock]) if p is not None]:
@@ -468,12 +468,12 @@ class MyLogicCell(BaseModel):
     measure_type_list=["min_pulse_width_high","min_pulse_width_low"]
     if not measure_type in measure_type_list:
       print(f"[Error] measure_typ={measure_type} is not in {measure_type_list}")
-      
-    ## set value
+
+    ## set value（ISS-00160: value=(lut 行リスト, template grid)。set_lut で ns 換算済みのため無変換で格納）
     if measure_type=="min_pulse_width_high":
-      self.min_pulse_width_high[(port_name,when)] = value/self.mls.time_mag
+      self.min_pulse_width_high[(port_name,when)] = value
     else:
-      self.min_pulse_width_low[(port_name,when)] = value/self.mls.time_mag
+      self.min_pulse_width_low[(port_name,when)] = value
       
     ##
     #print(f"[Info] min_pulse_width={value} for {port_name}")
