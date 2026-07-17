@@ -4,6 +4,21 @@
 
 ---
 
+## [0.9.14a31] 2026-07-17
+
+Alpha pre-release. 出力 transition の slew_derate 適用（ISS-00157）、seq ドライブ変種 _2/_4 の網羅拡張（ISS-00158）、latch min_pulse の precondition 修正（ISS-00159）、min_pulse_width の slew-index テーブル化（ISS-00160）。
+
+### Fixed
+- **出力 transition の slew_derate 未適用（ISS-00157）**: `.lib`(set_lut)・`.md`(myExportDoc) の fall/rise_transition 格納時に `slew_derate_from_library`（gf180=0.5 → 格納値=実測×2）を適用。Liberty 規約 stored=実測(30-70%)/slew_derate に整合し、orig 比ぴったり 0.5× だった transition 系統差を解消。delay/const 等「時刻」は非対象。
+- **latch min_pulse の precondition ival[c] 取り違え（ISS-00159）**: `mylogic_seq_lat.py` で LATCH_PE 系（latq/latrnq/latsnq）の min_pulse init clock 値 `ival[c]` を基準 LATCH_PE_NR_NS（latrsnq）の `"f"` に統一（init 中に E を透過させ内部状態を書き込む precondition）。出力強制のみに依存していた latsnq は高駆動（_2/_4）で内部マスタ未確立 → 解放時 Q 反転 → chg_out 失敗 → 1 秒 transient ハングしていた。latrnq low-RN の arc[i] も基準に統一。全 12 latch セルでハング根絶を実測確認。
+
+### Added
+- **seq ドライブ変種 _2/_4 の網羅拡張（ISS-00158）**: `std_seq.jsonc` に dff/sdff/lat/icg 18 ファミリ × (_2,_4) 計 36 変種を追加（cell 名・area のみ差、SPICE subckt ピン順・logic・ports_dict は _1 と同一、area は orig lib 準拠）。target 179→215 で全 STD セル（timing 対象、物理セル除く）を網羅。
+- **min_pulse_width の slew-index テーブル化（ISS-00160）**: min_pulse を template システムに統合（`config_lib.jsonc` に kind=mpw/grid=3x0/index_1=[0.02,0.8,4.0] を登録、全 seq セル template_kgn に `["mpw","3x0","d000"]`）。探索を index_1 の要素数ぶん汎用ループ化し、汎用 `set_lut` ＋ Liberty timing() constraint テーブルで出力。scalar 属性 `min_pulse_width_high/low` は撤去（仕様上 timing() constraint が authoritative）。`simulation_slew_for_pulse` 廃止。背景：素の最速 slew(0.02) 固定が orig 比 -50% の主因で、slew 依存テーブル化で解消（STA が実 slew で補間）。min_period は保留。
+
+### Verified
+- 全 215 セル露払い（2x2）0 failures（transition ×2・.v/.lib/.md 整合・網羅一致）。全 seq min_pulse 露払い 0 failures（`mpw_template_3x0` header ＋ timing() constraint テーブル正常、rise/fall・when 分解、値は slew 掃引と一致）。latch min_pulse 全 12 セル pass（旧ハング解消）。
+
 ## [0.9.14a30] 2026-07-15
 
 Alpha pre-release. 入力 slew が delay/power_tout の実切替ピンに反映されないバグ修正＋slew_derate 反映（ISS-00155）、.md の full-index 化、template 取得エラー処理、debug_run env 拡張。
