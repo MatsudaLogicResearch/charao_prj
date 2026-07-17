@@ -298,6 +298,8 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
         outlines.append(f'')
 
         for datakey,dlabel in [("prop","Cell delay"),("trans","Output transition")]:
+          # ISS-00157: transition のみ Liberty 規約 stored=実測/slew_derate（.lib set_lut と一致）。delay(prop) は非対象。
+          derate = targetLib.slew_derate_from_library if datakey=="trans" else 1.0
           for g in glist:
             edge=g.direction_in_lib["tran"].replace("_transition","")
             i1=list(g.template.index_1)
@@ -307,7 +309,7 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
             outlines.append(f'| slew / load | ' + ' | '.join(str(x) for x in i2) + ' |')
             outlines.append(f'|----|' + '----|'*len(i2))
             for s in i1:
-              vals=[f2s_ceil(f=g.dict_list2[datakey][s][ld]/targetLib.time_mag, sigdigs=sigdigs) for ld in i2]
+              vals=[f2s_ceil(f=g.dict_list2[datakey][s][ld]/targetLib.time_mag/derate, sigdigs=sigdigs) for ld in i2]
               outlines.append(f'| {s} | ' + ' | '.join(vals) + ' |')
             outlines.append(f'')
 
@@ -332,6 +334,8 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
         outlines.append(f'')
 
         for datakey,dlabel in [("prop","Cell delay"),("trans","Output transition")]:
+          # ISS-00157: transition のみ Liberty 規約 stored=実測/slew_derate（.lib set_lut と一致）。delay(prop) は非対象。
+          derate = targetLib.slew_derate_from_library if datakey=="trans" else 1.0
           for g in glist:
             edge=g.direction_in_lib["tran"].replace("_transition","")
             i1=list(g.template.index_1)
@@ -343,13 +347,13 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
               outlines.append(f'| slew / load | ' + ' | '.join(str(x) for x in i2) + ' |')
               outlines.append(f'|----|' + '----|'*len(i2))
               for s in i1:
-                vals=[f2s_ceil(f=g.dict_list2[datakey][s][ld]/targetLib.time_mag, sigdigs=sigdigs) for ld in i2]
+                vals=[f2s_ceil(f=g.dict_list2[datakey][s][ld]/targetLib.time_mag/derate, sigdigs=sigdigs) for ld in i2]
                 outlines.append(f'| {s} | ' + ' | '.join(vals) + ' |')
             else:
               outlines.append(f'| slew | value (load-independent) |')
               outlines.append(f'|----|----|')
               for s in i1:
-                v=f2s_ceil(f=g.dict_list2[datakey][s][0.0]/targetLib.time_mag, sigdigs=sigdigs)
+                v=f2s_ceil(f=g.dict_list2[datakey][s][0.0]/targetLib.time_mag/derate, sigdigs=sigdigs)
                 outlines.append(f'| {s} | {v} |')
             outlines.append(f'')
 

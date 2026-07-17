@@ -484,6 +484,11 @@ class MyConditionsAndResults(BaseModel):
       
     mag = self.mls.energy_mag if value_name in ["eintl"] else self.mls.time_mag
 
+    ## ISS-00075: 出力 transition は Liberty 規約 stored = 実測(30-70%) / slew_derate_from_library で格納
+    ##   （gf180 derate=0.5 → 格納値=実測×2）。trans のみ対象（delay/setup_hold 等の「時刻」は非対象）。
+    ##   derate=1.0 なら従来どおり無変換。jsonc(config_lib) の slew_derate_from_library を参照。
+    derate = self.mls.slew_derate_from_library if value_name == "trans" else 1.0
+
     ## significant digits
     sigdigs=self.mls.significant_digits
     
@@ -535,13 +540,13 @@ class MyConditionsAndResults(BaseModel):
     if index_2_list_is_none:
       #tmp      =", ".join(f2s_ceil(f=self.dict_list2[value_name][x][0]/mag, sigdigs=sigdigs) for x in self.dict_list2[value_name].keys())
       s = [self.dict_list2[value_name][k][0] for k in sorted(index_1_list, key=lambda x: float(x))]
-      tmp      =", ".join(f2s_ceil(f=x/mag, sigdigs=sigdigs) for x in s)
+      tmp      =", ".join(f2s_ceil(f=x/mag/derate, sigdigs=sigdigs) for x in s)
       outline  ='"' + tmp + '"'
     else:
       for index1 in index_1_list:
         #tmp      =", ".join(f2s_ceil(f=x/mag, sigdigs=sigdigs) for x in self.dict_list2[value_name][index1].values())
         s = [self.dict_list2[value_name][index1][k] for k in sorted(index_2_list, key=lambda x: float(x))]
-        tmp      =", ".join(f2s_ceil(f=x/mag, sigdigs=sigdigs) for x in s)
+        tmp      =", ".join(f2s_ceil(f=x/mag/derate, sigdigs=sigdigs) for x in s)
         outline +=str_colon+'"' + tmp + '"'
         str_colon = ",\\\n          "
 
