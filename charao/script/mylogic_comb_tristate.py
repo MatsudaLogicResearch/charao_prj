@@ -175,6 +175,7 @@ def get_logic_dict():
       "driver_type":"bus_hold",
       "functions":{"b0":"b0"},
       "vcode":'''
+      wire b0_w;
       buf (weak0,weak1) MGM_BG_0(b0_w, b0);
       buf MGM_BG_1(b0, b0_w);
       ''',
