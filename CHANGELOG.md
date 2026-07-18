@@ -4,6 +4,18 @@
 
 ---
 
+## [0.9.14a32] 2026-07-18
+
+Alpha pre-release. `.v` specify を Verilog 準拠に修正（ISS-00147）。timing check 条件の `&&&` 化・`reg notifier` 宣言と primitive N ポート接続・ifnone×edge-sensitive の `ifdef 切替。
+
+### Fixed
+- **.v specify の Verilog 準拠化（ISS-00147）**: 全 54 seq セルの `specify` に 3 欠陥があり修正。①**timing check の条件付け**を `if (when) $check(...)` から `$check(evt1 &&& (when), ...)`（第 1 イベント引数の `&&&`）へ変更（`$setup`/`$hold`/`$width`/`$recovery`/`$removal` への `if` 前置は Verilog 文法違反で `syntax error in specify block`。module path への `if` 前置は合法なので path/check を判別して分岐）。②**`reg notifier;` 宣言と primitive N ポート接続**を seq vcode 18 本（`mylogic_seq_ff.py` 8・`mylogic_seq_scan.py` 4・`mylogic_seq_lat.py` 6）に追加（vcode 経路は `isflop` 分岐の notifier 宣言をスキップするため vcode 内で自己完結。`udp_iq_ff_n`/`_hn`/`udp_iq_latch_n`/`_hn` の末尾 N ポートへ接続）。③**ifnone×edge-sensitive path**（iverilog 非対応）を `` `ifdef D_USE_IFNONE_SIMPLE `` で simple/edge 切替（既定=edge のまま、iverilog は `+define+D_USE_IFNONE_SIMPLE` で simple path 化）。仕様は `docs/SPEC_specify.md` §5/§6.1/§6.2 に反映。
+
+### Verified
+- 全 215 モジュールを iverilog `-g2012 -tnull` で検証、両モード（既定/`+define+D_USE_IFNONE_SIMPLE`）とも EXIT=0。specify 全文型（module path SDPD・`&&&` timing check・`$width`・edge path `+:`/`-:`・ifnone）が合法 Verilog。define 時の残 warning は specify 外の implicit wire `Z_w`（`__hold` vcode、ISS-00163 へ分離）1 件のみ。
+
+---
+
 ## [0.9.14a31] 2026-07-17
 
 Alpha pre-release. 出力 transition の slew_derate 適用（ISS-00157）、seq ドライブ変種 _2/_4 の網羅拡張（ISS-00158）、latch min_pulse の precondition 修正（ISS-00159）、min_pulse_width の slew-index テーブル化（ISS-00160）。
