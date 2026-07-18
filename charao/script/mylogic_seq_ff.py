@@ -44,7 +44,7 @@ def get_logic_dict():
            "ff":{"out":"Io0,IQB",
                  "next_state":"i0",
                  "clocked_on":"c0"},
-           "vcode":"udp_iq_ff_n inst (o0, 1'b0, 1'b0, c0, i0, );",
+           "vcode":"reg notifier; udp_iq_ff_n inst (o0, 1'b0, 1'b0, c0, i0, notifier);",
            "expect":
            [
              #--- q delay (clk -> q) + power_tout  #ISS-00135: CLK-on-VREL 複製廃止（dffrsnq 新方式に統一）
@@ -126,7 +126,7 @@ def get_logic_dict():
            "ff":{"out":"Io0,IQB",
                  "next_state":"i0",
                  "clocked_on":"(!c0)"},
-           "vcode":"wire clkn_int; wire d_int; wire iq1; not (clkn_int, c0); not (d_int, i0); udp_iq_ff_n inst (iq1, 1'b0, 1'b0, clkn_int, d_int, ); not (o0, iq1);",
+           "vcode":"reg notifier; wire clkn_int; wire d_int; wire iq1; not (clkn_int, c0); not (d_int, i0); udp_iq_ff_n inst (iq1, 1'b0, 1'b0, clkn_int, d_int, notifier); not (o0, iq1);",
            "expect":
            [
              #--- q delay (clkn negedge -> q) + power_tout  #ISS-00135: CLK-on-VREL 複製廃止（dffrsnq 新方式に統一）
@@ -211,7 +211,7 @@ def get_logic_dict():
                  "next_state":"i0",
                  "clocked_on":"c0",
                  "clear":"(!r0)"},
-           "vcode":"wire p_int; wire d_int; wire iq1; not (p_int, r0); not (d_int, i0); udp_iq_ff_n inst (iq1, 1'b0, p_int, c0, d_int, ); not (o0, iq1);",
+           "vcode":"reg notifier; wire p_int; wire d_int; wire iq1; not (p_int, r0); not (d_int, i0); udp_iq_ff_n inst (iq1, 1'b0, p_int, c0, d_int, notifier); not (o0, iq1);",
            "expect":
            [
              #--- q delay (clk -> q) -- RN=1 (non-reset) + power_tout  #ISS-00135: CLK-on-VREL 複製廃止（dffrsnq 新方式に統一）
@@ -320,7 +320,7 @@ def get_logic_dict():
                  "next_state":"i0",
                  "clocked_on":"c0",
                  "preset":"(!s0)"},
-           "vcode":"wire c_int; wire d_int; wire iq1; not (c_int, s0); not (d_int, i0); udp_iq_ff_n inst (iq1, c_int, 1'b0, c0, d_int, ); not (o0, iq1);",
+           "vcode":"reg notifier; wire c_int; wire d_int; wire iq1; not (c_int, s0); not (d_int, i0); udp_iq_ff_n inst (iq1, c_int, 1'b0, c0, d_int, notifier); not (o0, iq1);",
            "expect":
            [
              #--- q delay (clk -> q) -- SETN=1 (non-set)  #ISS-00135: CLK-on-VREL 複製廃止（dffrsnq 新方式に統一）
@@ -427,7 +427,7 @@ def get_logic_dict():
                  "next_state":"i0",
                  "clocked_on":"(!c0)",
                  "clear":"(!r0)"},
-           "vcode":"wire clkn_int; wire p_int; wire d_int; wire iq1; not (clkn_int, c0); not (p_int, r0); not (d_int, i0); udp_iq_ff_n inst (iq1, 1'b0, p_int, clkn_int, d_int, ); not (o0, iq1);",
+           "vcode":"reg notifier; wire clkn_int; wire p_int; wire d_int; wire iq1; not (clkn_int, c0); not (p_int, r0); not (d_int, i0); udp_iq_ff_n inst (iq1, 1'b0, p_int, clkn_int, d_int, notifier); not (o0, iq1);",
            "expect":
            [
              #--- q delay (clkn neg -> q) + power_tout  #ISS-00135: CLK-on-VREL 複製廃止（dffrsnq 新方式に統一）
@@ -534,7 +534,7 @@ def get_logic_dict():
                  "next_state":"i0",
                  "clocked_on":"(!c0)",
                  "preset":"(!s0)"},
-           "vcode":"wire clkn_int; wire c_int; wire d_int; wire iq1; not (clkn_int, c0); not (c_int, s0); not (d_int, i0); udp_iq_ff_n inst (iq1, c_int, 1'b0, clkn_int, d_int, ); not (o0, iq1);",
+           "vcode":"reg notifier; wire clkn_int; wire c_int; wire d_int; wire iq1; not (clkn_int, c0); not (c_int, s0); not (d_int, i0); udp_iq_ff_n inst (iq1, c_int, 1'b0, clkn_int, d_int, notifier); not (o0, iq1);",
            "expect":
            [
              #--- q delay (clkn neg -> q) + power_tout  #ISS-00135: CLK-on-VREL 複製廃止（dffrsnq 新方式に統一）
@@ -645,7 +645,7 @@ def get_logic_dict():
                  "preset":"(!s0)",
                  "clear_preset_var1":"L",
                  "clear_preset_var2":"H"},
-           "vcode":"wire p_int; wire c_int; wire d_int; wire iq1; not (p_int, r0); not (c_int, s0); not (d_int, i0); udp_iq_ff_hn inst (iq1, c_int, p_int, c0, d_int, ); not (o0, iq1);",
+           "vcode":"reg notifier; wire p_int; wire c_int; wire d_int; wire iq1; not (p_int, r0); not (c_int, s0); not (d_int, i0); udp_iq_ff_hn inst (iq1, c_int, p_int, c0, d_int, notifier); not (o0, iq1);",
            "expect":
            [
              #--- q delay (clk -> q) -- RN=1, SETN=1 + power_tout  #ISS-00101: mondrv_oirc 省略
@@ -794,7 +794,7 @@ def get_logic_dict():
                  "preset":"(!s0)",
                  "clear_preset_var1":"L",
                  "clear_preset_var2":"H"},
-           "vcode":"wire clkn_int; wire p_int; wire c_int; wire d_int; wire iq1; not (clkn_int, c0); not (p_int, r0); not (c_int, s0); not (d_int, i0); udp_iq_ff_hn inst (iq1, c_int, p_int, clkn_int, d_int, ); not (o0, iq1);",
+           "vcode":"reg notifier; wire clkn_int; wire p_int; wire c_int; wire d_int; wire iq1; not (clkn_int, c0); not (p_int, r0); not (c_int, s0); not (d_int, i0); udp_iq_ff_hn inst (iq1, c_int, p_int, clkn_int, d_int, notifier); not (o0, iq1);",
            "expect":
            [
              #--- q delay (clkn neg -> q) + power_tout  #ISS-00135: CLK-on-VREL 複製廃止（dffrsnq 新方式に統一）

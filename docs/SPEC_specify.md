@@ -57,17 +57,28 @@ sim 計測値とは独立。
 
 ---
 
-## 5. tmg_when との関係
+## 5. tmg_when との関係（条件付けの記法）
 
-`MyExpectCell.tmg_when` が空でなければ `if (<when>) <specify>`、
-空なら `<specify>` をそのまま出力する。
+`MyExpectCell.tmg_when` が空でなければ条件を付与する。**付与の記法は
+specify の種類で異なる**（ISS-00147, 2026-07-18）。
+
+| specify の種類 | 条件付けの記法 | 例（tmg_when="r0"）|
+|----------------|----------------|--------------------|
+| **module path**（`(...) => (...)`）| `if (<when>) <path>` を前置 | `if (RN) (negedge RN => (Q +: 1'b0)) = (0,0);` |
+| **timing check**（`$setup`/`$hold`/`$width`/`$recovery`/`$removal`）| **第 1 イベント引数に `&&& (<when>)`** を付与 | `$setup(posedge D &&& (RN), negedge CLKN, 0, notifier);` |
+
+- **重要**：timing check に `if (<when>)` を前置するのは **Verilog 文法違反**
+  （`syntax error in specify block`）。system timing check は `if` 前置不可で、
+  条件は必ずイベント式内の `&&&` で表す。module path のみ `if` 前置が合法。
+- `when` 空なら条件なしでそのまま出力する。
+- 実装：`myExportLib.py` が `specify.lstrip().startswith("$")` で timing check を
+  判別し分岐する。`when` は `replace_by_portmap()` で実ポート名へ変換される。
 
 ```
-tmg_when="!i0&c0"  →  .v:  if (!D&E) <specify>
 tmg_when=""        →  .v:  <specify>
+tmg_when="i0&!c0"  (path)  →  .v:  if (D&!E) <path>
+tmg_when="r0"      (check) →  .v:  $setup(<evt1> &&& (RN), <evt2>, ...);
 ```
-
-`when` 文字列も `replace_by_portmap()` で実ポート名へ変換される。
 
 ### when 条件の各 pin 値の作り方
 
@@ -107,6 +118,69 @@ input pin 取り込み方式で作る。
             ifnone     (i0 => o0) = (0,0);
   ```
 
+### 6.1 ifnone × edge-sensitive path の切替（`` `ifdef D_USE_IFNONE_SIMPLE ``）
+
+`ifnone` を **edge-sensitive path**（`(negedge r0 => (o0 +: 1'b0))` 等）に
+付けると、**iverilog は非対応**（`Sorry: ifnone with an edge-sensitive path is
+not supported`）。一方 VCS/Xcelium 等の商用ツールは対応する。iverilog も
+使えるよう、edge-sensitive な ifnone は `` `ifdef `` で **simple path と
+切替可能**に出力する（ISS-00147, 2026-07-18）。
+
+- **既定（define なし）**：edge-sensitive のまま（フル忠実度）
+- **`+define+D_USE_IFNONE_SIMPLE`**：ifnone を simple path 化
+  （`(negedge r0 => (o0 +: 1'b0))` → `(r0 => o0)`）
+- **iverilog 利用時**：`iverilog +define+D_USE_IFNONE_SIMPLE ...` として使う
+
+出力例（latch clear アーク）：
+
+```verilog
+if (!D&!E) (negedge RN => (Q +: 1'b0)) = (0,0);   // SDPD は edge のまま
+if (D&!E)  (negedge RN => (Q +: 1'b0)) = (0,0);
+`ifdef D_USE_IFNONE_SIMPLE
+  ifnone (RN => Q) = (0,0);                         // simple（iverilog 対応）
+`else
+  ifnone (negedge RN => (Q +: 1'b0)) = (0,0);       // edge（既定・商用ツール）
+`endif
+if (D&E)   (negedge RN => (Q +: 1'b0)) = (0,0);
+```
+
+- 対象は edge-sensitive path の ifnone のみ（simple path の ifnone は
+  そのまま出力し `` `ifdef `` で囲まない）。
+- iverilog 対応の可否（実測）：素の edge / SDPD(`if`) edge / edge SDPD + simple
+  ifnone / 全 simple は **可**、`ifnone` × edge のみ **不可**。
+- gf180mcuC7t での該当：latch の clear/preset アーク（`;;` 付き）計 12 箇所。
+
+---
+
+## 6.2 notifier の宣言と接続（`reg notifier` / primitive N ポート）
+
+timing check（`$setup` 等）の第 4 引数 `notifier` は **`reg` 型**で、制約違反時に
+値がトグルし、それを受けた sequential primitive（UDP）の出力を X 化する
+（違反を出力に伝播させる標準機構）。iverilog は未宣言でも implicit wire として
+通すが、厳密ツールは `reg` を要求し、wire では notifier が機能しない。
+
+charao の seq セルは `mylogic_*.py` の **vcode** で primitive をインスタンス化する。
+そのため notifier の宣言・接続は **vcode 内で自己完結**させる（ISS-00147,
+2026-07-18）。
+
+- **宣言**：vcode 先頭に `reg notifier;` を置く。
+- **接続**：primitive 末尾の **N ポート**へ notifier を接続する。
+  charao の 4 primitive は末尾が N（notifier）：
+  `udp_iq_ff_n (Q, C, P, CK, D, N)` / `udp_iq_ff_hn(...)` /
+  `udp_iq_latch_n(...)` / `udp_iq_latch_hn(...)`。
+
+```
+"vcode":"reg notifier; ... udp_iq_ff_n inst (iq1, 1'b0, p_int, clkn_int, d_int, notifier); not (Q, iq1);"
+```
+
+- **注意**：vcode を持つセルは `myExportLib.py` の `if targetCell.vcode:` 経路で
+  出力され、`isflop` 分岐（`reg notifier;` を出す旧経路）は**スキップ**される。
+  gf180mcuC7t の seq 54 セルは全て vcode 経由のため、宣言は vcode 側で行う。
+- comb / io / tri-state セルは timing check を持たないため notifier 不要
+  （vcode があっても宣言・接続しない）。
+- 対象 vcode：`mylogic_seq_ff.py`(8) / `mylogic_seq_scan.py`(4) /
+  `mylogic_seq_lat.py`(6) の計 18 本。
+
 ---
 
 ## 7. `.lib` timing block との対応
@@ -127,6 +201,12 @@ orig vendor lib の `ifnone { timing_type:clear; ... }` 相当を charao で出�
 
 ## 8. 参照
 
-- `charao/script/myExportLib.py`：specify ブロック生成（`if`/`ifnone`）、
-  `.lib` timing の `when` / default block 生成
+- `charao/script/myExportLib.py`：specify ブロック生成（timing check の `&&&`
+  条件化 / module path の `if` / `ifnone` の `` `ifdef `` 切替）、`reg notifier`
+  宣言経路（vcode 経路 / isflop 経路）、`.lib` timing の `when` / default block 生成
+- `charao/script/mylogic_seq_ff.py` / `mylogic_seq_scan.py` /
+  `mylogic_seq_lat.py`：seq セルの vcode（primitive インスタンス＋`reg notifier`＋
+  N ポート接続）、UDP primitive 定義（`udp_iq_ff_n` / `_hn` / `udp_iq_latch_n` / `_hn`）
 - `docs/SPEC_seq_lat.md`：LATCH の measure 仕様（clear/preset の when 整備）
+- Verilog マクロ `D_USE_IFNONE_SIMPLE`：iverilog 利用時に `+define+` で指定し、
+  ifnone×edge-sensitive を simple path 化する（§6.1）

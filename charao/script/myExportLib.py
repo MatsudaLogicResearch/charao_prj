@@ -1018,14 +1018,34 @@ def exportVerilog(targetLib:Mls, targetCell:Mlc):
           flag_ifnone=True;
             
         specify=targetCell.replace_by_portmap(expectationdict.specify.replace(";;",";"))
-          
+
+        # ISS-00147: timing check($setup/$hold/...)は if 前置不可。条件は第1イベント引数に &&& で付与する。
+        #            module path は if 前置が合法なので従来どおり。
+        is_check = specify.lstrip().startswith("$")
         if when != "":
-          outlines.append(f'  if ({when}) {specify}');
+          if is_check:
+            head, _, rest = specify.partition("(")
+            arg1, sep, tail = rest.partition(",")
+            outlines.append(f'  {head}({arg1} &&& ({when}){sep}{tail}');
+          else:
+            outlines.append(f'  if ({when}) {specify}');
         else:
           outlines.append(f'  {specify}');
-    
+
         if flag_ifnone:
-          outlines.append(f'  ifnone {specify}');
+          # ISS-00147: ifnone は edge-sensitive path が iverilog 非対応。
+          #            edge path の場合のみ `ifdef で simple/edge を切替（既定=edge、
+          #            +define+D_USE_IFNONE_SIMPLE で simple path）。iverilog 利用時に定義する。
+          ifnone_simple = re.sub(r'\(\s*(?:pos|neg)edge\s+(\w+)\s*=>\s*\(\s*(\w+)\s*[+\-]?:[^)]*\)\s*\)',
+                                 r'(\1 => \2)', specify)
+          if ifnone_simple != specify:
+            outlines.append(f'`ifdef D_USE_IFNONE_SIMPLE');
+            outlines.append(f'  ifnone {ifnone_simple}');
+            outlines.append(f'`else');
+            outlines.append(f'  ifnone {specify}');
+            outlines.append(f'`endif');
+          else:
+            outlines.append(f'  ifnone {specify}');
           
     outlines.append(f'endspecify');
 

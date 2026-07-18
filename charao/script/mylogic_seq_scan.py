@@ -61,7 +61,7 @@ def get_logic_dict():
            "ff":{"out":"Io0,IQB",
                  "next_state":"(i2)?i1:i0",
                  "clocked_on":"c0"},
-           "vcode":"wire d_inv; wire se_inv; wire si_inv; wire row1; wire row2; wire row3; wire mgm_d0; wire iq1; not (d_inv, i0); not (se_inv, i2); and (row1, d_inv, se_inv); not (si_inv, i1); and (row2, d_inv, si_inv); and (row3, si_inv, i2); or (mgm_d0, row1, row2, row3); udp_iq_ff_n inst (iq1, 1'b0, 1'b0, c0, mgm_d0, ); not (o0, iq1);",
+           "vcode":"reg notifier; wire d_inv; wire se_inv; wire si_inv; wire row1; wire row2; wire row3; wire mgm_d0; wire iq1; not (d_inv, i0); not (se_inv, i2); and (row1, d_inv, se_inv); not (si_inv, i1); and (row2, d_inv, si_inv); and (row3, si_inv, i2); or (mgm_d0, row1, row2, row3); udp_iq_ff_n inst (iq1, 1'b0, 1'b0, c0, mgm_d0, notifier); not (o0, iq1);",
            "expect":
            [
              #--- q delay (clk -> q) + power_tout  #ISS-00135: CLK-on-VREL 複製廃止（dffrsnq 新方式に統一）
@@ -137,7 +137,7 @@ def get_logic_dict():
                  "next_state":"(i2)?i1:i0",
                  "clocked_on":"c0",
                  "clear":"(!r0)"},
-           "vcode":"wire d_inv; wire se_inv; wire si_inv; wire row1; wire row2; wire row3; wire mgm_d0; wire iq1; wire p_int; not (d_inv, i0); not (se_inv, i2); and (row1, d_inv, se_inv); not (si_inv, i1); and (row2, d_inv, si_inv); and (row3, si_inv, i2); or (mgm_d0, row1, row2, row3); not (p_int, r0); udp_iq_ff_n inst (iq1, 1'b0, p_int, c0, mgm_d0, ); not (o0, iq1);",
+           "vcode":"reg notifier; wire d_inv; wire se_inv; wire si_inv; wire row1; wire row2; wire row3; wire mgm_d0; wire iq1; wire p_int; not (d_inv, i0); not (se_inv, i2); and (row1, d_inv, se_inv); not (si_inv, i1); and (row2, d_inv, si_inv); and (row3, si_inv, i2); or (mgm_d0, row1, row2, row3); not (p_int, r0); udp_iq_ff_n inst (iq1, 1'b0, p_int, c0, mgm_d0, notifier); not (o0, iq1);",
            "expect":
            [
              #--- q delay (clk -> q) -- RN=1 (non-reset) + power_tout  #ISS-00135: CLK-on-VREL 複製廃止（dffrsnq 新方式に統一）
@@ -238,7 +238,7 @@ def get_logic_dict():
                  "next_state":"(i2)?i1:i0",
                  "clocked_on":"c0",
                  "preset":"(!s0)"},
-           "vcode":"wire d_inv; wire se_inv; wire si_inv; wire row1; wire row2; wire row3; wire mgm_d0; wire iq1; wire c_int; not (d_inv, i0); not (se_inv, i2); and (row1, d_inv, se_inv); not (si_inv, i1); and (row2, d_inv, si_inv); and (row3, si_inv, i2); or (mgm_d0, row1, row2, row3); not (c_int, s0); udp_iq_ff_n inst (iq1, c_int, 1'b0, c0, mgm_d0, ); not (o0, iq1);",
+           "vcode":"reg notifier; wire d_inv; wire se_inv; wire si_inv; wire row1; wire row2; wire row3; wire mgm_d0; wire iq1; wire c_int; not (d_inv, i0); not (se_inv, i2); and (row1, d_inv, se_inv); not (si_inv, i1); and (row2, d_inv, si_inv); and (row3, si_inv, i2); or (mgm_d0, row1, row2, row3); not (c_int, s0); udp_iq_ff_n inst (iq1, c_int, 1'b0, c0, mgm_d0, notifier); not (o0, iq1);",
            "expect":
            [
              #--- q delay (clk -> q) -- SETN=1 (non-set)  #ISS-00135: CLK-on-VREL 複製廃止（dffrsnq 新方式に統一）
@@ -342,7 +342,7 @@ def get_logic_dict():
                  "preset":"(!s0)",
                  "clear_preset_var1":"L",
                  "clear_preset_var2":"H"},
-           "vcode":"wire d_inv; wire se_inv; wire si_inv; wire row1; wire row2; wire row3; wire mgm_d0; wire iq1; wire p_int; wire c_int; not (d_inv, i0); not (se_inv, i2); and (row1, d_inv, se_inv); not (si_inv, i1); and (row2, d_inv, si_inv); and (row3, si_inv, i2); or (mgm_d0, row1, row2, row3); not (p_int, r0); not (c_int, s0); udp_iq_ff_hn inst (iq1, c_int, p_int, c0, mgm_d0, ); not (o0, iq1);",
+           "vcode":"reg notifier; wire d_inv; wire se_inv; wire si_inv; wire row1; wire row2; wire row3; wire mgm_d0; wire iq1; wire p_int; wire c_int; not (d_inv, i0); not (se_inv, i2); and (row1, d_inv, se_inv); not (si_inv, i1); and (row2, d_inv, si_inv); and (row3, si_inv, i2); or (mgm_d0, row1, row2, row3); not (p_int, r0); not (c_int, s0); udp_iq_ff_hn inst (iq1, c_int, p_int, c0, mgm_d0, notifier); not (o0, iq1);",
            "expect":
            [
              #--- q delay (clk -> q) -- RN=1, SETN=1 + power_tout  #ISS-00101: mondrv_oirc 省略
