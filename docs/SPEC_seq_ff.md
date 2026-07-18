@@ -54,7 +54,7 @@ charao logic 名（`DFF<B>_<P\|N>C[_<P\|N>R][_<P\|N>S]`）：
 
 ## 4. MyExpectCell の 4 要素 spec（全体仕様）
 
-詳細は別 SPEC を参照。 v0.9.14a06（予定）以降、 `pin_oirc` / `mondrv_oirc` / `arc_oirc` は **4 要素必須**：
+詳細は `docs/SPEC_pin_oirc.md` を参照。 `pin_oirc` / `arc_oirc` は **4 要素必須**：
 
 | index | 対応 pin |
 |---|---|
@@ -64,6 +64,11 @@ charao logic 名（`DFF<B>_<P\|N>C[_<P\|N>R][_<P\|N>S]`）：
 | [3] | **clock port**（seq）または `""`（comb / tristate） |
 
 comb / tristate cell では [3] = `""`、 seq では [3] = `"c0"`。
+
+**注（現行仕様）**：
+- `mondrv_oirc` は ISS-00101 で**廃止**（省略。spice 駆動値は arc_oirc/ival から決定）。
+- **Liberty 出力の target / related pin は別 field `pin_tr`（ISS-00127、全 entry 必須）で決まる**
+  （`pin_oirc` からの自動推定は不採用）。詳細は `docs/SPEC_pin_oirc.md` §5。
 
 ## 5. meas_types の使い分け（全体仕様）
 
@@ -89,19 +94,21 @@ comb / tristate cell では [3] = `""`、 seq では [3] = `"c0"`。
 
 GF180 std cell は `dff*_func` wrap module で primitive を呼ぶ：
 1. 必要に応じて **clock を not gate で反転**（negedge cell の場合）
-2. **D を not gate で反転**（必須、 internal 反転 latch design）
+2. 反転 latch design の family では **D を not gate で反転**（基本 posedge DFF〔DFF_PC〕は D 直結・反転なし）
 3. RN / SETN を not gate で反転（active high の C / P に変換）
-4. **primitive 呼び出し**（`udp_iq_ff_n` or `udp_iq_ff_hn`）
-5. primitive 出力 IQ1 を not gate で反転 → Q
+4. **`reg notifier;` を宣言**（ISS-00147）
+5. **primitive 呼び出し**（`udp_iq_ff_n` or `udp_iq_ff_hn`）、末尾 N ポートに `notifier` を接続
+6. primitive 出力 IQ1 を not gate で反転 → Q
 
-charao の vcode 例（DFF_PC_NR_NS、 dffrsnq 用）：
+charao の vcode 例（DFF_PC_NR_NS、 dffrsnq 用。ISS-00147 で notifier 宣言＋N 接続を追加）：
 
 ```verilog
+reg notifier;       // ISS-00147: timing check の notifier（未宣言だと厳密ツールでエラー）
 wire p_int; wire c_int; wire d_int; wire iq1;
 not (p_int, r0);    // RN → !RN (active high P)
 not (c_int, s0);    // SETN → !SETN (active high C)
 not (d_int, i0);    // D → !D
-udp_iq_ff_hn inst (iq1, c_int, p_int, c0, d_int, );  // hn = P dominates over C
+udp_iq_ff_hn inst (iq1, c_int, p_int, c0, d_int, notifier);  // hn = P dominates over C、末尾 N = notifier
 not (o0, iq1);      // IQ1 → !IQ1 = Q
 ```
 
@@ -236,12 +243,14 @@ CELLS="<cell_name>" MODE=local bash debug_run.sh clean run_all lib2csv_charao co
 
 - 既存 OSU035 用 `DFF_PC_NR_NS` を GF180 流で上書きしている（v0.9.14a05 で確定）。
   OSU035 std_seq.jsonc は別途修正が必要（DFFARAS_1X の logic 名 rename or 別 logic 定義）
-- 既存 TRIP62 用 `DFFB_PC_PR` / `DFFB_PC_NS`（Q+QB 2 出力系）は GF180 では未使用、 mylogic_seq_ff.py に保持
-- SDFF（scan FF）/ LAT（latch）/ ICG（clock gate）は別 SPEC で整備予定
+- 既存 TRIP62 用 `DFFB_PC_PR` / `DFFB_PC_NS`（Q+QB 2 出力系）は GF180 では未使用、 mylogic_seq_ff.py に保持（実行回帰は ISS-00141）
+- SDFF（scan FF）は `mylogic_seq_scan.py`（SDFF_PC/_NR/_NS/_NR_NS）に実装済、LAT / ICG は `docs/SPEC_seq_lat.md` に整備済（本項の「別 SPEC で整備予定」は解消）
+- **ドライブ変種**（ISS-00158/a31）：dff/sdff/lat/icg 各 family に `_2`/`_4` を追加し target 215 セル化（cell 名・area のみ差、logic/ports は `_1` と同一）
+- **`.v` specify**（ISS-00147/a32）：各 entry の specify（`$setup`/`$hold`/`$width`＋`reg notifier`、ifnone 切替）は `docs/SPEC_specify.md` を参照
 
 ## 11. 参照
 
-- 関連 issue: ISS-00070（DFF/LAT/SDFF/ICGT 順序系）
-- 関連 spec: `docs/SPEC_internal_power.md`、 `docs/SPEC_three_state.md`
-- 実装ファイル: `charao/script/mylogic_seq_ff.py`、 `sample/target/gf180/fd/mcuC7t20240817/std_seq.jsonc`
+- 関連 issue: ISS-00070（DFF/LAT/SDFF/ICGT 順序系、解決済）、ISS-00147（.v specify）、ISS-00158（_2/_4 変種）、ISS-00141（OSU035/TRIP62 回帰）
+- 関連 spec: `docs/SPEC_specify.md`、`docs/SPEC_pin_oirc.md`、`docs/SPEC_seq_lat.md`、`docs/SPEC_internal_power.md`、`docs/SPEC_three_state.md`
+- 実装ファイル: `charao/script/mylogic_seq_ff.py`、 `sample_target/gf180/fd/mcuC7t20240817/std_seq.jsonc`
 - primitive 定義: `mylogic_seq_ff.py` の `get_code_primitive()`（GF180 PDK Authors / Apache 2.0）

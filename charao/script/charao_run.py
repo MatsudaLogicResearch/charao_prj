@@ -2325,10 +2325,10 @@ def runSpiceMinPulseSingle(poolg_sema, targetHarness:Mcar, spicef:str):
   timestep_tmax  = max(100 * h.mls.simulation_timestep_max, timestep_tstep)
 
   #-- ISS-00160: パルス slew は mpw template の index_1 を汎用ループ（要素数は PDK 依存、gf180=3）。
-  #   simulation_slew_for_pulse（スカラー固定）は廃止。cell の template_kgn に ["mpw","3x1","d000"] が必要。
+  #   simulation_slew_for_pulse（スカラー固定）は廃止。cell の template_kgn に ["mpw","3x0","d000"] が必要。
   _mpw_temp = h.mlc.template.get("mpw") if (h.mlc is not None and hasattr(h.mlc, "template")) else None
   if _mpw_temp is None or len(_mpw_temp.index_1) < 1:
-    print(f"[Error] min_pulse: mpw template not found. cell の template_kgn に ['mpw','3x1','d000'] を追加してください。")
+    print(f"[Error] min_pulse: mpw template not found. cell の template_kgn に ['mpw','3x0','d000'] を追加してください。")
     my_exit()
   h.template      = _mpw_temp
   h.template_kind = "mpw"

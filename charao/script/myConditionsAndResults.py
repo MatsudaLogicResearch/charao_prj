@@ -261,7 +261,7 @@ class MyConditionsAndResults(BaseModel):
     self.set_target_inport()
     self.set_target_relport()
     self.set_target_clkport()
-    self.set_lib_target_related()  # ISS-00127: Liberty 出力用 pin 識別を pin_tr or 自動推定で設定
+    self.set_lib_target_related()  # ISS-00127: Liberty 出力用 pin 識別を pin_tr（全 entry 必須）で設定
 
 
   def set_lib_target_related(self):

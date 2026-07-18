@@ -80,10 +80,15 @@ charao 内部で使用される measure_type 全体：
 - VOUT（出力）の遷移を観測
 - `chg_out` で VOUT が 50% を超える時刻を計測
 - `prop_in_out` で VIN→VOUT delay 計測
-- `trans_out` で VOUT の 10%→90%（or 90%→10%） 時間計測
+- `trans_out` で VOUT の遷移時間計測（閾値は config 依存：gf180 は 30%→70% / 70%→30%
+  ＝`logic_threshold_low/high`、default は 20%/80%）
 
 **.lib 出力**：
 - `pin (Q) { timing { related_pin: "<input>"; timing_type: "combinational"; cell_rise / cell_fall / rise_transition / fall_transition } }`
+- **出力 transition の slew_derate（ISS-00157 / a31）**：`rise/fall_transition` は Liberty 規約に従い
+  **格納値 = 実測（閾値間 30-70%）/ `slew_derate_from_library`**（gf180=0.5 → 格納値 = 実測 ×2）で格納する。
+  `cell_rise/fall`（delay）や const 等の「時刻」値は slew_derate 非対象。config: `slew_derate_from_library`
+  （`config_lib.jsonc`）、実装: `myConditionsAndResults.py` / `myExportLib.py`（`.lib`）・`myExportDoc.py`（`.md`）。
 
 **`pin_oirc` 構成**：
 - `[o0, i0, i0, c0]` (LATCH)：[1]=[2]=D で VIN=VREL=D 同時 slew、 [3]=E
@@ -158,11 +163,16 @@ charao 内部で使用される measure_type 全体：
 
 **計測内容**：CLK / E / RN / SETN の H/L pulse 最小幅
 
-**sim 動作**：pulse 幅を sweep し、 DUT が動作（D 取り込み or reset/set 完了）できなくなる境界
+**sim 動作**：pulse 幅を sweep し、 DUT が動作（D 取り込み or reset/set 完了）できなくなる境界。
+**ISS-00160(a31) で slew-index テーブル化**：パルス対象ピンの slew（template `kind=mpw` の
+`index_1`、gf180 は `[0.02, 0.8, 4.0]`、要素数は PDK 依存で任意）ごとに境界を探索し 1D テーブル化する。
+旧 `simulation_slew_for_pulse`（固定 slew スカラー）は廃止（`myLibrarySetting.py`、`charao_run.py`）。
 
 **.lib 出力**：
-- `pin (CLK/E/RN/SETN) { timing { timing_type: "min_pulse_width"; rise_constraint (high) / fall_constraint (low) } }`
-- または charao 独自 field `min_pulse_width_high / min_pulse_width_low`（ISS-00108(3)）
+- `pin (CLK/E/RN/SETN) { timing { timing_type: "min_pulse_width"; rise_constraint (mpw_template_3x0) (high) / fall_constraint (low) } }`
+  ＝ **Liberty timing() constraint テーブル**（`index_1 = constrained_pin_transition`、template は `config_lib.jsonc` の `kind=mpw`）
+- **ISS-00160 で charao 独自 scalar field `min_pulse_width_high / min_pulse_width_low` は撤去**
+  （Liberty 仕様上、timing() constraint が authoritative なため）
 
 ### 4.9 `power_tout`（output dynamic energy）
 
@@ -251,7 +261,7 @@ charao 内部で使用される measure_type 全体：
 
 | 追加項目 | 対象 family | 実装 |
 |----------|-------------|------|
-| `minimum_period` 出力 | seq_ff / seq_scan | myExportLib.py で `min_pulse_width_high + low` から算出して timing entry 追加 |
+| `minimum_period` 出力 | seq_ff / seq_scan | **保留（ISS-00082）**：`myExportLib.py` に `minimum_period` timing block 未実装。min_pulse 自体は ISS-00160(a31) で timing() constraint テーブル化済 |
 | `non_seq_setup_rising` / `non_seq_hold_rising` | RN/SETN 持つ DFF/LAT | mylogic に新 entry 追加、 setup/hold 構造を流用 |
 | `three_state_enable` / `three_state_disable` | comb_tristate (BUFZ/INVZ) | mylogic_comb_tristate に新 measure_type 追加 |
 
@@ -266,8 +276,8 @@ charao 内部で使用される measure_type 全体：
 
 | 項目 | charao 現状 | orig 標準 | 対応 |
 |------|-------------|-----------|------|
-| `min_pulse_width` | field（`min_pulse_width_high : 0.218`）| timing block (`rise_constraint` table) | myExportLib.py で table 出力に変更（ISS-00108(3)）|
-| `min_period` | field（`min_period : 0.424`） | `minimum_period` timing block | myExportLib.py で timing block 出力に変更 |
+| `min_pulse_width` | **timing() constraint テーブル（`rise/fall_constraint(mpw_template_3x0)`）＝orig 標準に整合済** | timing block (`rise/fall_constraint` table) | **ISS-00160(a31) で timing() constraint テーブル化・実装済**（旧 scalar field `min_pulse_width_high/low` は撤去）|
+| `min_period` | **未出力（scalar 撤去・保留）** | `minimum_period` timing block | scalar `min_period` は ISS-00160 で撤去。`minimum_period` timing block 出力は**保留**（`myExportLib.py` に未実装、ISS-00082 で検討）|
 | `default_cell_leakage_power` | field（cell 属性）| `leakage_power { value }`（block 内）| myExportLib.py で block 内 default 行追加（ISS-00108(8)）|
 
 ---
@@ -821,8 +831,8 @@ library (name) {
 | `latch (Io0, IQB) { enable : "E" ; data_in : "(!D)" ; }` | ✓ 同等 | ✓ | - |
 | `pin (Q) { function : "IQ1" }`（PDK 命名）| `function : "IQ"`（charao 内部 register 名）| ✗ 名称違い | ISS-00108(1) |
 | `pin (Q) { max_capacitance / max_transition / min_capacitance / related_ground_pin / related_power_pin }` | **欠落** | ✗ 欠落 | ISS-00108(4) |
-| `timing { timing_type : min_pulse_width; rise_constraint / fall_constraint }`（timing block 内） | field `min_pulse_width_high : 0.218` / `min_pulse_width_low : 0.128` | ✗ 表記違い | ISS-00108(3) |
-| `timing { timing_type : minimum_period }`（timing block 内）| field `min_period : 0.424` | ✗ 表記違い | ISS-00108(5/6) |
+| `timing { timing_type : min_pulse_width; rise_constraint / fall_constraint }`（timing block 内） | **timing() constraint テーブル（`rise/fall_constraint(mpw_template_3x0)`、ISS-00160 で実装済）** | ✓ 整合 | ISS-00108(3) → ISS-00160 で解消 |
+| `timing { timing_type : minimum_period }`（timing block 内）| **未出力（scalar `min_period` は撤去・timing block は保留）** | ✗ 欠落 | ISS-00082（保留）|
 | `pin (Q) { internal_power { related_pin : "CLK" } }` | ✓ 同等 | ✓ | - |
 | `pin (D) { capacitance : <num> }` | ✓（現状 passive sim から、 ISS-00111 で全 sim 副産物に統一）| ✓ | ISS-00111 |
 | `pin (D) { internal_power { when : "..." } }` | `power_tin` で対応、 ただし when 別詳細展開不足 | △ | ISS-00108(7) |
@@ -844,7 +854,7 @@ library (name) {
 
 #### 差異があるが機能等価（syntax）
 
-- △ `min_pulse_width` / `minimum_period` の field vs timing block 表記 → ツールにより解釈差、 `myExportLib` 修正で解消（ISS-00108(3)(5)）
+- ✓ `min_pulse_width` は ISS-00160(a31) で timing() constraint テーブル化し解消（scalar field 撤去）。`minimum_period` は scalar 撤去済・timing block 出力は保留（ISS-00082）
 - △ `pg_pin` vs `inout` → 一部 STA tool は pg_pin 要求、 `myExportLib` 修正で解消（ISS-00108(2)）
 - △ `cell_leakage_power` / default 行の出力形式 → 同上（ISS-00108(8)）
 

@@ -14,8 +14,10 @@ input pin and output pin blocks. The semantics differ:
 
 | pin direction | template (Liberty) | dimension | content |
 |---------------|--------------------|-----------|---------|
-| **output pin** | `pwr_tin_oload_10x10` | 2D (input slope x output load) | active arc (output toggles when an input toggles); `related_pin` specifies the trigger input |
-| **input pin** | `pwr_tin_10` | 1D (input slope only, **no output load**) | state-dependent power (input toggles, output stays at a fixed value); `related_pin` is omitted (Liberty default = the same input pin) |
+| **output pin** | `power_tout_energy_template_10x10` | 2D (input slope x output load) | active arc (output toggles when an input toggles); `related_pin` specifies the trigger input |
+| **input pin** | `power_tin_energy_template_10x0` | 1D (input slope only, **no output load**) | state-dependent power (input toggles, output stays at a fixed value); `related_pin` is omitted (Liberty default = the same input pin) |
+
+> **power_tout の帰属（ISS-00154）**：charao の `power_tout` は遷移エネルギーを**計測 arc（出力ピン）に総量計上**する。一方 orig(vendor) は同エネルギーを寄与ピン（pin(CLK)＋pin(Q) 等）へ**分解**して計上する流儀差がある。**ライブラリ総和は等価**（orig の per-pin 値を合算すると charao 総量とオーダー一致）だが、per-pin 突合やクロックツリー電力の分離抽出では値の置き場所が構造的に異なる。1.0.0 は総量計上のまま（post-1.0.0 検討事案）。
 
 ### Example: AOI21 (`o = !((A1 & A2) | B)`)
 
@@ -26,8 +28,8 @@ pin (A1) {
   direction : input ;
   internal_power () {              # input pin power: A1 toggles, output stays
     when : "!A2 !B" ;              # state where output stays at 1
-    fall_power(pwr_tin_10) { ... } # value for A1 fall
-    rise_power(pwr_tin_10) { ... } # value for A1 rise
+    fall_power(power_tin_energy_template_10x0) { ... } # value for A1 fall
+    rise_power(power_tin_energy_template_10x0) { ... } # value for A1 rise
   }
   internal_power () { when : "!A2 B" ; ... }
   internal_power () { when : "A2 B" ;  ... }
@@ -39,8 +41,8 @@ pin (Z)  {
   internal_power () {              # output pin power: A1 toggles, Z toggles
     related_pin : "A1" ;
     when : "A2 !B" ;
-    fall_power(pwr_tin_oload_10x10) { ... }
-    rise_power(pwr_tin_oload_10x10) { ... }
+    fall_power(power_tout_energy_template_10x10) { ... }
+    rise_power(power_tout_energy_template_10x10) { ... }
   }
   /* 4 more output-pin internal_power entries for A1/A2/B active arcs */
 }
@@ -82,10 +84,10 @@ iteration via `set_meas_type()`.
 ]
 ```
 
-Map to Liberty:
-- `kind=delay`      -> `tmg_ntin_oload_10x10`
-- `kind=power_tout` -> `pwr_tin_oload_10x10`
-- `kind=power_tin`  -> `pwr_tin_10`
+charao が `.lib` に出力する lu_table_template 名（`gen_lut_templates` / `myExportLib.py`、`<kind>_energy_template_<grid>` 形式）:
+- `kind=delay`      -> `delay_template_10x10`
+- `kind=power_tout` -> `power_tout_energy_template_10x10`
+- `kind=power_tin`  -> `power_tin_energy_template_10x0`
 
 ### Cell template_kgn (`std_*.jsonc`)
 
@@ -140,20 +142,24 @@ orig（vendor lib）は同一セルでも**出力ピンごとに異なる load �
 
 ```python
 MyExpectCell(
-    pin_oir   = ["o0", "iN", "iN"],          # output pin, input pin, related pin (= same input pin)
-    ival      = {"o":["<output_value>"],
-                 "i":["<input0>","<input1>",...]},  # full state (per cell input width)
-    mondrv_oir= ["<output_unchanged>",
-                 "1" or "0",                  # input transitions to 1 (rise) or 0 (fall)
-                 "1" or "0"],                 # related = input value
+    pin_tr    = ["iN", ""],                   # ISS-00127: Liberty 出力の [target, related]（全 entry 必須）。
+                                              #   power_tin は target=入力ピン iN、related なし
+    pin_oirc  = ["o0", "", "iN", ""],         # 4 要素: [0]=output, [1]=空, [2]=入力(related slot), [3]=空(comb)
+    ival      = {"o":["<output_held>"],       # 出力の保持値（"0"/"1"）
+                 "i":["<input0>","<input1>",...]},  # 全入力の状態（cell 入力幅ぶん）
     meas_types= ["power_tin"],
-    tmg_sense = "non",                        # not an active arc
-    arc_oir   = ["s",                         # output stable
-                 "r" or "f",                  # input rise or fall
-                 "r" or "f"],                 # related = input direction
-    tmg_when  = "<other_inputs_state>",       # e.g. "!i1&!i2", in i-notation; replaced by ports at output time
+    tmg_sense = "non",                        # active arc ではない
+    arc_oirc  = ["0" or "1",                  # [0]=保持される出力値（旧 "s" は廃止）
+                 "",                           # [1]=空
+                 "r" or "f",                  # [2]=入力の遷移方向
+                 ""],                          # [3]=空(comb)
+    tmg_when  = "<other_inputs_state>",       # 例 "!i1"（i-notation、出力時に実ポート名へ変換）
     specify   = "",
 )
+# 注（現行仕様）:
+#   - mondrv_oirc は ISS-00101 で廃止（省略。spice 駆動値は ival/arc_oirc から決定）
+#   - arc_oirc[0] の "s"（stable）は廃止 → 保持される出力値 "0"/"1" を書く
+#   - Liberty の target/related は pin_tr で決まる（pin_oirc からの自動推定は不採用）
 ```
 
 ### tmg_when

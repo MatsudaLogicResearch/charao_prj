@@ -104,32 +104,37 @@ mylogic に 2 つの field を持つ：
 | `min_pulse_width_high/low`（CLK） | [o0, i0, "", **c0**] | [**c0**, ""] | 計測対象 CLK は slot3 駆動（ival c=["p"/"n"]）、 related なし |
 | `leakage` | static state | [**""**, ""]（空ペア必須） | cell-level 出力 |
 
-### 5.3 互換性（後方互換ロジック）
+### 5.3 pin_tr は全 entry 必須（自動推定は不採用）
 
-`pin_tr` 未指定 entry は `pin_oirc` から自動推定：
+**`pin_tr` は全 mylogic entry に必須記載**。空だと error 終了する
+（`myConditionsAndResults.py` `set_lib_target_related`：`[Error] ISS-00127: pin_tr is mandatory`）。
+ISS-00127 の当初計画（§5.4）では「未指定なら pin_oirc から自動推定」する後方互換を想定したが、
+**曖昧さ排除のため自動推定は実装せず、明示必須に確定**した。
 
-| template_kind | `pin_tr` 推定 |
+以下は各 measure での `pin_tr` の**書き方の指針**（旧・自動推定案の対応表を、明示記述の目安として残す）：
+
+| template_kind | `pin_tr` = [target, related] の目安 |
 |---|---|
 | `delay` / `power_tout` / `power_c*` / `power_i*` | `[pin_oirc[0], pin_oirc[2]]` |
-| `power_tin` / `passive` | `[pin_oirc[1], ""]` |
+| `power_tin` / `passive` | `[pin_oirc[1], ""]`（別 pin 指定時は明示、例 power_tin pin(E) は `[c0,""]`）|
 | `const`（setup/hold/recovery/removal）| `[pin_oirc[1], pin_oirc[2]]` |
 | `min_pulse_width_*` | `[pin_oirc[1], ""]` |
-| `leakage` | （cell-level、 `pin_tr` 不要）|
+| `leakage` | `["", ""]`（cell-level、target/related なし）|
 
-明示が必要な entry（spice 駆動と Liberty 出力で pin が異なるケース、 例 power_tin pin(E) で spice 上 `[o0,c0,c0,c0]` で Liberty pin(E) を出す等）は `pin_tr=[c0,""]` を明示指定。
+spice 駆動と Liberty 出力で pin が異なるケース（例 power_tin pin(E) で spice 上 `[o0,c0,c0,c0]` だが
+Liberty は pin(E) を出す）は、目安に依らず `pin_tr=[c0,""]` を明示指定する。
 
 ### 5.4 実装計画（ISS-00127）
 
-1. `myExpectCell.py` に `pin_tr: list[str]` field 追加（default=[]、 空なら 5.3 の自動推定）
-2. `myConditionsAndResults.py` の `set_target_outport/inport/relport` を `pin_tr[0]/pin_tr[1]` ベースに変更
+1. `myExpectCell.py` に `pin_tr: list[str]` field 追加（default=[]、ただし**空は error＝実質必須**。自動推定は不採用）
+2. `myConditionsAndResults.py` の `set_lib_target_related` で `pin_tr[0]=target / pin_tr[1]=related` を設定（空なら `[Error] ISS-00127`）
 3. `myExportLib.py` の `target_inport == port` / `target_outport == port` 等の filter を `pin_tr[0]` ベースに変更
-4. 全 mylogic（comb 6 + seq 4 + io）は **順次対応**：自動推定で済むものは追加不要、 明示が必要な entry のみ `pin_tr` 追加
+4. 全 mylogic（comb / seq〔ff/scan/lat〕/ io）で **全 entry に `pin_tr` を明示**（自動推定なし）＝対応済
 
 ### 5.5 メリット
 
 - spice 制御と Liberty 出力が **構文的に分離**、 意味が明確
-- 同 pin 兼用の場合は自動推定で `pin_tr` 省略可（記述簡略）
-- pin 別 designation が必要な場合（power_tin pin(E) 等）は `pin_tr` 明示で対応
+- pin 別 designation（power_tin pin(E) 等）を `pin_tr` 明示で確実に指定（自動推定の曖昧さを排除）
 - 2026-06-08 LATCH 誤修正のような「pin_oirc[1]=i0 に変更で pin(E) が消える」 bug を構文的に防止
 
 ## 6. 補足：ISS-00118 との関係

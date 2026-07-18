@@ -30,7 +30,7 @@ def _ival_late(v):
 @dataclass
 class MyExpectCell:
   #-- ISS-00127: 記述順 pin_tr → pin_oirc → ival → arc_oirc → meas_types → ...
-  pin_tr       : list[str]      =field(default_factory=list); #ISS-00127: Liberty 出力用 pin 識別 [target, related]、 空なら pin_oirc から自動推定（SPEC_pin_oirc.md §5.3）
+  pin_tr       : list[str]      =field(default_factory=list); #ISS-00127: Liberty 出力用 pin 識別 [target, related]。全 entry 必須（空は error、自動推定は不採用。SPEC_pin_oirc.md §5.3）
   pin_oirc     : list[str]      =field(default_factory=list); #pin definition (spice 制御用), {"o0", "i0", "c0", "c0"} for [VOUT, VIN, VREL, VCLK]
   ival        : dict[str,list[str]]=field(default_factory=lambda:{"o":[],"i":[],"b":[],"c":[],"r":[],"s":[]});#initial value  {"o":["0","1",,],"i":["0","1",,],"b":["0""1",,],"c":["0","1",,],"r":["0","1",,],"s":["0","1",,]]
   arc_oirc     : list[str]      =field(default_factory=list); #arc             {"r" ,"r"  , "f"}  for outport, inport, relatedport

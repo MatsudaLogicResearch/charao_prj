@@ -102,6 +102,13 @@ init phase 初期状態の E / RN・SETN を示す。 **clk_init は後者（t_i
   `meas_types` に併記される（clk_init は併記 arc に従う）
 - `power_tin` は振る pin（D/E/RN/SETN）と when 条件で t_init* の状態が変わるため entry 個別判定
 - `passive` は 2 条件（A・C）、 `leakage` は 3 条件（A・B・C）で entry を分ける（§6.1 参照）
+- **precondition ival[c]="f"（ISS-00159/00161）**：LATCH_PE 系（latq/latrnq/latsnq/latrsnq）は
+  rising_edge / preset / power_tin(E) / min_pulse の init clock 値 `ival["c"]` を基準 latrsnq に合わせ
+  一律 **`"f"`（init 内で E を 1→0 に落として内部マスタ状態を確立）** に統一。latsnq が `"0"`（E=LOW 固定＝
+  内部状態未確立）だった逸脱を修正し、高駆動セルのハング/透過 arc 負遅延を解消（[[ISS-00156]] も副次解決）。
+- **min_pulse の出力形態（ISS-00160）**：`min_pulse_width_high/low` は **Liberty timing() constraint
+  テーブル**（`rise/fall_constraint(mpw_template_3x0)`、`index_1 = constrained_pin_transition`＝pulse 対象 slew）
+  で出力する。charao 独自 scalar 属性・`min_period` は撤去、`simulation_slew_for_pulse` は廃止。
 
 ## 5. clk_init 判定原則
 

@@ -110,11 +110,12 @@ SW 素子（`SW_NMOS`/`SW_PMOS`）が pullres を切り離す挙動を再現す�
 ### 4.1 biport 系（HOLD）
 
 ```python
-# power_tin: biport 駆動 (Z = b0)。 pin_oirc/mondrv_oirc/arc_oirc は 4 要素（[3]=clock/control、 tristate は ""）
-MyExpectCell(pin_oirc=["b0","b0","b0",""], ival={"o":[],"i":[],"b":["0"]}, mondrv_oirc=["1","1","1",""]
-            ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["r","r","r",""], tmg_when="", specify=""),
-MyExpectCell(pin_oirc=["b0","b0","b0",""], ival={"o":[],"i":[],"b":["1"]}, mondrv_oirc=["0","0","0",""]
-            ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["f","f","f",""], tmg_when="", specify=""),
+# power_tin: biport 駆動 (Z = b0)。 pin_tr は必須、pin_oirc/arc_oirc は 4 要素（[1]=空、[3]=空）。
+#   mondrv_oirc は ISS-00101 で廃止（省略）。arc_oirc[0] の "s" は廃止（保持値/遷移方向を書く）。
+MyExpectCell(pin_tr=["b0",""], pin_oirc=["b0","","b0",""], ival={"o":[],"i":[],"b":["0"]}
+            ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["r","","r",""], tmg_when="", specify=""),
+MyExpectCell(pin_tr=["b0",""], pin_oirc=["b0","","b0",""], ival={"o":[],"i":[],"b":["1"]}
+            ,meas_types=["power_tin"], tmg_sense="non", arc_oirc=["f","","f",""], tmg_when="", specify=""),
 # leakage: when:"!b0" / "b0"
 ```
 
@@ -126,12 +127,13 @@ MyExpectCell(pin_oirc=["b0","b0","b0",""], ival={"o":[],"i":[],"b":["1"]}, mondr
 
 | 観点 | 設定 |
 |---|---|
+| pin_tr | `["o0","i1"]`（target=Z出力 o0、related=control i1）|
 | pin_oirc | `["o0","i0","i1",""]`（output / data / control / [3]=空）|
-| arc_oirc | `[output_dir, "s", "r", ""]`（control rise）|
+| arc_oirc | `[output_dir, data_val, "r", ""]`（[1]=データ保持値 `"0"/"1"`、control rise。旧 `"s"` は廃止）<br>例（code）：`["r","1","r",""]` / `["f","0","r",""]` |
 | tmg_sense | `"pos"`（positive_unate） |
 | tmg_when | `""`（fall/rise pair で 1 group） |
 | ival.o | initial 値 = 反対極性（ext drive を 0 or 1 と仮定） |
-| mondrv_oirc | 終状態 = active 値 |
+| （mondrv_oirc）| ISS-00101 で**廃止**（省略。spice 駆動は ival/arc_oirc から決定） |
 
 **fall/rise pair は same when 内で 2 entries 必要**（when 別に分けると group が分裂し
 `len(group)!=2` エラーが出る）。
@@ -140,8 +142,9 @@ MyExpectCell(pin_oirc=["b0","b0","b0",""], ival={"o":[],"i":[],"b":["1"]}, mondr
 
 | 観点 | 設定 |
 |---|---|
+| pin_tr | `["o0","i1"]`（target=Z出力 o0、related=control i1）|
 | pin_oirc | `["o0","i0","i1",""]` |
-| arc_oirc | `[output_dir, "s", "f", ""]`（control fall）|
+| arc_oirc | `[output_dir, data_val, "f", ""]`（[1]=データ保持値 `"0"/"1"`、control fall。旧 `"s"` は廃止）<br>例（code）：`["r","0","f",""]` / `["f","1","f",""]` |
 | tmg_sense | `"neg"`（negative_unate） |
 | tmg_when | `""` |
 | 必須条件 | cell entry に `oe_infos` が無いと `[ERROR] no oe_infos exist for o0` |
@@ -158,19 +161,21 @@ MyExpectCell(pin_oirc=["b0","b0","b0",""], ival={"o":[],"i":[],"b":["1"]}, mondr
 
 ### 5.1 dispatch
 
-| ファイル | 機能 |
+（行番号は目安。コード変更でドリフトするため、シンボル名で追跡すること）
+
+| ファイル（シンボル） | 機能 |
 |---|---|
-| `charao_run.py:136` | `mt.startswith("three_state_")` で `runSpiceDelayMultiThread` 呼び出し |
-| `charao_run.py:184` | `replace("three_state_disable","delay_disable")`（1D template kind） |
-| `myConditionsAndResults.py:203,219-222` | `startswith("three_state_")` で measure_type / timing_type 振り分け |
+| `charao_run.py`（`elif mt.startswith("three_state_")`、~223 行）| three_state dispatch |
+| `charao_run.py`（`replace("three_state_disable","delay_disable")`、~289 行）| 1D template kind（delay_disable）へ変換 |
+| `myConditionsAndResults.py`（`set_measure_type` ~219 / `set_timing_type` ~235-238）| `startswith("three_state_")` で measure_type / timing_type 振り分け |
 
 ### 5.2 tb 生成
 
-| ファイル | 機能 |
+| ファイル（シンボル） | 機能 |
 |---|---|
-| `charao_run.py:401-422` | `pullres_role` / `pullres_gate` を timing_type で切替 |
-| `myTbParam.py:115-118` | `sim_pullres_*` から cell 種別（std/io）で選択 |
-| `temp_testbench.sp.jp2:323-347` | `pullres_role` に応じて R / SW 素子を生成 |
+| `charao_run.py`（`pullres_role` / `pullres_gate` 切替、~513-516 行）| timing_type で切替 |
+| `myTbParam.py`（`sim_pullres_*` 選択）| cell 種別（std/io）で選択 ※行番号未検証 |
+| `temp_testbench.sp.jp2`（`pullres_role` に応じた R / SW 素子生成）| ※行番号未検証 |
 
 ### 5.3 sim_pullres の値（PDK 依存パラメータ）
 
