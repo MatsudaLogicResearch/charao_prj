@@ -71,6 +71,23 @@ def _coerce_idx(s):
         return s
 
 
+def _norm_when(w):
+    """when 条件を項順非依存に正規化する。
+    charao と orig で AND 項の並び順が異なる（例 charao "!D&!CLK&!RN" /
+    orig "!CLK&!D&!RN"）と、文字列一致の group key で偽の非マッチになる。
+    '&' で分割して各項をソート・再結合し、論理等価な when を同一 key に揃える。
+    OR('|') を含む複雑条件はソート単位を '|' 優先で保つ（各 OR 節内で AND をソート）。
+    空文字（default）はそのまま。"""
+    if not w:
+        return w
+    or_parts = w.split("|")
+    normed = []
+    for op in or_parts:
+        terms = [t.strip() for t in op.split("&") if t.strip() != ""]
+        normed.append("&".join(sorted(terms)))
+    return "|".join(sorted(normed))
+
+
 def _group(rows, group_keys, value_key, kind_key,
            drop_zero=False, drop_default_when=False):
     """行を group_keys でグループ化し (index1, index2, value) のリストを保持。
@@ -96,7 +113,8 @@ def _group(rows, group_keys, value_key, kind_key,
             arc_id = (r["cell_name"], r["pin"], r["related_pin"], r[kind_key])
             if arc_id in arc_has_sensitized:
                 continue  # sensitization 付きが別途あるので default は捨てる
-        key = tuple(r[k] for k in group_keys)
+        # ISS: when は項順非依存で照合（charao/orig の AND 項並び差を吸収）
+        key = tuple(_norm_when(r[k]) if k == "when" else r[k] for k in group_keys)
         try:
             v = float(r[value_key])
         except (ValueError, KeyError):
