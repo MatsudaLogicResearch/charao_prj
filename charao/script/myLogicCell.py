@@ -434,15 +434,51 @@ class MyLogicCell(BaseModel):
   ## cell_cleak=max leakage
   def set_max_pleak(self, harnessList:list["Mcar"]):
 
-    max_pleak = 0.0
+    #-- ISS-00165: 初期値は 0 固定でなく leakage_offset（嵩上げ値）。
+    #   leakage_offset は表示単位（leakage_power_unit）なので、 h.pleak と同じ raw 単位へ
+    #   leakage_power_mag で換算する（export 側で /leakage_power_mag して表示に戻る）。
+    #
+    #   【leakage_offset の担当分け】
+    #     - measure ありセル：charao_run.runSpiceLeakageSingle が h.pleak 取得時に加算済み。
+    #       よって以下の for は offset 処理ではなく「複数 leakage entry の max を取る」比較のみ
+    #       （ここで足し込むと when の数だけ多重加算になるため、 max のままにすること）。
+    #     - measure なしセル（物理セル＝expect[]）：sim が走らず harness が空のため for が回らず、
+    #       **この初期値がそのまま pleak_cell になる**。物理セルの分はここが担当する。
+    max_pleak = self.mls.leakage_offset * self.mls.leakage_power_mag
     for h in [x for x in harnessList if x.measure_type == "leakage"]:
       if max_pleak < h.pleak:
         max_pleak = h.pleak
-        
+
     #--
     self.pleak_cell=max_pleak
 
-      
+
+  #--- ISS-00166: leakage op 用に cell subckt の内部ノードを列挙する。
+  def get_internal_nodes(self):
+    """DUT cell subckt の内部ノード（外部ポート以外の net）を列挙して返す。
+    leakage の DC op で、 tran 終端の内部ノード電圧を nodeset に書き戻すために使う
+    （B 案：meas find→alterparam→reset→op）。 全 Tr 端子から ports_dict のキー（外部ポート）
+    と モデル名・W=/L= パラメータを除外。 順序は出現順、 重複除去。"""
+    ports = {k.upper() for k in self.ports_dict.keys()}
+    nodes=[]; seen=set(); in_sub=False
+    with open(self.netlist, 'r') as f:
+      for line in f:
+        t=line.split()
+        if not t: continue
+        if t[0].lower()==".subckt" and len(t)>=2 and t[1].lower()==self.cell.lower():
+          in_sub=True; continue
+        if in_sub and t[0].lower().startswith(".ends"):
+          break
+        if in_sub and t[0][0].upper()=="X":
+          #-- 端子 = instance名(0) と モデル名(パラメータ直前)を除く。 param は最初の '=' 含む token
+          pi=next((i for i,x in enumerate(t) if "=" in x), len(t))
+          for n in t[1:pi-1]:
+            nu=n.upper()
+            if nu not in ports and nu not in seen:
+              seen.add(nu); nodes.append(n)
+    return nodes
+
+
   #--- convert from local port name(i0) to spice port name(A).
   def rvs_portmap(self, local_ports:list):
     rvs_dict={v:k for k,v in self.ports_dict.items()}

@@ -77,7 +77,7 @@ def main():
   #=====================================================
   # Logic entries/ primitive code
 
-  #--(Base defined: 7 modules — comb_base / comb_complex / comb_tristate / seq_ff / seq_scan / seq_lat / io)
+  #--(Base defined: 8 modules — comb_base / comb_complex / comb_tristate / seq_ff / seq_scan / seq_lat / io / physical)
   modules = [
     "charao.script.mylogic_comb_base",
     "charao.script.mylogic_comb_complex",
@@ -86,6 +86,7 @@ def main():
     "charao.script.mylogic_seq_scan",
     "charao.script.mylogic_seq_lat",
     "charao.script.mylogic_io",
+    "charao.script.mylogic_physical",   # ISS-00165: 物理セル（fill/fillcap/endcap/filltie）
   ]
   logic_dict = {}
   code_primitive_parts = []
@@ -298,6 +299,53 @@ def main():
       num_gen_file += 1
 
 
+  #--- std_physical_xxx.jsonc
+  #    ISS-00165: 物理セル（fill/fillcap/endcap/filltie）。 信号ピン・timing arc を持たず measure ゼロ。
+  #    comb ではないため専用ループで処理する（add_ff / add_latch は不要）。
+  for jsonc in json_group_list:
+    if not jsonc.startswith("std_physical"):
+      continue
+
+    cell_physical_info_list=[]
+    parser=JsonComment()
+    json_file=f"{json_path}/{jsonc}"
+    with open (json_file, "r") as f:
+      ## read cell_spice_path, cell
+      path_cell=parser.load(f)
+
+      ## sort by "cell" name
+      physical_info_list = path_cell["cell_info"]
+      cell_physical_info_list = sorted(physical_info_list, key=lambda x: x["cell"])
+
+    #
+    for info in cell_physical_info_list:
+
+      #-- for DEBUG
+      if (targetLib.cells_only) and (info['cell'] not in targetLib.cells_only):
+        continue
+      else:
+        print(f"[INFO] cell={info['cell']}")
+
+      #
+      targetCell = Mlc(mls=targetLib, **info)
+      targetCell.set_spice_path(path_cell["spice_path"])
+      targetCell.set_supress_message()
+      targetCell.add_template()
+      targetCell.chk_netlist()
+      targetCell.chk_ports()
+      targetCell.add_model()
+      targetCell.add_function()
+      targetCell.add_vcode()
+
+      ## characterize (expect=[] のため sim は走らず harness 空で返る)
+      harnessList = characterizeFiles(targetLib, targetCell)
+
+      ## export
+      exportFiles(targetCell=targetCell, harnessList=harnessList)
+      exportDoc(targetCell=targetCell, harnessList=harnessList)
+      num_gen_file += 1
+
+
   #--- io_xxx.jsonc
   for jsonc in json_group_list:
 
@@ -394,6 +442,10 @@ def characterizeFiles(targetLib, targetCell):
     elif logic_type  == "seq_lat":
       rslt=runExpectation(targetLib, targetCell, targetLib.logic_dict[targetCell.logic]["expect"])
     elif logic_type  == "io":
+      rslt=runExpectation(targetLib, targetCell, targetLib.logic_dict[targetCell.logic]["expect"])
+    elif logic_type  == "physical":
+      #-- ISS-00165: 物理セル（fill/fillcap/endcap/filltie）は expect=[] ＝ measure ゼロ。
+      #   sim は走らず harness 空で返る（cell_leakage_power は leakage_offset の嵩上げ値が残る）。
       rslt=runExpectation(targetLib, targetCell, targetLib.logic_dict[targetCell.logic]["expect"])
     else:
       print(f"[Error] unknown logic_type={logic_type}.")

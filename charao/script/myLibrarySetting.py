@@ -101,7 +101,13 @@ class MyLibrarySetting(BaseModel):
   hold_meas_low_threshold     : float = 0.01 ;#
   hold_meas_high_threshold    : float = 0.99 ;#
   slew_derate_from_library    : float = 1.0  ;# .lib header value (stored = phys threshold-window time; STA: actual = stored * derate)
-  
+  leakage_offset              : float = 0.0  ;# ISS-00165: leakage の嵩上げ値（全セルに一律加算する定数）。 単位は leakage_power_unit（表示単位）。
+                                              #   0.0 = 嵩上げ無し（従来動作、 未設定 PDK の後方互換）。 gf180 は 5e-05。
+                                              #   orig は sim で再現できない一律成分（レイアウト実体 or vendor 規約）を全セルに持つ。
+                                              #   実測：orig - charao が 1x〜20x 駆動の全域で 4.90〜5.00e-05 一定（＝clamp でなく加算）。
+                                              #   物理セル（fill/endcap 等）は measure ゼロのため、 この値がそのまま出力される。
+  leakage_stable_time         : float = 1.0  ;# ISS-00166: leakage op 前段 tran(=tslew_in)の絶対時間（単位 time_unit）で、 nodeset に渡す内部ノード電圧を静定させる。 1.0=1ns（gf180 は 1ns で 10ns と同結果＝sim 短縮のため 1）。 静定が足りないプロセスでのみ増やす。（貫通対策は別途 pleak=min）
+
   #slope  : list[list[Any]]= Field(default_factory=list); # [[1, 2, 3, "slope1"],[2, 3, 4, "slope2"]]
   #load   : list[list[Any]]= Field(default_factory=list);
   #slope  : dict[str,list[float]]= Field(default_factory=dict); # {"slope1":[1, 2, 3]},{"slope2":[2, 3, 4]}

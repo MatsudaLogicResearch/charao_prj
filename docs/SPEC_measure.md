@@ -53,7 +53,7 @@ charao 内部で使用される measure_type 全体：
 | 16 | `power_tout` | output 遷移時の dynamic energy | 全 family | `internal_power { rise_power / fall_power }`（output pin 内）|
 | 17 | `power_tin` | input pin slew 時の dynamic energy | 全 family | `internal_power { rise_power / fall_power }`（input pin 内）|
 | 18 | `passive` | output 無いセルの input pin capacitance 算出 | ANTENNA / filler 等 | `pin (<input>) { capacitance }` |
-| 19 | `leakage` | DUT 全 pin DC stable 時の leak 電流 | 全 family | `leakage_power { when ; value }` |
+| 19 | `leakage` | DC 動作点(`op`)での static leak 電力＝`min(p_supply, p_absorb)`＋`leakage_offset`（§4.12）| 全 family（物理セルは measure-less）| `leakage_power { when ; value }` |
 
 ### Liberty 標準で必要だが charao に欠落
 
@@ -213,16 +213,38 @@ charao 内部で使用される measure_type 全体：
 
 ### 4.12 `leakage`（DC leak）
 
-**計測内容**：DUT 全 pin を DC stable に固定した状態の leak 電流
+**計測内容**：DUT 全 pin を DC stable に固定した状態の静的 leak 電力。state 組合せ（各 input の H/L、 seq/lat は保持値）ごとに 1 値。
 
-**sim 動作**：
-- 全 input pin を DC level（H or L）に固定
-- WOUT pre-charge SW（ISS-00076）で出力を強制初期化
-- DC steady state で I(VDD_DYN) を AVG 計測
+> **重要（2026-07-25、ISS-00166/00167 で全面改訂）**：旧実装は tran の AVG（電源電流を時間平均）だったが、**seq/lat/icg は内部保持ノード（クロスカップル feedback＝高インピーダンス）の平衡時定数が μs 級**で、測定窓（init 後 10ns）では未静定 → 電流に変位電流（well 充電等、真 DC の 24〜46 倍）が混入し **orig の 5〜640 倍過大**になっていた（comb は電源に低抵抗直結で ps 静定のため無問題）。**現行は DC 動作点（`op`）で計測**する。制御は jp2 の `meas_energy==3` 分岐。
+
+**sim 動作（B案＝tran で状態確立 → nodeset 書き戻し → op、`temp_testbench.sp.jp2`）**：
+1. **tran で状態確立**：全 input source を arc の DC 値に設定して `run`。tran 長は `tslew_in = leakage_stable_time × time_mag`（内部保持ノードを静定させる。§SPEC_config_lib `leakage_stable_time`、gf180=1ns）
+2. **内部ノード電圧を取得**：`meas tran v(<node>) find ... at=leak_meas_at`（`leak_meas_at = tsim_end − timestep_tmax`＝終端の僅か手前。厳密な終端は補間で "out of interval" になり得るため）。**内部ノード名は netlist から自動取得**（`myLogicCell.get_internal_nodes()`＝cell subckt を parse し全 Tr 端子から外部ポート（ports_dict キー）・モデル名・W=/L= を除いて列挙）
+3. **nodeset に書き戻し**：取得値を `alterparam` で `.param n<i>_init` に代入 → `reset`
+4. **DC 動作点**：input source を arc の DC hold 値に `alter` → `op`。`.nodeset v(xcell.xdut.<node>)={n<i>_init}` で **op の初期推定値**として与える（force ではなく Newton の初期値。双安定 hold 状態が正しい安定解へ収束するのを助ける）
+5. **電源電流を出力**：`let`/`print` で 6 電流（i_vdd/i_vss/i_vnw/i_vpw/i_vddio/i_rel）を取得。旧 `.MEASURE i_*_leak` は無効化（jp2 で行頭 `*`）
+
+**pleak の算出（ISS-00167、`charao_run.py:genFileLogic_LeakageTrial1x`）**：
+```
+p_supply = (i_vdd + i_vnw) × (Vdd − Vss)      # 供給側（電源から出る電流）
+p_absorb = (i_vss + i_vpw) × (Vnw − Vpw)      # 吸収側（グランドへ入る電流）
+pleak    = min(p_supply, p_absorb)            # ← min を採用（ISS-00167）
+```
+- 電荷保存より本来 `p_supply == p_absorb`（clean 状態は実測で比 1.00）
+- **入力ピン経由の駆動電流は VDD 側か VSS 側の片方電源にしか出ない**（例：latch で set active & D=0 のとき `VDD→set駆動→内部→pass gate→D ピン(外部VSS)` の貫通で p_supply だけ大。逆向きなら p_absorb だけ大）。真の電源間リークは両側に均等に出るので、**`min` で片側だけ膨らんだ入力駆動成分を除去し真リークを保存**する（`max` は逆に貫通側を拾う＝旧バグ、`p_supply` 単独は VDD 側貫通を拾う。`min` が両方向の貫通を除ける唯一の式）
+
+**leakage_offset の加算（ISS-00165、§SPEC_config_lib 3.1）**：
+- 計測 pleak に **全セル一律の嵩上げ値**を加算：`h.pleak = rslt["pleak"] + leakage_offset × leakage_power_mag`
+- orig−charao が駆動 1x〜20x の全域で一定（gf180 は 4.90〜5.00e-05）＝clamp でなく加算。gf180 config で `leakage_offset = 5e-05`
+
+**物理セル（fill/fillcap/endcap/filltie、ISS-00165）**：
+- 空 subckt（Tr 0）で sim 特性化不可 → **measure-less**。leakage は `leakage_offset` のみで付与（`mylogic_physical.py` の logic_type `"physical"`／`std_physical.jsonc` 専用ループ）
 
 **.lib 出力**：
 - `cell { leakage_power { when : "<state>" ; value : <uW> } }` を state 組合せ別に出力
 - default 行も `leakage_power { value : ... }` として（orig）または `default_cell_leakage_power` field として（charao、 ISS-00108(8)）
+
+**検証（全 229 セル回帰、2026-07-25）**：貫通ゼロ・comb 1.00x（不変）・seq(dff) 0.81x／lat 0.89x／icg 0.77x／physical 1.00x。seq/lat/icg の残る一律 0.72〜0.89x 系統オフセットは貫通と別種（ISS-00168、post-1.0.0 検討）
 
 ---
 

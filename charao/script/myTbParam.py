@@ -104,6 +104,8 @@ class MyTbParam:
   wave_raw         :bool=False  #-- ISS-00078: True で .save / -r 出力
   wave_save_list   :str ="";    #-- testbench top node の固定 14 リスト
   pinmap_dict      :dict        = None #-- raw signal → cell port mapping (sidecar .pinmap.json 用)
+  internal_nodes   :list[str]   = Field(default_factory=list); #-- ISS-00166: leakage op 用 DUT 内部ノード（nodeset/meas 対象）
+  leak_meas_at     :float       = 0.0  #-- ISS-00166: leakage op で内部ノード電圧を meas find する時刻（tsim_end より僅か手前）
 
   def set_common_value(self, harness:Mcar, arc_oirc:list[str]):
     h=harness

@@ -437,13 +437,13 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
 {%- endif %}
 
 {%- elif   param.meas_energy == 3 %}
-* Gate leak current
-.MEASURE TRAN i_vdd_leak   AVG I(VDD_DYN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
-.MEASURE TRAN i_vss_leak   AVG I(VSS_DYN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
-.MEASURE TRAN i_vnw_leak   AVG I(VNW_DYN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
-.MEASURE TRAN i_vpw_leak   AVG I(VPW_DYN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
-.MEASURE TRAN i_vddio_leak AVG I(VDDIO_DYN) FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
-.MEASURE TRAN i_rel_leak   AVG I(VREL)      FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+* Gate leak current  (ISS-00166: 末尾 .control の op で計測。 下記 .MEASURE は無効化＝行頭 * )
+* .MEASURE TRAN i_vdd_leak   AVG I(VDD_DYN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+* .MEASURE TRAN i_vss_leak   AVG I(VSS_DYN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+* .MEASURE TRAN i_vnw_leak   AVG I(VNW_DYN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+* .MEASURE TRAN i_vpw_leak   AVG I(VPW_DYN)   FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+* .MEASURE TRAN i_vddio_leak AVG I(VDDIO_DYN) FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
+* .MEASURE TRAN i_rel_leak   AVG I(VREL)      FROM={{param.time_energy[0]}} TO={{param.time_energy[1]}}
 
 {%- endif %}
 
@@ -523,12 +523,63 @@ C0 WOUT 0 'cap'
 
 .ends
 
-{%- if param.wave_raw %}
-* ISS-00078: write waveform raw via ngspice control block
+* ISS-00166/00167: control を一本化。 leakage(meas_energy==3)は op で静的電流を計測する。
+*   全状態で B案: run→meas(内部ノード電圧を find)→alterparam(nodeset param へ書戻し)→reset→alter→op。
+*   tran は tslew_in=leakage_stable_time まで走り内部ノード（保持/競合＝latch の nMOS パス劣化 H 等）を
+*   静定させる。 これで nodeset が安定し op が正しい安定解へ収束（過渡途中を拾うと metastable=貫通）。
+*   他 measure(0/1/2/4/5)は run で .tran＋.MEASURE を実行。 op 源値は arc_oirc(1/r/n→vdd, 0/f/p→vss)。
 .control
+{%- if param.meas_energy == 3 %}
+{%- if param.internal_nodes %}
 run
+{%- for n in param.internal_nodes %}
+meas tran mn{{loop.index0}} find v(xcell.xdut.{{n}}) at={{ param.leak_meas_at }}
+{%- endfor %}
+{%- for n in param.internal_nodes %}
+alterparam n{{loop.index0}}_init = $&mn{{loop.index0}}
+{%- endfor %}
+reset
+{%- endif %}
+{%- if   param.arc_oirc[1] in ["1","r","n"] %}
+alter vin  = {{ param.voltage_vsnp[0] }}
+{%- elif param.arc_oirc[1] in ["0","f","p"] %}
+alter vin  = {{ param.voltage_vsnp[1] }}
+{%- endif %}
+{%- if   param.arc_oirc[2] in ["1","r","n"] %}
+alter vrel = {{ param.voltage_vsnp[0] }}
+{%- elif param.arc_oirc[2] in ["0","f","p"] %}
+alter vrel = {{ param.voltage_vsnp[1] }}
+{%- endif %}
+{%- if   param.arc_oirc[3] in ["1","r","n"] %}
+alter vclk = {{ param.voltage_vsnp[0] }}
+{%- elif param.arc_oirc[3] in ["0","f","p"] %}
+alter vclk = {{ param.voltage_vsnp[1] }}
+{%- endif %}
+op
+let i_vdd_leak   = i(vdd_dyn)
+let i_vss_leak   = i(vss_dyn)
+let i_vnw_leak   = i(vnw_dyn)
+let i_vpw_leak   = i(vpw_dyn)
+let i_vddio_leak = i(vddio_dyn)
+let i_rel_leak   = i(vrel)
+print i_vdd_leak
+print i_vss_leak
+print i_vnw_leak
+print i_vpw_leak
+print i_vddio_leak
+print i_rel_leak
+{%- else %}
+run
+{%- endif %}
+{%- if param.wave_raw %}
 write sim.sp.raw {{ param.wave_save_list }}
+{%- endif %}
 .endc
+
+{%- if param.meas_energy == 3 and param.internal_nodes %}
+* ISS-00166 B案: 内部ノードの nodeset（初期値 param は control 内 alterparam で tran 実測値に更新）
+.param {% for n in param.internal_nodes %}n{{loop.index0}}_init=0 {% endfor %}
+.nodeset {% for n in param.internal_nodes %}v(xcell.xdut.{{n}})={n{{loop.index0}}_init} {% endfor %}
 {%- endif %}
 
 .end

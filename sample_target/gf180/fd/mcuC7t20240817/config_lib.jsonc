@@ -46,6 +46,17 @@
   ,"logic_high_to_low_threshold" : 0.5
   ,"logic_low_to_high_threshold" : 0.5
   ,"slew_derate_from_library"    : 0.5
+// ISS-00165: leakage の嵩上げ値＝全セルに一律加算する定数（単位＝leakage_power_unit＝uW）。
+//   orig(gf180) は sim で再現できない一律成分を全セルに持つ。 実測（2026-07-24）で
+//   orig - charao(計測値) が inv_1〜inv_20（駆動 1x〜20x）の全域で 4.90〜5.00e-05 の
+//   ほぼ一定値と判明（比は 2.96→1.10 と変動）＝clamp ではなく加算が正しい。
+//   sim で取得できない根拠：i_vnw は 1e-20 の数値ノイズ（well 接合が未モデル化）、
+//   fill は空 subckt（Tr ゼロ）で全端子電流 0 なのに orig は 5e-05、 かつ area 64 倍でも値が不変。
+//   物理セル(fill/fillcap/endcap/filltie)は measure ゼロのため、 この値がそのまま出力される。
+  ,"leakage_offset"              : 5e-05
+// ISS-00166/00167: leakage op の状態確立 tran(tslew_in)の絶対時間（ns）。 内部保持/競合ノード
+//   （例 latch の nMOS パス劣化 H≈VDD-Vth）が静定してから nodeset 値を捕捉するため 10ns（latch 系で静定確認）。
+  ,"leakage_stable_time" : 1
   ,"energy_meas_low_threshold"   : 0.01
   ,"energy_meas_high_threshold"  : 0.99
   ,"hold_meas_high_threshold"    : 0.01

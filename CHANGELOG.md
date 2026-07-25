@@ -4,6 +4,25 @@
 
 ---
 
+## [0.9.14a33] 2026-07-25
+
+Alpha pre-release. 物理セル leakage 対応（ISS-00165）＋ seq/lat/icg leakage の DC(op) 化（ISS-00166）＋ set/reset ラッチ貫通の pleak=min 修正（ISS-00167）。全 229 セル leakage 回帰で貫通全滅・orig オーダー収束。
+
+### Added
+- **物理セル（fill/fillcap/endcap/filltie）14 種の leakage 対応（ISS-00165）**: orig 229 セルに対し charao は 215 セルだった差分 14（timing arc なし・leakage/area/pg_pin のみ）を追加し network を完全化。空 subckt（Tr 0）で sim 特性化できないため **measure-less 方式**：新規 `mylogic_physical.py`（logic_type "physical"）＋ `std_physical.jsonc`（14 セル、専用ループを `charao.py` に追加）。leakage は `leakage_offset` の一律加算で付与。
+- **`leakage_offset`（leakage 嵩上げ値、ISS-00165）**: orig−charao が駆動 1x〜20x の全域で 4.90〜5.00e-05 一定＝clamp でなく全セルへの一律加算と実測判明。`myLibrarySetting.py` にフィールド追加（default 0.0）、gf180 config で 5e-05。orig と 0.02% 以内で一致。
+- **`leakage_stable_time`（leakage op 前段 tran の絶対時間、ISS-00166）**: nodeset に渡す内部ノード電圧の静定用（tunable、default 1.0=1ns）。gf180 は 1ns で 10ns/40ns と同結果のため 1。
+- **`SPEC_config_lib.md`**: config_lib.jsonc の leakage 系パラメータ仕様を記載。
+
+### Fixed
+- **seq/lat/icg leakage の tran→DC(op) 化（ISS-00166）**: 全 229 セル回帰で seq 54＋clkbuf が orig の 5〜640 倍過大（icgtn 640x／lat 200x／dff 5〜17x）と判明。原因＝内部保持ノード（クロスカップル feedback）の平衡時定数が μs 級で 10ns 窓では未静定、電流に変位電流（真 DC の 24〜46 倍）混入。**B案**（run→meas find→alterparam→reset→alter→op：tran 終端の全内部ノード電圧を nodeset に書き戻して op）で真の DC 動作点を取得。内部ノード名は netlist から自動取得（`myLogicCell.get_internal_nodes()`）。`temp_testbench.sp.jp2` の control ブロック一本化・`.MEASURE i_*_leak` 無効化。
+- **set/reset ラッチ貫通の pleak=min 修正（ISS-00167）**: latrnq/latsnq/latrsnq の leakage op が貫通（72〜81x）。真因＝`pleak = max(p_supply, p_absorb)` が**入力ピン経由の駆動電流**（set active & D 競合時に片側電源のみに出る貫通）を拾っていた。**`pleak = min(p_supply, p_absorb)`** に修正（入力駆動は片側のみ、真リークは両側均等＝min で両方向の貫通を除去し真リークを保存）。あわせて LATCH_PE_NR/NS/NR_NS の leakage ival[c] を正規化（hold=pulse・active=static、`mylogic_seq_lat.py`）。
+
+### Verified
+- **全 229 セル leakage 回帰（0 failures、`pleak=min`／`leakage_stable_time=1`／`leakage_offset=5e-05`）**: 貫通ゼロ。comb 158=1.00x（実質不変）／seq(dff) 36=0.81x／lat 12=0.89x／icg 6=0.77x／physical 17=1.00x。全カテゴリ orig オーダー（0.72〜1.23x）に収束。seq/lat/icg の残る一律 0.72〜0.89x 系統オフセットは貫通と別種＝ISS-00168 に分離（post-1.0.0 検討事案）。
+
+---
+
 ## [0.9.14a32] 2026-07-18
 
 Alpha pre-release. `.v` specify を Verilog 準拠に修正（ISS-00147）。timing check 条件の `&&&` 化・`reg notifier` 宣言と primitive N ポート接続・ifnone×edge-sensitive の `ifdef 切替。

@@ -2580,7 +2580,7 @@ def runSpiceLeakageSingle(poolg_sema, targetHarness:Mcar, spicef:str):
     ,tdelay_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
     ,tdelay_in    = 1e-9 if is_dtp else 10e-9  # ISS-00087: 非 FF は 1ns、 FF は settling 確保 10ns（orig との 10〜30 倍乖離は別途調査）
-    ,tslew_in     = 1e-9      # ISS-00087: AVG window = [t_in0, t_in1] = tslew_in = 1ns
+    ,tslew_in     = float("{:.5g}".format(h.mls.leakage_stable_time * h.mls.time_mag))  # ISS-00166/00167: 状態確立 tran を leakage_stable_time(ns)まで延長し内部ノードを静定させる（旧 ISS-00087: 1ns 固定）
     ,tdelay_rel   = 1e-9      # leakage: rel transition なし、 短い 1 ns
     ,tslew_rel    = float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
     ,tpulse_rel   = float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
@@ -2594,6 +2594,18 @@ def runSpiceLeakageSingle(poolg_sema, targetHarness:Mcar, spicef:str):
   param.tsim_end    = param.t_rel3
   param.compute_timing()
 
+  #-- ISS-00166: leakage は DC op で計測（tran は状態確立のみ）。 op が双安定の保持ノードを
+  #   メタステーブル（貫通）に落とすのを防ぐため、 tran 終端の全内部ノード電圧を meas find で
+  #   取得→alterparam で nodeset に書き戻し→reset→op する（B 案）。 内部ノード名は netlist から
+  #   自動列挙、 論理値は tran が測るので、 セル依存の nodeset 表は不要。
+  #   meas find の時刻は tsim_end 丁度だと最終点の浮動小数ずれで out-of-interval になるため僅か手前。
+  #-- ISS-00166/00167: leakage op は全状態で B案（tran で状態確立→内部ノード電圧を nodeset に
+  #   書き戻し→op）。 set/reset active の競合状態（例 latch の nMOS パス劣化 H≈VDD-Vth）も、
+  #   tslew_in=leakage_stable_time まで tran を延ばして内部ノードを静定させれば nodeset が安定し、
+  #   op が正しい安定解に収束する（過渡途中を拾うと metastable=貫通）。 内部ノード名は netlist 自動列挙。
+  param.internal_nodes = h.mlc.get_internal_nodes()
+  param.leak_meas_at   = param.tsim_end - param.timestep_tmax
+
   with poolg_sema:
     spicefoe1 = _make_sim_path(f"{spicef}_leakage")
 
@@ -2602,7 +2614,22 @@ def runSpiceLeakageSingle(poolg_sema, targetHarness:Mcar, spicef:str):
     print(f'  [INFO] pleak2={rslt["pleak"]}')
 
     with h._lock:
-      h.pleak = rslt["pleak"]
+      #-- ISS-00165: 計測値に leakage_offset（嵩上げ値）を**加算**する（**全セル対象**）。
+      #   offset は表示単位（leakage_power_unit）なので leakage_power_mag で raw へ換算して足す。
+      #
+      #   【なぜ clamp でなく加算か（2026-07-24 実測で確定）】
+      #     orig - charao(計測値) は inv_1〜inv_20（駆動 1x〜20x）の全域で 4.90〜5.00e-05 の
+      #     ほぼ一定値（比は 2.96→1.10 と大きく変動）＝orig は全セルに一律定数を加算している。
+      #     この成分は sim では再現不可：(1) i_vnw は 1e-20 レベルの数値ノイズで well 接合が
+      #     実質モデル化されていない、(2) fill セルは空 subckt（Tr ゼロ）で全端子電流 0 なのに
+      #     orig は 5e-05 を持つ、(3) fill_1(area 2.2) と fill_64(area 140) で orig 値がほぼ不変
+      #     ＝面積依存でなく規約定数。よって測定端子を増やしても取得できず、加算するしかない。
+      #
+      #   ここで加算することで、 leakage_power() の個別 value（myExportLib）と
+      #   cell_leakage_power（set_max_pleak の max）が同一基準になり、 両者の逆転が起きない。
+      #   なお measure なしのセル（物理セル＝expect[]）は本関数を通らないため、
+      #   その分は myLogicCell.set_max_pleak の初期値側が担当する。
+      h.pleak = rslt["pleak"] + h.mls.leakage_offset * h.mls.leakage_power_mag
 
 
 #--------------------------------------------------------------------------------------------------
@@ -2662,7 +2689,12 @@ def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
   i_vpw =  float(res["i_vpw_leak"])
   p_supply = i_vdd * (h.mls.vdd_voltage - h.mls.vss_voltage) + i_vnw * (h.mls.nwell_voltage - h.mls.pwell_voltage)
   p_absorb = i_vss * (h.mls.vdd_voltage - h.mls.vss_voltage) + i_vpw * (h.mls.nwell_voltage - h.mls.pwell_voltage)
-  pleak = max(p_supply, p_absorb)
+  #-- ISS-00167: pleak は min(p_supply, p_absorb) を採用。 入力ピン経由の駆動電流（例 latch の
+  #   pass gate 経由で D が内部ノードを VDD/VSS へ引く貫通）は VDD 側か VSS 側の片方にしか出ない
+  #   ため、 その状態では p_supply≠p_absorb と不均衡になる。 真の電源間リークは両側に均等に出る
+  #   （clean 状態は p_supply==p_absorb）ので min を取れば片側の入力駆動貫通を除去でき、リークは保存。
+  #   latrsnq 実測：VDD 側貫通(num86 系)も VSS 側貫通(num95/99)も min で正常値へ。 旧 max は逆に貫通側を拾う。
+  pleak = min(p_supply, p_absorb)
 
   #if h.target_relport_val == "0":
   #if (i_rel_leak > 0.0) and (pleak > i_rel_leak):
