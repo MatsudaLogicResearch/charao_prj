@@ -77,7 +77,8 @@ pip install git+https://github.com/MatsudaLogicResearch/lrPymRPC_prj.git
 ### option
 ```
 usage: charao.py [-h] [-f FAB_PROCESS] [-v CELL_VENDOR] [-r CELL_REVISION] [-g {std,io}] [-u USAGE_VOLTAGE] [-p PROCESS_CORNER] [-t TEMP] [--vdd VDD]
-                 [--vss VSS] [--vnw VNW] [--vpw VPW] [--target TARGET] [--cells_only [CELLS_ONLY ...]] [--measures_only [MEASURES_ONLY ...]]
+                 [--vss VSS] [--vnw VNW] [--vpw VPW] [--target TARGET] [--cells_only [CELLS_ONLY ...]] [--mylogic_only [MYLOGIC_ONLY ...]]
+                 [--measures_only [MEASURES_ONLY ...]]
                  [-s SIGNIFICANT_DIGITS] [-b BUILD_STAMP] [-w WORK_DIR] [--mylogic_user MYLOGIC_USER]
 
 
@@ -98,6 +99,7 @@ options:
   --vpw VPW             : PWELL voltage
   --target TARGET       : PATH to <target> directory
   --cells_only [CELLS_ONLY ...]                                  : list of target cell names. blank meas all cells.
+  --mylogic_only [MYLOGIC_ONLY ...]                              : list of target mylogic module names (ex "comb_base" for mylogic_comb_base.py). blank meas all modules. combined with --cells_only by AND.
   --measures_only [MEASURES_ONLY ...]                            : list of measure_type names. blank meas all measure_type.
   -s SIGNIFICANT_DIGITS, --significant_digits SIGNIFICANT_DIGITS : significant digits.
   -b BUILD_STAMP, --build_stamp BUILD_STAMP                      : build-stamp for output files.

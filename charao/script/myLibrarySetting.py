@@ -176,6 +176,10 @@ class MyLibrarySetting(BaseModel):
   significant_digits   : int       = 3
   template_index1_only : list[int] = Field(default_factory=list)
   template_index2_only : list[int] = Field(default_factory=list)
+  ## ISS-00169: mylogic モジュール単位のセル選択（--mylogic_only）。 blank=全モジュール
+  mylogic_only         : list[str] = Field(default_factory=list)
+  ## ISS-00169: logic 名 -> mylogic モジュール短縮名（charao.py の merge で構築）
+  logic_owner          : dict[str,str] = Field(default_factory=dict)
   
   #--- other variable
   #load_name       :list[str] = Field(default_factory=list);
