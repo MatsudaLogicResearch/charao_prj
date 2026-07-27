@@ -96,12 +96,18 @@ class MyLibrarySetting(BaseModel):
   logic_threshold_low         : float = 0.2  ;#
   logic_high_to_low_threshold : float = 0.5  ;#
   logic_low_to_high_threshold : float = 0.5  ;#
-  energy_meas_low_threshold   : float = 0.01 ;#
-  energy_meas_high_threshold  : float = 0.99 ;#
+  energy_meas_low_threshold   : float = 0.01 ;# ISS-00117: 必ず 0.01 以上を設定。 myTbParam.py の meas_energy=1 補正で 0.99×low → 負電圧化を防ぐため。
+  energy_meas_high_threshold  : float = 0.99 ;# ISS-00117: 必ず 0.99 以下を設定。 myTbParam.py の meas_energy=1 補正で 1.01×high → VDD 超過化を防ぐため。
   hold_meas_low_threshold     : float = 0.01 ;#
   hold_meas_high_threshold    : float = 0.99 ;#
   slew_derate_from_library    : float = 1.0  ;# .lib header value (stored = phys threshold-window time; STA: actual = stored * derate)
-  
+  leakage_offset              : float = 0.0  ;# ISS-00165: leakage の嵩上げ値（全セルに一律加算する定数）。 単位は leakage_power_unit（表示単位）。
+                                              #   0.0 = 嵩上げ無し（従来動作、 未設定 PDK の後方互換）。 gf180 は 5e-05。
+                                              #   orig は sim で再現できない一律成分（レイアウト実体 or vendor 規約）を全セルに持つ。
+                                              #   実測：orig - charao が 1x〜20x 駆動の全域で 4.90〜5.00e-05 一定（＝clamp でなく加算）。
+                                              #   物理セル（fill/endcap 等）は measure ゼロのため、 この値がそのまま出力される。
+  leakage_stable_time         : float = 1.0  ;# ISS-00166: leakage op 前段 tran(=tslew_in)の絶対時間（単位 time_unit）で、 nodeset に渡す内部ノード電圧を静定させる。 1.0=1ns（gf180 は 1ns で 10ns と同結果＝sim 短縮のため 1）。 静定が足りないプロセスでのみ増やす。（貫通対策は別途 pleak=min）
+
   #slope  : list[list[Any]]= Field(default_factory=list); # [[1, 2, 3, "slope1"],[2, 3, 4, "slope2"]]
   #load   : list[list[Any]]= Field(default_factory=list);
   #slope  : dict[str,list[float]]= Field(default_factory=dict); # {"slope1":[1, 2, 3]},{"slope2":[2, 3, 4]}
@@ -124,8 +130,12 @@ class MyLibrarySetting(BaseModel):
   spiceinit: list[str] = []
   num_thread : int = 1
   sim_nice :int = 19
+  wave_raw : bool = False   # ISS-00078: True で ngspice の sim 結果を sim 個別 dir の sim.sp.raw に保存（DUT cell port を階層参照で .save）
 
-  simulation_timestep : float = 0.001
+  simulation_timestep_max : float = 1.0     # .tran TSTEP の上限 (ns)。 timestep_tstep = max(_min, min(slope*0.0099, _max))
+  simulation_timestep_min : float = 0.001   # .tran TSTEP の下限 (ns、 default 1 ps)。 ngspice LTE 暴走の間接抑制 (ISS-00087)
+  simulation_slew_min : float = 0.001   # min_pulse_width / setup / hold 等の PWL slew 用（ns 単位、 default 1 ps）
+  # ISS-00160: simulation_slew_for_pulse は廃止。min_pulse のパルス slew は templates の kind=mpw（index_1）で指定。
   sim_pulse_max       : float = 2.0
   sim_prop_max        : float =10.0
   sim_prop_tri_max    : float =20.0
@@ -142,8 +152,10 @@ class MyLibrarySetting(BaseModel):
   sim_time_const_threshold   : float = 0.001
   sim_time_end_extent        : int   = 10    ;#
   sim_tsim_end4hold          : float = 50.0
-  sim_pullres_enable         : float = 100
-  sim_pullres_disable        : float = 0.1
+  sim_pullres_std_enable     : float = 100000   # std cell driver (~kΩ) override level
+  sim_pullres_std_disable    : float = 0.1      # std cell disable force-drive
+  sim_pullres_io_enable      : float = 100      # io cell strong driver level
+  sim_pullres_io_disable     : float = 1        # io cell disable force-drive
   
   compress_result :str = "true" 
   supress_msg      :str = "false"
@@ -164,6 +176,10 @@ class MyLibrarySetting(BaseModel):
   significant_digits   : int       = 3
   template_index1_only : list[int] = Field(default_factory=list)
   template_index2_only : list[int] = Field(default_factory=list)
+  ## ISS-00169: mylogic モジュール単位のセル選択（--mylogic_only）。 blank=全モジュール
+  mylogic_only         : list[str] = Field(default_factory=list)
+  ## ISS-00169: logic 名 -> mylogic モジュール短縮名（charao.py の merge で構築）
+  logic_owner          : dict[str,str] = Field(default_factory=dict)
   
   #--- other variable
   #load_name       :list[str] = Field(default_factory=list);
@@ -179,13 +195,15 @@ class MyLibrarySetting(BaseModel):
   template_lines  : dict[str,list[str]] = Field(default_factory=lambda:{
     "const"  :[],
     "delay"  :[],
+    "delay_disable"  :[],
     "delay_c2c"  :[],
     "delay_c2i"  :[],
     "delay_i2c"  :[],
     "delay_i2i"  :[],
     "mpw"    :[],
     "passive":[],
-    "power"  :[],
+    "power_tout":[],
+    "power_tin" :[],
     "power_c2c"  :[],
     "power_c2i"  :[],
     "power_i2c"  :[],
@@ -205,10 +223,19 @@ class MyLibrarySetting(BaseModel):
   #--------------------------------------------------
   #def __init__(self): 
 
+  @model_validator(mode='after')
+  def _clamp_num_thread_to_cpu(self):
+    cpu = os.cpu_count() or 1
+    limit = max(1, cpu - 1)   # cpu_count - 1 を上限、 1 つは汎用処理用に残す（max 1）
+    if self.num_thread > limit:
+      print(f"[INFO] num_thread={self.num_thread} clamped to (cpu_count-1)={limit} (cpu_count={cpu})")
+      object.__setattr__(self, 'num_thread', limit)
+    return self
+
   def print_variable(self):
     for k,v in self.__dict__.items():
       print(f"   {k}={v}")
-      
+
   def set_build_info(self, build_stamp=""):
 
     self.build_stamp= build_stamp
@@ -346,30 +373,34 @@ class MyLibrarySetting(BaseModel):
   def gen_lut_templates(self):
 
     #-- lu_table_template for kind/grid
-    var_1_dict={"const"  :"related_pin_transition",
+    var_1_dict={"const"  :"constrained_pin_transition",
                 "delay"  :"input_net_transition",
+                "delay_disable"  :"input_net_transition",
                 "delay_c2c"  :"input_net_transition",
                 "delay_i2c"  :"input_net_transition",
                 "delay_c2i"  :"input_net_transition",
                 "delay_i2i"  :"input_net_transition",
-                "mpw"    :"related_pin_transition",
+                "mpw"    :"constrained_pin_transition",   # ISS-00160: min_pulse は自己参照制約（pulse 対象ピン自身の transition）
                 "passive":"input_transition_time",
-                "power"  :"input_transition_time",
+                "power_tout":"input_transition_time",
+                "power_tin" :"input_transition_time",
                 "power_c2c"  :"input_transition_time",
                 "power_c2i"  :"input_transition_time",
                 "power_i2c"  :"input_transition_time",
                 "power_i2i"  :"input_transition_time",
                 }
 
-    var_2_dict={"const"  :"constrained_pin_transition",
+    var_2_dict={"const"  :"related_pin_transition",
                 "delay"  :"total_output_net_capacitance",
+                "delay_disable"  :"not_supported",
                 "delay_c2c"  :"total_output_net_capacitance",
                 "delay_c2i"  :"total_output_net_capacitance",
                 "delay_i2c"  :"total_output_net_capacitance",
                 "delay_i2i"  :"total_output_net_capacitance",
                 "mpw"    :"not_supported",
                 "passive":"not_supported",
-                "power"  :"total_output_net_capacitance",
+                "power_tout":"total_output_net_capacitance",
+                "power_tin" :"not_supported",
                 "power_c2c"  :"total_output_net_capacitance",
                 "power_c2i"  :"total_output_net_capacitance",
                 "power_i2c"  :"total_output_net_capacitance",
@@ -419,7 +450,7 @@ class MyLibrarySetting(BaseModel):
       
       #-- create table header
       #if kind in ["const","delay","mpw"]:
-      if kind in ["const","delay","mpw","delay_c2c","delay_i2c","delay_c2i","delay_i2i"]:
+      if kind in ["const","delay","delay_disable","mpw","delay_c2c","delay_i2c","delay_c2i","delay_i2i"]:
         self.template_lines[kind].append(f'  lu_table_template ({kind}_template_{grid}) {{')
       else:
         self.template_lines[kind].append(f'  power_lut_template ({kind}_energy_template_{grid}) {{')
@@ -438,14 +469,14 @@ class MyLibrarySetting(BaseModel):
       #if index1_num>0:
       if index1_num>1:
         num=index1_num
-        dmy_values_list=[0.001 * (i+1) for i in range(num)]
+        dmy_values_list=[round(0.001 * (i+1), 3) for i in range(num)]
         dmy_values_str=",".join([str(x) for x in dmy_values_list])
         self.template_lines[kind].append(f'    index_1 ("{dmy_values_str}");')
 
       #if index2_num>0:
       if index2_num>1:
         num=index2_num
-        dmy_values_list=[0.001 * (i+1) for i in range(num)]
+        dmy_values_list=[round(0.001 * (i+1), 3) for i in range(num)]
         dmy_values_str=",".join([str(x) for x in dmy_values_list])
         self.template_lines[kind].append(f'    index_2 ("{dmy_values_str}");')
 
@@ -458,29 +489,44 @@ class MyLibrarySetting(BaseModel):
       
   def exec_spice(self,spicef:str) ->str:
     #---
+    # ISS-00079 対策: subprocess の cwd を sim 個別 dir に切替 → 8 並列 ngspice が
+    # 同一 work/ 直下で動作する問題（.spiceinit の並列 open、 cwd vfs 競合）を回避。
+    # cmd 内の path は basename 化、 .spiceinit は sim_dir にコピーして独立 open とする。
     spicelis = spicef + ".lis"
     spicerun = spicef + ".run"
+    sim_dir       = os.path.dirname(spicef)
+    sim_base      = os.path.basename(spicef)
+    spicelis_base = os.path.basename(spicelis)
+    spicerun_base = os.path.basename(spicerun)
 
-    #-- command
+    #-- copy .spiceinit from cwd (work/) to sim_dir for parallel-safe open
+    src_spiceinit = os.path.join(os.getcwd(), ".spiceinit")
+    if sim_dir and os.path.exists(src_spiceinit):
+      dst_spiceinit = os.path.join(sim_dir, ".spiceinit")
+      if not os.path.exists(dst_spiceinit):
+        shutil.copy(src_spiceinit, dst_spiceinit)
+
+    #-- command (basename only: subprocess は cwd=sim_dir で起動)
     if(re.search("ngspice", self.simulator)):
-      cmd = "nice -n "+str(self.sim_nice)+" "+str(self.simulator)+" -b "+str(spicef)+" > "+str(spicelis)+" 2>&1 \n"
+      # ISS-00078: wave_raw=True 時は tb 内 .control/write/.endc ブロックで sim.sp.raw 出力（-r オプションは使わない）
+      cmd = "nice -n "+str(self.sim_nice)+" "+str(self.simulator)+" -b "+sim_base+" > "+spicelis_base+" 2>&1 \n"
     elif(re.search("hspice", self.simulator)):
-      cmd = "nice -n "+str(self.sim_nice)+" "+str(self.simulator)+" "+str(spicef)+" -o "+str(spicelis)+" 2> /dev/null \n"
+      cmd = "nice -n "+str(self.sim_nice)+" "+str(self.simulator)+" "+sim_base+" -o "+spicelis_base+" 2> /dev/null \n"
     elif(re.search("Xyce", self.simulator)):
-      cmd = "nice -n "+str(self.sim_nice)+" "+str(self.simulator)+" "+str(spicef)+" -hspice-ext all 1> "+str(spicelis)
+      cmd = "nice -n "+str(self.sim_nice)+" "+str(self.simulator)+" "+sim_base+" -hspice-ext all 1> "+spicelis_base
 
     #-- create execute file
     with open(spicerun,'w') as f:
       outlines = []
-      outlines.append(cmd) 
+      outlines.append(cmd)
       f.writelines(outlines)
 
-    #- do spice simulation
-    cmd = ['sh', spicerun]
-    
+    #- do spice simulation (cwd=sim_dir で独立分離)
+    cmd = ['sh', spicerun_base]
+
     if(self.runsim == "true"):
       try:
-        res = subprocess.check_call(cmd)
+        res = subprocess.check_call(cmd, cwd=sim_dir if sim_dir else None)
       except subprocess.CalledProcessError as e:
         print(f"Failed to launch spice. lis={spicelis}, returncode={e.returncode}")
         my_exit()

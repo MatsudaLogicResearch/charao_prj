@@ -51,6 +51,7 @@ class MyLogicCell(BaseModel):
   functions : Dict[str,str] = Field(default_factory=dict); ## cell function
   vcode     : str = None;     ## verilog code
   ff        : Dict[str,str] = Field(default_factory=dict); ## ff infomation
+  latch     : Dict[str,str] = Field(default_factory=dict); ## latch infomation (ISS-00070 LAT)
   #io        : Dict[str,str] = Field(default_factory=dict); ## io infomation
   #pin       : Dict[str,str] = Field(default_factory=dict); ## pin infomation for IO cell
   ports_dict: Dict[str,str] = Field(default_factory=dict); ## spice-port/name mapper
@@ -59,6 +60,7 @@ class MyLogicCell(BaseModel):
   rail_connections:Dict[str,str]= Field(default_factory=dict); ## additional cell infomation
   pad_infos : Dict[str,Dict[str,Any]]= Field(default_factory=dict); ## PAD infomation
   oe_infos  : Dict[str,Dict[str,Any]]= Field(default_factory=dict); ## OE infomation
+  vout_infos: Dict[str,Dict[str,Any]]= Field(default_factory=dict); ## ISS-00152: const 計測の観測点差し替え（{"o0":{"node":"QD"}} 等、 xcell.xdut 配下の内部 net。 ICG の内部ラッチ出力等）
   vdd2_voltage:list[str] = Field(default_factory=list);       ## list of CORE2_VOLTAGE(vdd2)
   io_voltage:list[str] = Field(default_factory=list);       ## list of IO_VOLTAGE(vddio)
   
@@ -72,18 +74,24 @@ class MyLogicCell(BaseModel):
 
   cins      : dict[str,float] = Field(default_factory=dict); ## inport caps. cins={"inport",cap}
   
-  template_kgn: list[list[str]]= Field(default_factory=list);     ## kind/grid/name of template
+  template_kgn: list[list[str]]= Field(default_factory=list);     ## kind/grid/name[/oport] of template
+  ## ISS-00150: 出力 port 別 template（key="<kind>@<oport>"、例 "delay@o0"）。
+  ##   orig は同一セルでも出力ピンごとに load 軸が異なる場合がある（adder の S/CO）。
+  ##   template_kgn の第 4 要素（logic 出力 port 名）で指定。未指定の kind/port は従来のセル単位 template。
+  template_pin: dict[str,MyItemTemplate] = Field(default_factory=dict);
   template: dict[str,MyItemTemplate] = Field(default_factory=lambda:{
     "leakage":None,
     "const"  :None,
     "delay"  :None,
+    "delay_disable"  :None,
     "delay_c2c"  :None,
     "delay_i2c"  :None,
     "delay_c2i"  :None,
     "delay_i2i"  :None,
     "mpw"    :None,
     "passive":None,
-    "power"  :None,
+    "power_tout":None,
+    "power_tin" :None,
     "power_c2c"  :None,
     "power_i2c"  :None,
     "power_c2i"  :None,
@@ -94,13 +102,14 @@ class MyLogicCell(BaseModel):
 
   isexport            : int = 0;   ## exported or not
   isexport2doc        : int = 0; ## exported to doc or not
-  isflop              : int = 0;     ## DFF or not
-  isio                : int = 0;     ## IO or not
+  isflop              : bool = False;  ## DFF or not
+  islatch             : bool = False;  ## LATCH or not (ISS-00070 LAT)
+  isio                : bool = False;  ## IO or not
   pleak_icrs   : dict[str,float] = Field(default_factory=dict);## leakage power with input condition. pleak_icrs={"condition",val}
   pleak_cell   : float=0.0;          ## cell leakage power
 
-  min_pulse_width_low : dict[str,float] = Field(default_factory=dict); #mini_pulse_width
-  min_pulse_width_high: dict[str,float] = Field(default_factory=dict); #mini_pulse_width
+  min_pulse_width_low : dict = Field(default_factory=dict); #(port,when) -> float（ISS-00082）
+  min_pulse_width_high: dict = Field(default_factory=dict); #(port,when) -> float（ISS-00082）
   
   supress_msg  : str = None;        ## supress message
 
@@ -150,6 +159,7 @@ class MyLogicCell(BaseModel):
       k=kgn[0]
       g=kgn[1]
       n=kgn[2]
+      oport = kgn[3] if len(kgn) > 3 else ""   # ISS-00150: 第 4 要素＝出力 port 別割当（省略時は従来動作）
 
       # check kind/grid/name in library
       idx_src = next(
@@ -160,17 +170,37 @@ class MyLogicCell(BaseModel):
       if idx_src is None:
         print(f"[Error] unique template ={k}/{g}/{n} is not exist in targetLib.templates.")
         my_exit()
-        
+
       # check kind in targetCell
       #print(self.template.keys())
-      
+
       if k in self.template.keys():
-        self.template[k] = self.mls.templates[idx_src]
-        print(f"   [Info] add template={k}{g}{n}.")
+        if oport:
+          self.template_pin[f"{k}@{oport}"] = self.mls.templates[idx_src]
+          print(f"   [Info] add template={k}{g}{n} for oport={oport}.")
+        else:
+          self.template[k] = self.mls.templates[idx_src]
+          print(f"   [Info] add template={k}{g}{n}.")
 
       else:
         print(f"   [Error] unknown template kind={k}.")
         my_exit()
+
+  def get_template(self, kind:str, oport:str=""):
+    """ISS-00150: 出力 port 別 template があればそれを、無ければセル単位 template を返す。"""
+    if oport:
+      t = self.template_pin.get(f"{kind}@{oport}")
+      if t is not None:
+        return t
+      # per-port miss → cell-level フォールバック（診断出力）
+      print(f"   [TEMPLATE-FALLBACK] cell={self.cell} kind={kind} oport={oport} -> cell-level (no per-port key)")
+    t = self.template.get(kind)
+    if t is None:
+      # 2026-07-12 ダーマツ判断(A)：template を取得できなかった場合は停止する
+      print(f"[TEMPLATE-FAIL] cell={self.cell} kind={kind} oport={oport} "
+            f"template_pin_keys={list(self.template_pin.keys())} template_keys={list(self.template.keys())}")
+      my_exit()
+    return t
         
   def update_max_trans4in(self, port_name:str, new_value:float):
 
@@ -336,73 +366,119 @@ class MyLogicCell(BaseModel):
       my_exit();
 
     self.ff = self.mls.logic_dict[self.logic]["ff"]
-    self.isflop=1
+    self.isflop=True
+
+  def add_latch(self):
+    if not self.logic in self.mls.logic_dict.keys():
+      print(f"[Error] logic="+self.logic + " is not exist in MyExpectCell.py.");
+      my_exit();
+
+    self.latch = self.mls.logic_dict[self.logic]["latch"]
+    self.islatch=True
 
   def add_io(self):
     if not self.logic in self.mls.logic_dict.keys():
       print(f"[Error] logic="+self.logic + " is not exist in MyExpectCell.py.");
       my_exit();
 
-    self.isio=1
+    self.isio=True
 
-  ## average of cin in all harness.dict_list2["cin"]["index_2"]["index_1"]
-  def set_cin_avg(self, harnessList:list["Mcar"]):
+  ## ISS-00135 reorg(U4/U5/U6): per-pin 属性は「pin_oirc[k]==pin かつ arc_oirc[k]∈{r,f,p,n} の
+  ##   位置 k の値」を全 harness 横断で集約。 cin/max_trans は入力ピン、 max_load は出力ピン。
+  _TRANS = ("r", "f", "p", "n")
 
-    ports=(self.inports + [self.clock] + self.biports)
-    for inport in list(filter(lambda x: x is not None, ports)):
-      
-      cin_all=[]
+  @staticmethod
+  def _flatten_d2(d2):
+    ## dict_list2[key] (index1 -> index2 -> val) を flat list に
+    return [v for i1 in d2.values() for v in i1.values()]
+
+  def _gather_in(self, harnessList, keys):
+    ## keys=("c_in","c_rel","c_clk") 等。 入力ピンごとに位置別 dict_list2 を集約
+    out={}
+    for inport in [p for p in (self.inports + [self.clock] + self.biports) if p is not None]:
+      vals=[]
       for h in harnessList:
-        #print(f"inport={inport}, relport={h.target_relport}")
-        
-        if h.target_relport == inport:
-        #if h.target_inport == inport:
-          #-- list of dict_list2["cin"]["index_1"]["index_2"]
-          cin_list=[v for index_1 in h.dict_list2["cin"].values() for v in index_1.values()]
-          cin_all.extend(cin_list)
-          #print(f"{inport}:{cin_all}")
-          
-      if len(cin_all)<1:
-        self.cins[inport]=0.0; #-- default value?
-        continue
-        #print(f'[Error] dict_list2["cin"] size is 0.')
-        #my_exit()
+        po, arc = h.mec.pin_oirc, h.mec.arc_oirc
+        if po[1]==inport and arc[1] in self._TRANS: vals += self._flatten_d2(h.dict_list2[keys[0]])
+        if po[2]==inport and arc[2] in self._TRANS: vals += self._flatten_d2(h.dict_list2[keys[1]])
+        if po[3]==inport and arc[3] in self._TRANS: vals += self._flatten_d2(h.dict_list2[keys[2]])
+      out[inport]=vals
+    return out
 
-      #
-      mag=self.mls.capacitance_mag
-      val_avr=st.mean(cin_all)/mag
-      self.cins[inport]=val_avr
+  def set_cin_avg(self, harnessList):
+    mag=self.mls.capacitance_mag
+    for inport, vals in self._gather_in(harnessList, ("c_in","c_rel","c_clk")).items():
+      self.cins[inport] = (st.mean(vals)/mag) if vals else 0.0
 
-  def set_cin_max(self, harnessList:list["Mcar"]):
+  def set_cin_max(self, harnessList):
+    mag=self.mls.capacitance_mag
+    for inport, vals in self._gather_in(harnessList, ("c_in","c_rel","c_clk")).items():
+      self.cins[inport] = (max(vals)/mag) if vals else 0.0
 
-    ports=(self.inports + [self.clock] + self.biports)
-    for inport in list(filter(lambda x: x is not None, ports)):
+  def set_max_trans(self, harnessList):
+    ## max_transition = 各入力ピンが駆動された最大 slew（pin_oirc[k]×arc）
+    for inport, vals in self._gather_in(harnessList, ("slew_in","slew_rel","slew_clk")).items():
+      if vals:
+        self.max_trans4in[inport] = max(vals)
 
-      max_cin = 0.0
-      for h in [x for x in harnessList if x.target_relport == inport and x.dict_list2["cin"]]:
-        ## dict_list2["cin"][index1][index2] --- dict_list2["cin"]=[,,,,,,]
-        cin_list=[v for index_1 in h.dict_list2["cin"].values() for v in index_1.values()]
-
-        ## update in every harness
-        new_cin = max(cin_list)
-        if max_cin < new_cin:
-          max_cin = new_cin
-          
-      mag=self.mls.capacitance_mag
-      self.cins[inport]=max_cin/mag
+  def set_max_load(self, harnessList):
+    ## max_capacitance = 各出力ピンが特性化された最大 load（pin_oirc[0]）
+    for outport in self.outports:
+      vals=[]
+      for h in harnessList:
+        if h.mec.pin_oirc[0]==outport:
+          vals += self._flatten_d2(h.dict_list2["load_out"])
+      if vals:
+        self.max_load4out[outport] = max(vals)
       
   ## cell_cleak=max leakage
   def set_max_pleak(self, harnessList:list["Mcar"]):
 
-    max_pleak = 0.0
+    #-- ISS-00165: 初期値は 0 固定でなく leakage_offset（嵩上げ値）。
+    #   leakage_offset は表示単位（leakage_power_unit）なので、 h.pleak と同じ raw 単位へ
+    #   leakage_power_mag で換算する（export 側で /leakage_power_mag して表示に戻る）。
+    #
+    #   【leakage_offset の担当分け】
+    #     - measure ありセル：charao_run.runSpiceLeakageSingle が h.pleak 取得時に加算済み。
+    #       よって以下の for は offset 処理ではなく「複数 leakage entry の max を取る」比較のみ
+    #       （ここで足し込むと when の数だけ多重加算になるため、 max のままにすること）。
+    #     - measure なしセル（物理セル＝expect[]）：sim が走らず harness が空のため for が回らず、
+    #       **この初期値がそのまま pleak_cell になる**。物理セルの分はここが担当する。
+    max_pleak = self.mls.leakage_offset * self.mls.leakage_power_mag
     for h in [x for x in harnessList if x.measure_type == "leakage"]:
       if max_pleak < h.pleak:
         max_pleak = h.pleak
-        
+
     #--
     self.pleak_cell=max_pleak
 
-      
+
+  #--- ISS-00166: leakage op 用に cell subckt の内部ノードを列挙する。
+  def get_internal_nodes(self):
+    """DUT cell subckt の内部ノード（外部ポート以外の net）を列挙して返す。
+    leakage の DC op で、 tran 終端の内部ノード電圧を nodeset に書き戻すために使う
+    （B 案：meas find→alterparam→reset→op）。 全 Tr 端子から ports_dict のキー（外部ポート）
+    と モデル名・W=/L= パラメータを除外。 順序は出現順、 重複除去。"""
+    ports = {k.upper() for k in self.ports_dict.keys()}
+    nodes=[]; seen=set(); in_sub=False
+    with open(self.netlist, 'r') as f:
+      for line in f:
+        t=line.split()
+        if not t: continue
+        if t[0].lower()==".subckt" and len(t)>=2 and t[1].lower()==self.cell.lower():
+          in_sub=True; continue
+        if in_sub and t[0].lower().startswith(".ends"):
+          break
+        if in_sub and t[0][0].upper()=="X":
+          #-- 端子 = instance名(0) と モデル名(パラメータ直前)を除く。 param は最初の '=' 含む token
+          pi=next((i for i,x in enumerate(t) if "=" in x), len(t))
+          for n in t[1:pi-1]:
+            nu=n.upper()
+            if nu not in ports and nu not in seen:
+              seen.add(nu); nodes.append(n)
+    return nodes
+
+
   #--- convert from local port name(i0) to spice port name(A).
   def rvs_portmap(self, local_ports:list):
     rvs_dict={v:k for k,v in self.ports_dict.items()}
@@ -417,7 +493,7 @@ class MyLogicCell(BaseModel):
     return(new_str)
 
     
-  def set_min_pulse_width(self, port_name:str, value:float, measure_type:str):
+  def set_min_pulse_width(self, port_name:str, value, measure_type:str, when:str=""):
 
     ## check port
     if not port_name in [p for p in (self.inports + [self.clock]) if p is not None]:
@@ -428,12 +504,12 @@ class MyLogicCell(BaseModel):
     measure_type_list=["min_pulse_width_high","min_pulse_width_low"]
     if not measure_type in measure_type_list:
       print(f"[Error] measure_typ={measure_type} is not in {measure_type_list}")
-      
-    ## set value
+
+    ## set value（ISS-00160: value=(lut 行リスト, template grid)。set_lut で ns 換算済みのため無変換で格納）
     if measure_type=="min_pulse_width_high":
-      self.min_pulse_width_high[port_name] = value/self.mls.time_mag
+      self.min_pulse_width_high[(port_name,when)] = value
     else:
-      self.min_pulse_width_low[port_name] = value/self.mls.time_mag
+      self.min_pulse_width_low[(port_name,when)] = value
       
     ##
     #print(f"[Info] min_pulse_width={value} for {port_name}")

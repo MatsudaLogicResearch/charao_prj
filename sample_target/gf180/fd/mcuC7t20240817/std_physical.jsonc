@@ -1,0 +1,89 @@
+//===================================================================
+// This file is associated with the charao project.
+// Copyright (C) 2025 MATSUDA Masahiro
+//
+// This configuration file is licensed under the MIT License.
+//===================================================================
+// GF180MCU PDK (gf180mcuC) - fd standard cell library (7-track, mcu7t5v0)
+// Revision: 7t20240817
+// Cell group: std_physical  (physical cells: filler / decap-filler / endcap / filltie)
+//
+// SPICE: single combined file (gf180mcu_fd_sc_mcu7t5v0.spice)
+// Port order: follows .SUBCKT definition in the SPICE file
+//
+// ISS-00165: 物理セル 14（fill x7 / fillcap x5 / endcap / filltie）を network に追加し、
+//   orig 229 セルに対する charao 215 セルのギャップを解消する（215 -> 229）。
+//
+//   - これらのセルは信号ピンを持たず（power/well ピンのみ）、 timing arc も持たない
+//   - SPICE subckt は空（fill/endcap/filltie は Tr 0）or decap 2fet（fillcap）のため、
+//     leakage を sim しても 0 にしかならない（orig の 5e-05 は sim で再現できない一律成分）
+//   - よって measure は行わない（"template_kgn":[] ＝ 全 measure なし）
+//   - cell_leakage_power は config_lib.jsonc の "leakage_offset"（gf180 = 5e-05）が
+//     嵩上げ値として出力される（myLogicCell.set_max_pleak が offset で初期化）
+//   - 出力される .lib は cell_leakage_power / area / cell_footprint / pg_pin のみ
+//     （leakage_power() ブロックと pin() は持たない＝orig の物理セル構造と同等）
+//
+//   area は orig .lib（gf180mcu_fd_sc_mcu7t5v0__tt_025C_5v00.lib）の実測値。
+//   ports_dict の順は .SUBCKT のピン順に厳密一致させること（chk_ports が順序照合するため）:
+//     fill / fillcap    : VDD VNW VPW VSS
+//     endcap / filltie  : VDD VSS
+//
+//   ※ tieh / tiel / antenna は信号ピンを持つ機能セルのため std_comb.jsonc 側で定義済み（本ファイル対象外）
+//===================================================================
+// [Info] The order of "ports_dict" is same as the order of pin-list in the spice file.
+
+{
+"spice_path":"./sample_src/gf180mcuC/libs.ref/gf180mcu_fd_sc_mcu7t5v0/spice",
+
+"cell_info": [
+
+  // ---- FILL （空 subckt、 VDD/VNW/VPW/VSS）--------------------------
+  {"template_kgn":[],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__fill_1","logic":"PHYSICAL","area":2.1952,
+   "ports_dict":{"VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__fill_2","logic":"PHYSICAL","area":4.3904,
+   "ports_dict":{"VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__fill_4","logic":"PHYSICAL","area":8.7808,
+   "ports_dict":{"VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__fill_8","logic":"PHYSICAL","area":17.5616,
+   "ports_dict":{"VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__fill_16","logic":"PHYSICAL","area":35.1232,
+   "ports_dict":{"VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__fill_32","logic":"PHYSICAL","area":70.2464,
+   "ports_dict":{"VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__fill_64","logic":"PHYSICAL","area":140.4928,
+   "ports_dict":{"VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- FILLCAP （decap 2fet、 VDD/VNW/VPW/VSS）----------------------
+  {"template_kgn":[],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__fillcap_4","logic":"PHYSICAL","area":8.7808,
+   "ports_dict":{"VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__fillcap_8","logic":"PHYSICAL","area":17.5616,
+   "ports_dict":{"VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__fillcap_16","logic":"PHYSICAL","area":35.1232,
+   "ports_dict":{"VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__fillcap_32","logic":"PHYSICAL","area":70.2464,
+   "ports_dict":{"VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__fillcap_64","logic":"PHYSICAL","area":140.4928,
+   "ports_dict":{"VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- ENDCAP / FILLTIE （空 subckt、 VDD/VSS のみ）-----------------
+  {"template_kgn":[],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__endcap","logic":"PHYSICAL","area":4.3904,
+   "ports_dict":{"VDD":"vdd","VSS":"vss"}},
+  {"template_kgn":[],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__filltie","logic":"PHYSICAL","area":4.3904,
+   "ports_dict":{"VDD":"vdd","VSS":"vss"}}
+
+]
+}

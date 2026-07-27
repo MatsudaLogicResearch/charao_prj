@@ -36,6 +36,16 @@ from .myExportDoc import exportDoc
 from .charao_run  import runExpectation
 from .myFunc      import my_exit, startup, history
 
+#--- ISS-00169: セル選択の共通判定（--cells_only と --mylogic_only は AND）。 True なら対象外
+def _skip_cell(mls, info):
+  if mls.cells_only and (info['cell'] not in mls.cells_only):
+    return True
+  if mls.mylogic_only:
+    owner = mls.logic_owner.get(info.get('logic'), "")
+    if owner not in mls.mylogic_only:
+      return True
+  return False
+
 def main():
   parser = argparse.ArgumentParser(description='argument')
   parser.add_argument('-f','--fab_process' , type=str            , default="OSU035" , help='FAB process name(use for only search PATH)')
@@ -54,6 +64,7 @@ def main():
   parser.add_argument('--target'        , type=str              , default="./sample/target"   , help='PATH to <target> directory')
   
   parser.add_argument('--cells_only'    , type=str, nargs="*"   , default=[]    , help='list of target cell names. blank meas all cells.')
+  parser.add_argument('--mylogic_only'  , type=str, nargs="*"   , default=[]    , help='list of target mylogic module names (ex "comb_base" for mylogic_comb_base.py). blank meas all modules. combined with --cells_only by AND. ISS-00169.')
   parser.add_argument('--measures_only' , type=str, nargs="*"   , default=[]    , help='list of measure_type names. blank meas all measure_type.')
   parser.add_argument('--template_index1_only', type=int, nargs="*", default=[], help='indices of index_1 to run (0-based). blank means all.')
   parser.add_argument('--template_index2_only', type=int, nargs="*", default=[], help='indices of index_2 to run (0-based). blank means all.')
@@ -61,8 +72,13 @@ def main():
   parser.add_argument('-b','--build_stamp',type=str             , default="b00" , help='build-stamp for output files.')
   parser.add_argument('-w','--work_dir' ,type=str               , default="work", help='work directory.')
   parser.add_argument('--mylogic_user'  ,type=str               , default=""    , help='PATH to User-define Logic entries file(ex myloic_user.py).')
-  
+  parser.add_argument('--wave_raw'      , action='store_true'                  , help='Save ngspice transient result as sim.sp.raw (per-sim subdir). Saves DUT cell port via hierarchical reference V(XCELL.XDUT.<port>). ISS-00078.')
+  parser.add_argument('--debug_stop'    , type=int              , default=0    , help='DEBUG: stop charao after N sp files generated (os._exit(0)). 0=disabled. Use for hang debug / sp inspection (ISS-00118).')
+
   args = parser.parse_args()
+  #--- DEBUG: set sp-generation limit (ISS-00118 debug helper)
+  from . import charao_run as _cr
+  _cr._DBG_SP_LIMIT = args.debug_stop
   #print(args.batch)
 
   #--- barner
@@ -72,22 +88,29 @@ def main():
   #=====================================================
   # Logic entries/ primitive code
 
-  #--(Base defined: 4 modules — comb_base / comb_complex / seq / io)
+  #--(Base defined: 8 modules — comb_base / comb_complex / comb_tristate / seq_ff / seq_scan / seq_lat / io / physical)
   modules = [
     "charao.script.mylogic_comb_base",
     "charao.script.mylogic_comb_complex",
-    "charao.script.mylogic_seq",
+    "charao.script.mylogic_comb_tristate",
+    "charao.script.mylogic_seq_ff",
+    "charao.script.mylogic_seq_scan",
+    "charao.script.mylogic_seq_lat",
     "charao.script.mylogic_io",
+    "charao.script.mylogic_physical",   # ISS-00165: 物理セル（fill/fillcap/endcap/filltie）
   ]
   logic_dict = {}
+  logic_owner = {}   # ISS-00169: logic 名 -> mylogic モジュール短縮名（--mylogic_only の絞り込み用）
   code_primitive_parts = []
   for mod_name in modules:
     mod = importlib.import_module(mod_name)
+    mod_short = mod_name.split(".")[-1].replace("mylogic_", "", 1)
     for k, v in mod.get_logic_dict().items():
       if k in logic_dict.keys():
         print(f" [ERR]: logic '{k}' is duplicated in {mod_name} (already defined elsewhere). Aborting.")
         my_exit()
       logic_dict[k] = v
+      logic_owner[k] = mod_short
     p = mod.get_code_primitive()
     if p:
       code_primitive_parts.append(p)
@@ -113,12 +136,25 @@ def main():
       if k in logic_dict.keys():
         print(f"  [INF]: {k} is overridden by user definitions.")
       logic_dict[k]=v
+      logic_owner[k]="user"   # ISS-00169: user 定義は --mylogic_only user で選択する
 
     new_primitive=mylogic_user.get_code_primitive()
     if new_primitive:
       print(f"  [INF]: code_primitive is replaced by user definitions.")
       code_primitive = new_primitive
-  
+
+  #--(ISS-00169) --mylogic_only : 指定は短縮名（ex "comb_base"）。 mylogic_<name>.py はここで補完し、 存在を確認する
+  script_dir = os.path.dirname(os.path.abspath(__file__))
+  for name in args.mylogic_only:
+    if name == "user":   #-- user 定義は --mylogic_user で PATH 指定済みのため補完対象外
+      continue
+    mylogic_file = f"mylogic_{name}.py"
+    if not os.path.isfile(f"{script_dir}/{mylogic_file}"):
+      print(f" [ERR]: --mylogic_only={name} : {mylogic_file} is not found in {script_dir}. Aborting.")
+      my_exit()
+  if args.mylogic_only:
+    print(f"  [INF]: --mylogic_only = {args.mylogic_only} (target modules only)")
+
   #=====================================================
   #--- json file
   json_config_lib=""
@@ -161,11 +197,13 @@ def main():
                     "nwell_voltage"       :args.vnw,
                     "pwell_voltage"       :args.vpw,
                     "cells_only"          :args.cells_only,
+                    "mylogic_only"        :args.mylogic_only,
                     "measures_only"       :args.measures_only,
                     "template_index1_only":args.template_index1_only,
                     "template_index2_only":args.template_index2_only,
                     "significant_digits"  :args.significant_digits,
-                    "work_dir"            :args.work_dir
+                    "work_dir"            :args.work_dir,
+                    "wave_raw"            :args.wave_raw
                     }
   targetLib = targetLib.model_copy(update=config_from_args)
 
@@ -179,6 +217,7 @@ def main():
   #--- targetLib : add logic_dict/code_primitive(not display)
   config_logic_dict={
                     "logic_dict"      :logic_dict,
+                    "logic_owner"     :logic_owner,
                     "code_primitive"  :code_primitive
                     }
   targetLib = targetLib.model_copy(update=config_logic_dict)
@@ -212,7 +251,7 @@ def main():
     for info in cell_comb_info_list:
 
       #-- for DEBUG
-      if (targetLib.cells_only) and (info['cell'] not in targetLib.cells_only):
+      if _skip_cell(targetLib, info):   #-- ISS-00169: --cells_only / --mylogic_only（AND）
         continue
       else:
         print(f"[INFO] cell={info['cell']}")
@@ -257,33 +296,85 @@ def main():
     for info in cell_seq_info_list:
 
       #-- for DEBUG
-      if (targetLib.cells_only) and (info['cell'] not in targetLib.cells_only):
+      if _skip_cell(targetLib, info):   #-- ISS-00169: --cells_only / --mylogic_only（AND）
         continue
       else:
         print(f"[INFO] cell={info['cell']}")
 
       #
       targetCell = Mlc(mls=targetLib, **info)
-      targetCell.set_spice_path(path_cell["spice_path"]) 
-      targetCell.set_supress_message() 
-      targetCell.add_ff()
+      targetCell.set_spice_path(path_cell["spice_path"])
+      targetCell.set_supress_message()
+      _ltype = targetLib.logic_dict[targetCell.logic]["logic_type"]
+      if   _ltype == "seq":     targetCell.add_ff()
+      elif _ltype == "seq_lat": targetCell.add_latch()
+      else:
+        print(f"[Error] unknown seq logic_type={_ltype} for cell={targetCell.cell}")
+        my_exit()
       targetCell.add_template()
-      targetCell.chk_netlist() 
+      targetCell.chk_netlist()
       targetCell.chk_ports()
-      targetCell.add_model() 
+      targetCell.add_model()
       targetCell.add_function()
       targetCell.add_vcode()
 
       ## characterize
       harnessList = characterizeFiles(targetLib, targetCell)
       #os.chdir("../")
-      
+
       ## export
-      exportFiles(targetCell=targetCell, harnessList=harnessList) 
-      exportDoc(targetCell=targetCell, harnessList=harnessList) 
+      exportFiles(targetCell=targetCell, harnessList=harnessList)
+      exportDoc(targetCell=targetCell, harnessList=harnessList)
       num_gen_file += 1
 
-      
+
+  #--- std_physical_xxx.jsonc
+  #    ISS-00165: 物理セル（fill/fillcap/endcap/filltie）。 信号ピン・timing arc を持たず measure ゼロ。
+  #    comb ではないため専用ループで処理する（add_ff / add_latch は不要）。
+  for jsonc in json_group_list:
+    if not jsonc.startswith("std_physical"):
+      continue
+
+    cell_physical_info_list=[]
+    parser=JsonComment()
+    json_file=f"{json_path}/{jsonc}"
+    with open (json_file, "r") as f:
+      ## read cell_spice_path, cell
+      path_cell=parser.load(f)
+
+      ## sort by "cell" name
+      physical_info_list = path_cell["cell_info"]
+      cell_physical_info_list = sorted(physical_info_list, key=lambda x: x["cell"])
+
+    #
+    for info in cell_physical_info_list:
+
+      #-- for DEBUG
+      if _skip_cell(targetLib, info):   #-- ISS-00169: --cells_only / --mylogic_only（AND）
+        continue
+      else:
+        print(f"[INFO] cell={info['cell']}")
+
+      #
+      targetCell = Mlc(mls=targetLib, **info)
+      targetCell.set_spice_path(path_cell["spice_path"])
+      targetCell.set_supress_message()
+      targetCell.add_template()
+      targetCell.chk_netlist()
+      targetCell.chk_ports()
+      targetCell.add_model()
+      targetCell.add_function()
+      targetCell.add_vcode()
+
+      ## characterize (expect=[] のため sim は走らず harness 空で返る)
+      harnessList = characterizeFiles(targetLib, targetCell)
+
+      ## export
+      exportFiles(targetCell=targetCell, harnessList=harnessList)
+      exportDoc(targetCell=targetCell, harnessList=harnessList)
+      num_gen_file += 1
+
+
   #--- io_xxx.jsonc
   for jsonc in json_group_list:
 
@@ -305,7 +396,7 @@ def main():
     for info in cell_io_info_list:
 
       #-- for DEBUG
-      if (targetLib.cells_only) and (info['cell'] not in targetLib.cells_only):
+      if _skip_cell(targetLib, info):   #-- ISS-00169: --cells_only / --mylogic_only（AND）
         continue
       else:
         print(f"[INFO] cell={info['cell']}")
@@ -377,7 +468,13 @@ def characterizeFiles(targetLib, targetCell):
       rslt=runExpectation(targetLib, targetCell, targetLib.logic_dict[targetCell.logic]["expect"])
     elif logic_type  == "seq":
       rslt=runExpectation(targetLib, targetCell, targetLib.logic_dict[targetCell.logic]["expect"])
+    elif logic_type  == "seq_lat":
+      rslt=runExpectation(targetLib, targetCell, targetLib.logic_dict[targetCell.logic]["expect"])
     elif logic_type  == "io":
+      rslt=runExpectation(targetLib, targetCell, targetLib.logic_dict[targetCell.logic]["expect"])
+    elif logic_type  == "physical":
+      #-- ISS-00165: 物理セル（fill/fillcap/endcap/filltie）は expect=[] ＝ measure ゼロ。
+      #   sim は走らず harness 空で返る（cell_leakage_power は leakage_offset の嵩上げ値が残る）。
       rslt=runExpectation(targetLib, targetCell, targetLib.logic_dict[targetCell.logic]["expect"])
     else:
       print(f"[Error] unknown logic_type={logic_type}.")

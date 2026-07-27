@@ -77,7 +77,8 @@ pip install git+https://github.com/MatsudaLogicResearch/lrPymRPC_prj.git
 ### option
 ```
 usage: charao.py [-h] [-f FAB_PROCESS] [-v CELL_VENDOR] [-r CELL_REVISION] [-g {std,io}] [-u USAGE_VOLTAGE] [-p PROCESS_CORNER] [-t TEMP] [--vdd VDD]
-                 [--vss VSS] [--vnw VNW] [--vpw VPW] [--target TARGET] [--cells_only [CELLS_ONLY ...]] [--measures_only [MEASURES_ONLY ...]]
+                 [--vss VSS] [--vnw VNW] [--vpw VPW] [--target TARGET] [--cells_only [CELLS_ONLY ...]] [--mylogic_only [MYLOGIC_ONLY ...]]
+                 [--measures_only [MEASURES_ONLY ...]]
                  [-s SIGNIFICANT_DIGITS] [-b BUILD_STAMP] [-w WORK_DIR] [--mylogic_user MYLOGIC_USER]
 
 
@@ -98,6 +99,7 @@ options:
   --vpw VPW             : PWELL voltage
   --target TARGET       : PATH to <target> directory
   --cells_only [CELLS_ONLY ...]                                  : list of target cell names. blank meas all cells.
+  --mylogic_only [MYLOGIC_ONLY ...]                              : list of target mylogic module names (ex "comb_base" for mylogic_comb_base.py). blank meas all modules. combined with --cells_only by AND.
   --measures_only [MEASURES_ONLY ...]                            : list of measure_type names. blank meas all measure_type.
   -s SIGNIFICANT_DIGITS, --significant_digits SIGNIFICANT_DIGITS : significant digits.
   -b BUILD_STAMP, --build_stamp BUILD_STAMP                      : build-stamp for output files.
@@ -173,6 +175,12 @@ To show full lrPymRPC output (pip install logs etc.) on success, set `lrpymrpc_v
 | lrPymRPC execution log | `test_log/<scenario_name>/lrpymrpc.log` |
 
 > Note: `test_log/` is recreated at the start of each test session.
+
+## Documentation
+
+- [Internal Power Specification](docs/SPEC_internal_power.md): output pin / input pin separation (`power_tout` / `power_tin`), mylogic entry rules, and verification guidelines (introduced in `0.9.14a01`).
+- [Three-state cell support specification](docs/SPEC_three_state.md): bus keeper (HOLD) and tri-state buffer/inverter (BUFZ/INVZ) characterization rules, three_state_enable / three_state_disable arcs, `delay_disable` 1D template, and porting guide for new PDKs (introduced in `0.9.14a03`).
+- [Sequential FF / SDFF cell support specification](docs/SPEC_seq_ff.md): D-Flip-Flop characterization rules (8 GF180 families: dffq / dffnq / dffrnq / dffnrnq / dffsnq / dffnsnq / dffrsnq / dffnrsnq), naming convention (`<S>DFF[B]_<P\|N>C[_<P\|N>R][_<P\|N>S]`), GF180 wrap-style vcode (`not gate + udp_iq_ff_n/hn + not gate`), and porting guide for new PDKs (introduced in `0.9.14a06`).
 
 ## Known issues (future works)
 4. Multiple voltage for IOs and level shifters

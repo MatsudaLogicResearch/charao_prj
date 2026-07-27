@@ -60,6 +60,34 @@ def _load_csv(path):
         return list(csv.DictReader(f))
 
 
+def _coerce_idx(s):
+    """index1/index2 の値を数値 or "NaN" sentinel に正規化。
+    scalar table / 1D table は文字列 "NaN" のまま保持して dict key 比較を可能にする。"""
+    if s == "NaN" or s == "":
+        return "NaN"
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return s
+
+
+def _norm_when(w):
+    """when 条件を項順非依存に正規化する。
+    charao と orig で AND 項の並び順が異なる（例 charao "!D&!CLK&!RN" /
+    orig "!CLK&!D&!RN"）と、文字列一致の group key で偽の非マッチになる。
+    '&' で分割して各項をソート・再結合し、論理等価な when を同一 key に揃える。
+    OR('|') を含む複雑条件はソート単位を '|' 優先で保つ（各 OR 節内で AND をソート）。
+    空文字（default）はそのまま。"""
+    if not w:
+        return w
+    or_parts = w.split("|")
+    normed = []
+    for op in or_parts:
+        terms = [t.strip() for t in op.split("&") if t.strip() != ""]
+        normed.append("&".join(sorted(terms)))
+    return "|".join(sorted(normed))
+
+
 def _group(rows, group_keys, value_key, kind_key,
            drop_zero=False, drop_default_when=False):
     """行を group_keys でグループ化し (index1, index2, value) のリストを保持。
@@ -85,15 +113,16 @@ def _group(rows, group_keys, value_key, kind_key,
             arc_id = (r["cell_name"], r["pin"], r["related_pin"], r[kind_key])
             if arc_id in arc_has_sensitized:
                 continue  # sensitization 付きが別途あるので default は捨てる
-        key = tuple(r[k] for k in group_keys)
+        # ISS: when は項順非依存で照合（charao/orig の AND 項並び差を吸収）
+        key = tuple(_norm_when(r[k]) if k == "when" else r[k] for k in group_keys)
         try:
-            i1 = float(r[COL_INDEX1])
-            i2 = float(r[COL_INDEX2])
             v = float(r[value_key])
         except (ValueError, KeyError):
             continue
         if drop_zero and v == 0.0:
             continue
+        i1 = _coerce_idx(r[COL_INDEX1])
+        i2 = _coerce_idx(r[COL_INDEX2])
         g[key].append((i1, i2, v))
     return g
 
@@ -175,16 +204,26 @@ def _interp2d(qi1, qi2, i1_list, i2_list, table):
     return v_lo * (1 - t) + v_hi * t
 
 
+def _fmt_idx(x):
+    """index 値を整形。"NaN" 文字列はそのまま、数値は %10.4g。"""
+    if isinstance(x, str):
+        return f"{x:>10s}"
+    return f"{x:>10.4g}"
+
+
 def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
-                     drop_zero_new, drop_default_when, interpolate=False):
-    """(cell, pin, related_pin, when, kind, index1, index2) 単位で per-point 比較。
+                     drop_zero_new, drop_default_when, interpolate=False,
+                     extra_group_keys=None):
+    """(cell, pin, related_pin, when, [extra,] kind, index1, index2) 単位で per-point 比較。
     各点の (orig, new, abs_diff) をリストで返す。
 
-    charao が既存セルの点と同じ (index1, index2) を出力していることを前提に、
-    新側の value==0 を drop すれば、新側と原側で同じ格子点が厳密一致で比較できる。
-    orig 側の `when==""`（sensitization なし summary block）はデフォルトで除外。
+    extra_group_keys: timing.csv は ["timing_type"] を指定。 power/leakage は None。
+
+    NaN 行（scalar / 1D の欠損 axis）を含む group は補間 skip で 1:1 厳密照合。
     """
-    group_keys = ["cell_name", "pin", "related_pin", "when", kind_key]
+    base_keys = ["cell_name", "pin", "related_pin", "when"]
+    extras = list(extra_group_keys) if extra_group_keys else []
+    group_keys = base_keys + extras + [kind_key]
     og = _group(orig_rows, group_keys, value_key, kind_key,
                 drop_default_when=drop_default_when)
     ng = _group(new_rows, group_keys, value_key, kind_key,
@@ -194,9 +233,15 @@ def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
     matched_groups = 0
     missing_groups = 0
     matched_points = 0
+    n_extras = len(extras)
 
     for key, o_triples in og.items():
-        cell, pin, rpin, when, kind = key
+        cell  = key[0]
+        pin   = key[1]
+        rpin  = key[2]
+        when  = key[3]
+        extra_vals = list(key[4:4 + n_extras])
+        kind  = key[4 + n_extras]
         if cell_filter and cell != cell_filter:
             continue
         n_triples = ng.get(key)
@@ -205,19 +250,32 @@ def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
             continue
         matched_groups += 1
 
-        if interpolate:
+        # NaN 行（scalar / 1D の欠損 axis）を含む group は補間不能 → strict matching
+        has_nan = any(i1 == "NaN" or i2 == "NaN" for i1, i2, _ in n_triples)
+
+        def _append(i1, i2, vo, vn):
+            row = {
+                "cell_name": cell, "pin": pin, "related_pin": rpin,
+                "when": when,
+            }
+            for k, v in zip(extras, extra_vals):
+                row[k] = v
+            row["kind"] = kind
+            row[COL_INDEX1] = i1
+            row[COL_INDEX2] = i2
+            row["value_orig"] = vo
+            row["value_new"]  = vn
+            row["abs_diff"]   = vn - vo
+            per_point.append(row)
+
+        if interpolate and not has_nan:
             i1_arr, i2_arr, table = _build_table_2d(n_triples)
             for i1, i2, vo in o_triples:
                 vn = _interp2d(i1, i2, i1_arr, i2_arr, table)
                 if vn is None:
                     continue
                 matched_points += 1
-                per_point.append({
-                    "cell_name": cell, "pin": pin, "related_pin": rpin,
-                    "when": when, "kind": kind, COL_INDEX1: i1, COL_INDEX2: i2,
-                    "value_orig": vo, "value_new": vn,
-                    "abs_diff": vn - vo,
-                })
+                _append(i1, i2, vo, vn)
         else:
             n_by_idx = {(i1, i2): v for i1, i2, v in n_triples}
             for i1, i2, vo in o_triples:
@@ -225,37 +283,41 @@ def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
                 if vn is None:
                     continue
                 matched_points += 1
-                per_point.append({
-                    "cell_name": cell, "pin": pin, "related_pin": rpin,
-                    "when": when, "kind": kind, COL_INDEX1: i1, COL_INDEX2: i2,
-                    "value_orig": vo, "value_new": vn,
-                    "abs_diff": vn - vo,
-                })
+                _append(i1, i2, vo, vn)
 
     _log(f"  matched groups : {matched_groups}")
     _log(f"  missing groups : {missing_groups} (new side not found)")
     _log(f"  matched points : {matched_points}")
 
-    # ── (kind, index1, index2) ごとの diff 統計を表示 ──
+    # ── (extras, kind, index1, index2) ごとの diff 統計を表示 ──
     buckets = defaultdict(list)
     for r in per_point:
-        key = (r["kind"], r[COL_INDEX1], r[COL_INDEX2])
+        extra_part = tuple(r.get(k, "") for k in extras)
+        key = extra_part + (r["kind"], r[COL_INDEX1], r[COL_INDEX2])
         buckets[key].append(r["abs_diff"])
 
     if buckets:
         _log("")
-        header = (f"  {'kind':18s}  {'index1(ns)':>10s}  {'index2(pF)':>10s}  "
+        extras_hdr = "".join(f"  {k:18s}" for k in extras)
+        header = (f"  {'kind':18s}{extras_hdr}  {'index1(ns)':>10s}  {'index2(pF)':>10s}  "
                   f"{'n':>4s}  "
                   f"{'diff avg':>10s} {'diff sigma':>11s} {'diff min':>10s} {'diff max':>10s}")
         _log(header)
-        for key in sorted(buckets.keys()):
-            kind, i1, i2 = key
+
+        def _key_sort(k):
+            # 文字列と float が混在しても sortable にする
+            return tuple((0, x) if isinstance(x, (int, float)) else (1, x) for x in k)
+
+        for key in sorted(buckets.keys(), key=_key_sort):
+            extra_vals = key[:n_extras]
+            kind, i1, i2 = key[n_extras], key[n_extras + 1], key[n_extras + 2]
             ds = buckets[key]
             n = len(ds)
             avg = sum(ds) / n
             var = sum((v - avg) ** 2 for v in ds) / n
             sigma = math.sqrt(var)
-            _log(f"  {kind:18s}  {i1:>10.4g}  {i2:>10.4g}  {n:>4d}  "
+            extras_str = "".join(f"  {str(v):18s}" for v in extra_vals)
+            _log(f"  {kind:18s}{extras_str}  {_fmt_idx(i1)}  {_fmt_idx(i2)}  {n:>4d}  "
                  f"{avg:>+10.4f} {sigma:>11.4f} {min(ds):>+10.4f} {max(ds):>+10.4f}")
     return per_point
 
@@ -300,9 +362,13 @@ def main():
 
     rows_out = []
 
-    for fn, kind_key, value_key, label in [
-        ("timing.csv", "table_type", COL_TIMING_VALUE, "=== timing ==="),
-        ("power.csv",  "rise_fall",  COL_POWER_VALUE,  "=== power ==="),
+    ## power.csv を direction (input pin / output pin) で分けて比較
+    ## - output pin: active arc, related_pin != "" (charao power_tout / IO power_c2c etc.)
+    ## - input pin : stable state, related_pin == "" (charao power_tin)
+    for fn, kind_key, value_key, label, pin_filter, extra_keys in [
+        ("timing.csv", "table_type", COL_TIMING_VALUE, "=== timing ===", None, ["timing_type"]),
+        ("power.csv",  "rise_fall",  COL_POWER_VALUE,  "=== power (output pin, active arc) ===", "output", None),
+        ("power.csv",  "rise_fall",  COL_POWER_VALUE,  "=== power (input pin, stable state) ===", "input", None),
     ]:
         op = orig / fn
         np_ = new / fn
@@ -312,6 +378,14 @@ def main():
         _log(label)
         o_rows = _load_csv(op)
         n_rows = _load_csv(np_)
+
+        ## direction filter (only for power.csv)
+        if pin_filter == "output":
+            o_rows = [r for r in o_rows if r.get("related_pin", "") != ""]
+            n_rows = [r for r in n_rows if r.get("related_pin", "") != ""]
+        elif pin_filter == "input":
+            o_rows = [r for r in o_rows if r.get("related_pin", "") == ""]
+            n_rows = [r for r in n_rows if r.get("related_pin", "") == ""]
 
         # --interpolate 時: 新側に 0.0 の値が含まれていたら部分ランと判断し中断
         if args.interpolate and not args.keep_zero_new:
@@ -332,6 +406,7 @@ def main():
             drop_zero_new=(not args.keep_zero_new),
             drop_default_when=(not args.keep_default_when),
             interpolate=args.interpolate,
+            extra_group_keys=extra_keys,
         )
         _log("")
 

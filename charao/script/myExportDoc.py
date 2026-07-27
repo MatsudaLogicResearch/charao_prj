@@ -172,6 +172,19 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
         outlines.append(f'|Preset | {targetCell.replace_by_portmap(targetCell.ff["preset"])} |')
       outlines.append(f'')
 
+    elif targetCell.islatch:
+      outlines.append(f'### LATCH GROUP')
+      outlines.append(f'| Attribute| Expression |')
+      outlines.append(f'|----|----|')
+      outlines.append(f'|Latch     | {targetCell.replace_by_portmap(targetCell.latch["out"])} |')
+      outlines.append(f'|Enable    | {targetCell.replace_by_portmap(targetCell.latch["enable"])} |')
+      outlines.append(f'|Data In   | {targetCell.replace_by_portmap(targetCell.latch["data_in"])} |')
+      if "clear" in targetCell.latch.keys():
+        outlines.append(f'|Clear | {targetCell.replace_by_portmap(targetCell.latch["clear"])} |')
+      if "preset" in targetCell.latch.keys():
+        outlines.append(f'|Preset | {targetCell.replace_by_portmap(targetCell.latch["preset"])} |')
+      outlines.append(f'')
+
     ##-------------------------------------------------
     if targetCell.functions:
       outlines.append(f'### FUNCTIONS')
@@ -202,18 +215,24 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
     inports=[p for p in (targetCell.inports + [targetCell.clock] + targetCell.biports) if p is not None]
     
     if targetCell.min_pulse_width_high.keys() or targetCell.min_pulse_width_low.keys():
-        
+
       outlines.append(f'### MIN PULSE WIDTH')
-      outlines.append(f'| Input Pin| Width for L({targetLib.time_unit}) | Width for H({targetLib.time_unit})|')
-      outlines.append(f'|----|----|----|')
-      
-      for port in inports:
+      outlines.append(f'（ISS-00160: slew-index テーブル。値は index_1 順のカンマ区切り）')
+      outlines.append(f'| Input Pin| When | Width for L({targetLib.time_unit}) | Width for H({targetLib.time_unit})|')
+      outlines.append(f'|----|----|----|----|')
+
+      # ISS-00082/00160: min_pulse_width_high/low の値は (lut 行リスト, grid) tuple。values 行(最終行)から index_1 順の値列を抽出
+      mpw_keys = sorted(set(targetCell.min_pulse_width_high.keys()) | set(targetCell.min_pulse_width_low.keys()))
+      for (port, when) in mpw_keys:
         port_name = targetCell.replace_by_portmap(port)
-        val_low = f2s_ceil(f=targetCell.min_pulse_width_low[port] , sigdigs=sigdigs)  if port in targetCell.min_pulse_width_low.keys()  else "-"
-        val_high= f2s_ceil(f=targetCell.min_pulse_width_high[port], sigdigs=sigdigs)  if port in targetCell.min_pulse_width_high.keys() else "-"
- 
+        when_disp = targetCell.replace_by_portmap(when) if when else "-"
+        _vl = targetCell.min_pulse_width_low.get((port,when))
+        _vh = targetCell.min_pulse_width_high.get((port,when))
+        val_low = _vl[0][-1].strip().strip('"') if (isinstance(_vl,tuple) and _vl[0]) else "-"
+        val_high= _vh[0][-1].strip().strip('"') if (isinstance(_vh,tuple) and _vh[0]) else "-"
+
         if (val_low !="-")  or (val_high !="-") :
-          outlines.append(f'| {port_name} | {val_low} | {val_high} |')
+          outlines.append(f'| {port_name} | {when_disp} | {val_low} | {val_high} |')
 
       #---
       outlines.append(f'')
@@ -223,33 +242,40 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
 
     for setup_hold in ["setup","hold","recovery","removal"]:
       h_list = [h for h in harnessList if (h.template_kind in ["const"] and h.timing_type.startswith(setup_hold))]
-      sorted_h=sorted(h_list, key=lambda x: (x.timing_type, x.target_inport, x.target_relport, x.constraint, x.timing_when))
+      # ISS-00135/127: .lib const と整合。 Constraint Pin=lib_target_pin(pin_tr[0]), Related pin=lib_related_pin(pin_tr[1])
+      sorted_h=sorted(h_list, key=lambda x: (x.timing_type, x.lib_target_pin, x.lib_related_pin, x.direction_in_lib["constraint"], x.timing_when))
 
       if sorted_h:
         outlines.append(f'### CONSTRAINTS ({setup_hold})')
-        outlines.append(f'| Constraint Pin | Related pin | Constraint Pin Slew({targetLib.time_unit}) | Related pin Slew({targetLib.time_unit}) | When | {setup_hold}({targetLib.time_unit})|')
-        outlines.append(f'|----|----|----|----|----|----|')
+        outlines.append(f'')
 
-        for (timing_type, inport, relport, constraint,timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_inport,x.target_relport, x.constraint, x.timing_when)):
+        for (timing_type, inport, relport, constraint,timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.lib_target_pin,x.lib_related_pin, x.direction_in_lib["constraint"], x.timing_when)):
           group_list=list(group);
           size=len(group_list)
         
-          for g in group_list:
-            index1_pos=len(g.template.index_1)//2
-            index2_pos=len(g.template.index_2)//2
-            index1_val=g.template.index_1[index1_pos]
-            index2_val=g.template.index_2[index2_pos]
-          
-            const_arc=constraint.replace('_constraint',"")
-            rel_arc  =timing_type.replace(setup_hold+"_","")
-          
-            const_pin=f'{targetCell.replace_by_portmap(inport)}({const_arc})'
-            rel_pin  =f'{targetCell.replace_by_portmap(relport)}({rel_arc})'
-            const_slew=index2_val
-            rel_slew=index1_val
-            when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
-            val     = g.dict_list2["setup_hold"][index1_val][index2_val] / targetLib.time_mag
-            outlines.append(f'| {const_pin} | {rel_pin} | {const_slew} | {rel_slew} | {when} | {f2s_ceil(f=val, sigdigs=sigdigs)}|')
+          ## ISS-00121: aux (dummy) は dict_list2["setup_hold"] 未設定 → rep のみ使用。
+          g=next((h for h in group_list if "setup_hold" in h.dict_list2), None)
+          if g is None:
+            continue
+          const_arc=constraint.replace('_constraint',"")
+          rel_arc  =timing_type.replace(setup_hold+"_","")
+          const_pin=f'{targetCell.replace_by_portmap(inport)}({const_arc})'
+          rel_pin  =f'{targetCell.replace_by_portmap(relport)}({rel_arc})'
+          when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
+
+          # md-format 2026-07-12: full grid。index1=constrained-pin slew(行) / index2=related-pin slew(列)
+          #   （myLibrarySetting var_1=constrained / var_2=related、set_lut と整合。旧 rep は const/rel 逆で表示バグ）。
+          outlines.append(f'#### constrained {const_pin} vs related {rel_pin} (when {when})')
+          outlines.append(f'')
+          i1=list(g.template.index_1)   # constrained-pin slew
+          i2=list(g.template.index_2)   # related-pin slew
+          outlines.append(f'**{setup_hold} ({targetLib.time_unit})**')
+          outlines.append(f'')
+          outlines.append(f'| constrained-slew / related-slew | ' + ' | '.join(str(x) for x in i2) + ' |')
+          outlines.append(f'|----|' + '----|'*len(i2))
+          for s in i1:
+            vals=[f2s_ceil(f=g.dict_list2["setup_hold"][s][ld]/targetLib.time_mag, sigdigs=sigdigs) for ld in i2]
+            outlines.append(f'| {s} | ' + ' | '.join(vals) + ' |')
             
         #
         outlines.append(f'')
@@ -257,100 +283,110 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
     
     ##-------------------------------------------------    
     h_list = [h for h in harnessList if (h.template_kind.startswith("delay") and (not h.timing_type.startswith("three_state")))]
-    sorted_h=sorted(h_list, key=lambda x: (x.target_outport, x.timing_when, x.target_relport, x.timing_type, x.direction_tran))
+    sorted_h=sorted(h_list, key=lambda x: (x.target_outport, x.target_relport, x.timing_when, x.direction_in_lib["tran"]))
 
     if sorted_h:
       outlines.append(f'### DELAY AND OUTPUT TRANSITION TIME')
-      outlines.append(f'| Input Pin | Output pin | When | Input Pin Slew({targetLib.time_unit}) | Out Load({targetLib.capacitance_unit}) | Delay({targetLib.time_unit})| Transition({targetLib.time_unit}) |')
-      outlines.append(f'|----|----|----|----|----|----|----|')
-
-      for (timing_type, relport, outport, direction_tran, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_tran, x.timing_when)):
-        group_list=list(group);
-        size=len(group_list)
-      
-        for g in group_list:
-          index1_pos=len(g.template.index_1)//2
-          index2_pos=len(g.template.index_2)//2
-          index1_val=g.template.index_1[index1_pos]
-          index2_val=g.template.index_2[index2_pos]
-          
-          rel_dir="LH" if g.mec.arc_oir[2]=='r' else "HL"
-          tran =direction_tran.replace("_transition","")
-      
-          rel_pin=f'{targetCell.replace_by_portmap(relport)}({rel_dir})'
-          out_pin=f'{targetCell.replace_by_portmap(outport)}({tran})'
-          when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
-          rel_slew =index1_val
-          out_load=index2_val
-          delay_val = g.dict_list2["prop"][index1_val][index2_val] / targetLib.time_mag
-          trans_val = g.dict_list2["trans"][index1_val][index2_val] / targetLib.time_mag
-      
-          outlines.append(f'| {rel_pin} | {out_pin} | {when} | {rel_slew} | {out_load} | {f2s_ceil(f=delay_val, sigdigs=sigdigs)} | {f2s_ceil(f=trans_val, sigdigs=sigdigs)} |')
-      #
       outlines.append(f'')
+
+      # md-format 2026-07-12: アークごとに index1(slew)×index2(load) の full grid テーブルを出力する。
+      #   1 アーク (relport->outport, when) につき Cell delay(fall/rise)・Output transition(fall/rise) の 4 表。
+      #   fall/rise は同アーク内の別 harness（sorted_h が direction_in_lib["tran"] 昇順なので fall→rise の順）。
+      for (outport, relport, timing_when),group in groupby(sorted_h, key=lambda x:(x.target_outport, x.target_relport, x.timing_when)):
+        glist=list(group)
+        rel_pin=targetCell.replace_by_portmap(relport)
+        out_pin=targetCell.replace_by_portmap(outport)
+        when   ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
+        outlines.append(f'#### {rel_pin} -> {out_pin} (when {when})')
+        outlines.append(f'')
+
+        for datakey,dlabel in [("prop","Cell delay"),("trans","Output transition")]:
+          # ISS-00157: transition のみ Liberty 規約 stored=実測/slew_derate（.lib set_lut と一致）。delay(prop) は非対象。
+          derate = targetLib.slew_derate_from_library if datakey=="trans" else 1.0
+          for g in glist:
+            edge=g.direction_in_lib["tran"].replace("_transition","")
+            i1=list(g.template.index_1)
+            i2=list(g.template.index_2) if len(g.template.index_2)>0 else [0.0]   # 1D template は load 非依存
+            outlines.append(f'**{dlabel} ({edge})** ({targetLib.time_unit})')
+            outlines.append(f'')
+            outlines.append(f'| slew / load | ' + ' | '.join(str(x) for x in i2) + ' |')
+            outlines.append(f'|----|' + '----|'*len(i2))
+            for s in i1:
+              vals=[f2s_ceil(f=g.dict_list2[datakey][s][ld]/targetLib.time_mag/derate, sigdigs=sigdigs) for ld in i2]
+              outlines.append(f'| {s} | ' + ' | '.join(vals) + ' |')
+            outlines.append(f'')
 
     
     ##-------------------------------------------------    
     #h_list = [h for h in harnessList if (h.template_kind in ["delay"])]
     h_list = [h for h in harnessList if (h.template_kind.startswith("delay") and  h.timing_type.startswith("three_state"))]
-    sorted_h=sorted(h_list, key=lambda x: (x.target_outport, x.timing_when, x.target_relport, x.timing_type, x.direction_tran))
-    
-    if sorted_h:
-      outlines.append(f'### THREE_STSTE AND OUTPUT TRANSITION TIME')
-      outlines.append(f'| OE | Input Pin | Output pin | When | Input Pin Slew({targetLib.time_unit}) | Out Load({targetLib.capacitance_unit}) | Delay({targetLib.time_unit})| Transition({targetLib.time_unit}) |')
-      outlines.append(f'|----|----|----|----|----|----|----|----|')
+    sorted_h=sorted(h_list, key=lambda x: (x.target_outport, x.target_relport, x.timing_when, x.timing_type, x.direction_in_lib["tran"]))
 
-      for (timing_type, relport, outport, direction_tran, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_tran, x.timing_when)):
-        group_list=list(group);
-        size=len(group_list)
-      
-        for g in group_list:
-          index1_pos=len(g.template.index_1)//2
-          index2_pos=len(g.template.index_2)//2
-          index1_val=g.template.index_1[index1_pos]
-          index2_val=g.template.index_2[index2_pos]
-          
-          rel_dir="LH" if g.mec.arc_oir[2]=='r' else "HL"
-          tran =direction_tran.replace("_transition","")
-      
-          #timing_type=g.timing_type
-          timing_type="enable" if g.timing_type.startswith("three_state_enable") else "disable"
-          rel_pin=f'{targetCell.replace_by_portmap(relport)}({rel_dir})'
-          out_pin=f'{targetCell.replace_by_portmap(outport)}({tran})'
-          when    ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
-          rel_slew =index1_val
-          out_load=index2_val
-          delay_val = g.dict_list2["prop"][index1_val][index2_val] / targetLib.time_mag
-          trans_val = g.dict_list2["trans"][index1_val][index2_val] / targetLib.time_mag
-      
-          outlines.append(f'| {timing_type} | {rel_pin} | {out_pin} | {when} | {rel_slew} | {out_load} | {f2s_ceil(f=delay_val, sigdigs=sigdigs)} | {f2s_ceil(f=trans_val, sigdigs=sigdigs)} |')
-      #
+    if sorted_h:
+      outlines.append(f'### THREE_STATE AND OUTPUT TRANSITION TIME')
       outlines.append(f'')
+
+      # md-format 2026-07-12: DELAY と同様に arc ごとの full grid テーブル。
+      #   OE=enable(2D: slew x load) / disable(1D: slew のみ、load 非依存) を分けて出力。
+      for (outport, relport, timing_when, oe),group in groupby(sorted_h, key=lambda x:(x.target_outport, x.target_relport, x.timing_when, "enable" if x.timing_type.startswith("three_state_enable") else "disable")):
+        glist=list(group)
+        rel_pin=targetCell.replace_by_portmap(relport)
+        out_pin=targetCell.replace_by_portmap(outport)
+        when   ="default" if timing_when =="" else targetCell.replace_by_portmap(timing_when)
+        outlines.append(f'#### OE={oe}: {rel_pin} -> {out_pin} (when {when})')
+        outlines.append(f'')
+
+        for datakey,dlabel in [("prop","Cell delay"),("trans","Output transition")]:
+          # ISS-00157: transition のみ Liberty 規約 stored=実測/slew_derate（.lib set_lut と一致）。delay(prop) は非対象。
+          derate = targetLib.slew_derate_from_library if datakey=="trans" else 1.0
+          for g in glist:
+            edge=g.direction_in_lib["tran"].replace("_transition","")
+            i1=list(g.template.index_1)
+            has2=len(g.template.index_2)>0
+            outlines.append(f'**{dlabel} ({edge})** ({targetLib.time_unit})')
+            outlines.append(f'')
+            if has2:
+              i2=list(g.template.index_2)
+              outlines.append(f'| slew / load | ' + ' | '.join(str(x) for x in i2) + ' |')
+              outlines.append(f'|----|' + '----|'*len(i2))
+              for s in i1:
+                vals=[f2s_ceil(f=g.dict_list2[datakey][s][ld]/targetLib.time_mag/derate, sigdigs=sigdigs) for ld in i2]
+                outlines.append(f'| {s} | ' + ' | '.join(vals) + ' |')
+            else:
+              outlines.append(f'| slew | value (load-independent) |')
+              outlines.append(f'|----|----|')
+              for s in i1:
+                v=f2s_ceil(f=g.dict_list2[datakey][s][0.0]/targetLib.time_mag/derate, sigdigs=sigdigs)
+                outlines.append(f'| {s} | {v} |')
+            outlines.append(f'')
 
     
     ##-------------------------------------------------
     #h_list = [h for h in harnessList if (h.template_kind in ["power"])]
     #h_list = [h for h in harnessList if (h.template_kind.startswith("power") and (h.timing_type.startswith("three_state"))]
-    h_list = [h for h in harnessList if (h.template_kind.startswith("power"))]
-    sorted_h=sorted(h_list, key=lambda x: (x.target_outport, x.timing_when, x.target_relport, x.timing_type, x.direction_tran))
+    h_list = [h for h in harnessList if (h.template_kind.startswith(("power_tout","power_c","power_i")))]
+    sorted_h=sorted(h_list, key=lambda x: (x.target_outport, x.timing_when, x.target_relport, x.timing_type, x.direction_in_lib["tran"]))
 
-    
+
     if sorted_h:
       outlines.append(f'### DYNAMIC ENERGY')
       outlines.append(f'| Input Pin | When | Output pin | Input Pin Slew({targetLib.time_unit}) | Out Load({targetLib.capacitance_unit}) | Energy({targetLib.energy_unit})|')
       outlines.append(f'|----|----|----|----|----|----|')
 
-      for (timing_type, relport, outport, direction_power, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_power, x.timing_when)):
+      for (timing_type, relport, outport, direction_power, timing_when),group in groupby(sorted_h, key=lambda x:(x.timing_type, x.target_relport,x.target_outport, x.direction_in_lib["power"], x.timing_when)):
         group_list=list(group);
         size=len(group_list)
       
         for g in group_list:
           index1_pos=len(g.template.index_1)//2
-          index2_pos=len(g.template.index_2)//2
           index1_val=g.template.index_1[index1_pos]
-          index2_val=g.template.index_2[index2_pos]
+          if len(g.template.index_2) > 0:
+            index2_pos=len(g.template.index_2)//2
+            index2_val=g.template.index_2[index2_pos]
+          else:
+            index2_val=0.0   # 1D template (delay_disable): load-independent
           
-          rel_dir="LH" if g.mec.arc_oir[2]=='r' else "HL"
+          rel_dir="LH" if g.mec.arc_oirc[2]=='r' else "HL"
           pwr_dir =direction_power.replace("_power","")
       
           rel_pin=f'{targetCell.replace_by_portmap(relport)}({rel_dir})'
@@ -374,7 +410,7 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
       outlines.append(f'| Input Pin | When | Input Pin Slew({targetLib.time_unit}) | Energy({targetLib.energy_unit})|')
       outlines.append(f'|----|----|----|----|')
 
-      for (inport, arc_in, timing_when),group in groupby(sorted_h, key=lambda x:(x.target_inport, x.mec.arc_oir[1], x.timing_when)):
+      for (inport, arc_in, timing_when),group in groupby(sorted_h, key=lambda x:(x.target_inport, x.mec.arc_oirc[1], x.timing_when)):
         group_list=list(group);
         size=len(group_list)
       

@@ -1,0 +1,643 @@
+//===================================================================
+// This file is associated with the charao project.
+// Copyright (C) 2025 MATSUDA Masahiro
+//
+// This configuration file is licensed under the MIT License.
+//===================================================================
+// GF180MCU PDK (gf180mcuC) - fd standard cell library (7-track, mcu7t5v0)
+// Revision: 7t20240817
+// Cell group: std_comb  (combinational cells)
+//
+// SPICE: single combined file (gf180mcu_fd_sc_mcu7t5v0.spice)
+// Port order: follows .SUBCKT definition in the SPICE file
+//
+// template_kgn: references names defined in config_lib.jsonc
+//   leakage -> "d00" (0x0)
+//   delay   -> "10x10", d34 (<=2.0pF) / d35 (_12) / d36 (_16) / d38 (_20)
+//   power   -> same grid/name as delay
+//
+// Unsupported logic types (future work - see charao_prj.md Known Issues):
+//   AOI21/22/211/221/222, OAI21/22/211/221/222/31/32/33,
+//   MUX4, ADDF, ADDH, BUFT (bufz), INVT (invz)
+// XOR3 added 2026-04-26 (ISS-00064 #0).
+// XNOR3 added 2026-04-26 (ISS-00064 #1).
+// AOI21 added 2026-04-26 (ISS-00064 #2).
+// OAI21 added 2026-04-26 (ISS-00064 #3).
+// AOI211 added 2026-04-26 (ISS-00064 #4, charao when has extra `&!Cother` for 4+ inputs, orig timing arc は default block 経由で許容).
+// OAI211 added 2026-04-26 (ISS-00064 #5).
+// OAI31 added 2026-04-26 (ISS-00064 #6).
+// AOI22 added 2026-04-26 (ISS-00064 #7).
+// OAI22 added 2026-04-26 (ISS-00064 #8).
+// AOI211, OAI211, AOI22, OAI22 (ISS-00064 #4,#5,#7,#8) v1 → v2 再生成 2026-04-26 (tmg_when same-group 省略).
+// AOI221, OAI221, OAI32, MUX4, OAI33, AOI222, OAI222 added 2026-04-26 (ISS-00064 #9-#15, tmp/gen_logic_entries.py 自動生成、tmg_when same-group 省略 v2).
+//===================================================================
+// [Info] The order of "ports_dict" is same as the order of pin-list in the spice file.
+
+{
+"spice_path":"./sample_src/gf180mcuC/libs.ref/gf180mcu_fd_sc_mcu7t5v0/spice",
+
+"cell_info": [
+
+  // ---- BUF --------------------------------------------------------
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__buf_1" ,"logic":"BUF","area":13.1712,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__buf_2" ,"logic":"BUF","area":17.5616,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d033"],["power_tout","10x10","d033"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__buf_3" ,"logic":"BUF","area":21.9520,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__buf_4" ,"logic":"BUF","area":30.7328,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d040"],["power_tout","10x10","d040"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__buf_8" ,"logic":"BUF","area":57.0752,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d041"],["power_tout","10x10","d041"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__buf_12","logic":"BUF","area":83.4176,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d043"],["power_tout","10x10","d043"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__buf_16","logic":"BUF","area":109.7600,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d045"],["power_tout","10x10","d045"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__buf_20","logic":"BUF","area":136.1024,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- CLKBUF -----------------------------------------------------
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__clkbuf_1" ,"logic":"BUF","area":13.1712,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__clkbuf_2" ,"logic":"BUF","area":17.5616,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__clkbuf_3" ,"logic":"BUF","area":30.7328,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__clkbuf_4" ,"logic":"BUF","area":30.7328,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d038"],["power_tout","10x10","d038"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__clkbuf_8" ,"logic":"BUF","area":57.0752,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d041"],["power_tout","10x10","d041"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__clkbuf_12","logic":"BUF","area":83.4176,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d043"],["power_tout","10x10","d043"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__clkbuf_16","logic":"BUF","area":109.7600,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d045"],["power_tout","10x10","d045"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__clkbuf_20","logic":"BUF","area":136.1024,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- INV --------------------------------------------------------
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__inv_1" ,"logic":"INV","area":8.7808,
+   "ports_dict":{"I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d026"],["power_tout","10x10","d026"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__inv_2" ,"logic":"INV","area":13.1712,
+   "ports_dict":{"I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d031"],["power_tout","10x10","d031"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__inv_3" ,"logic":"INV","area":17.5616,
+   "ports_dict":{"I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__inv_4" ,"logic":"INV","area":21.9520,
+   "ports_dict":{"I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d038"],["power_tout","10x10","d038"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__inv_8" ,"logic":"INV","area":39.5136,
+   "ports_dict":{"I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d041"],["power_tout","10x10","d041"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__inv_12","logic":"INV","area":57.0752,
+   "ports_dict":{"I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d043"],["power_tout","10x10","d043"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__inv_16","logic":"INV","area":74.6368,
+   "ports_dict":{"I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d045"],["power_tout","10x10","d045"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__inv_20","logic":"INV","area":92.1984,
+   "ports_dict":{"I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- CLKINV -----------------------------------------------------
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d016"],["power_tout","10x10","d016"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__clkinv_1" ,"logic":"INV","area":8.7808,
+   "ports_dict":{"I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d026"],["power_tout","10x10","d026"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__clkinv_2" ,"logic":"INV","area":13.1712,
+   "ports_dict":{"I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d031"],["power_tout","10x10","d031"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__clkinv_3" ,"logic":"INV","area":17.5616,
+   "ports_dict":{"I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__clkinv_4" ,"logic":"INV","area":21.9520,
+   "ports_dict":{"I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d038"],["power_tout","10x10","d038"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__clkinv_8" ,"logic":"INV","area":39.5136,
+   "ports_dict":{"I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d041"],["power_tout","10x10","d041"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__clkinv_12","logic":"INV","area":57.0752,
+   "ports_dict":{"I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d043"],["power_tout","10x10","d043"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__clkinv_16","logic":"INV","area":74.6368,
+   "ports_dict":{"I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d045"],["power_tout","10x10","d045"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__clkinv_20","logic":"INV","area":92.1984,
+   "ports_dict":{"I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- DEL (dlya: small / dlyb: medium / dlyc: large / dlyd: xlarge) --
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dlya_1","logic":"DEL","area":24.1472,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dlya_2","logic":"DEL","area":28.5376,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dlya_4","logic":"DEL","area":37.3184,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dlyb_1","logic":"DEL","area":35.1232,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dlyb_2","logic":"DEL","area":39.5136,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dlyb_4","logic":"DEL","area":48.2944,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dlyc_1","logic":"DEL","area":54.8800,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dlyc_2","logic":"DEL","area":59.2704,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dlyc_4","logic":"DEL","area":68.0512,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dlyd_1","logic":"DEL","area":74.6368,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dlyd_2","logic":"DEL","area":79.0272,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__dlyd_4","logic":"DEL","area":87.8080,
+   "ports_dict":{"I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- ANTENNA ----------------------------------------------------
+  {"template_kgn":[["leakage","0x0","d00"],["passive","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__antenna","logic":"ANTENNA","area":4.3904,
+   "ports_dict":{"I":"i0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- NAND -------------------------------------------------------
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d014"],["power_tout","10x10","d014"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nand2_1","logic":"NAND2","area":10.9760,
+   "ports_dict":{"A1":"i0","A2":"i1","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d025"],["power_tout","10x10","d025"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nand2_2","logic":"NAND2","area":19.7568,
+   "ports_dict":{"A1":"i0","A2":"i1","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d035"],["power_tout","10x10","d035"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nand2_4","logic":"NAND2","area":35.1232,
+   "ports_dict":{"A1":"i0","A2":"i1","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d012"],["power_tout","10x10","d012"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nand3_1","logic":"NAND3","area":15.3664,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d023"],["power_tout","10x10","d023"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nand3_2","logic":"NAND3","area":28.5376,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d033"],["power_tout","10x10","d033"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nand3_4","logic":"NAND3","area":57.0752,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d009"],["power_tout","10x10","d009"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nand4_1","logic":"NAND4","area":19.7568,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","A4":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d020"],["power_tout","10x10","d020"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nand4_2","logic":"NAND4","area":35.1232,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","A4":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d029"],["power_tout","10x10","d029"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nand4_4","logic":"NAND4","area":70.2464,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","A4":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- NOR --------------------------------------------------------
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d007"],["power_tout","10x10","d007"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nor2_1","logic":"NOR2","area":13.1712,
+   "ports_dict":{"A1":"i0","A2":"i1","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nor2_2","logic":"NOR2","area":21.9520,
+   "ports_dict":{"A1":"i0","A2":"i1","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nor2_4","logic":"NOR2","area":39.5136,
+   "ports_dict":{"A1":"i0","A2":"i1","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d003"],["power_tout","10x10","d003"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nor3_1","logic":"NOR3","area":17.5616,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d011"],["power_tout","10x10","d011"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nor3_2","logic":"NOR3","area":30.7328,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d022"],["power_tout","10x10","d022"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nor3_4","logic":"NOR3","area":57.0752,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d000"],["power_tout","10x10","d000"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nor4_1","logic":"NOR4","area":21.9520,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","A4":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d007"],["power_tout","10x10","d007"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nor4_2","logic":"NOR4","area":39.5136,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","A4":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__nor4_4","logic":"NOR4","area":81.2224,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","A4":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- AND --------------------------------------------------------
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__and2_1","logic":"AND2","area":17.5616,
+   "ports_dict":{"A1":"i0","A2":"i1","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__and2_2","logic":"AND2","area":19.7568,
+   "ports_dict":{"A1":"i0","A2":"i1","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__and2_4","logic":"AND2","area":37.3184,
+   "ports_dict":{"A1":"i0","A2":"i1","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__and3_1","logic":"AND3","area":21.9520,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__and3_2","logic":"AND3","area":24.1472,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__and3_4","logic":"AND3","area":43.9040,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__and4_1","logic":"AND4","area":24.1472,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","A4":"i3","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__and4_2","logic":"AND4","area":28.5376,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","A4":"i3","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__and4_4","logic":"AND4","area":52.6848,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","A4":"i3","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- OR ---------------------------------------------------------
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__or2_1","logic":"OR2","area":17.5616,
+   "ports_dict":{"A1":"i0","A2":"i1","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__or2_2","logic":"OR2","area":21.9520,
+   "ports_dict":{"A1":"i0","A2":"i1","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__or2_4","logic":"OR2","area":39.5136,
+   "ports_dict":{"A1":"i0","A2":"i1","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__or3_1","logic":"OR3","area":21.9520,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__or3_2","logic":"OR3","area":26.3424,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__or3_4","logic":"OR3","area":48.2944,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__or4_1","logic":"OR4","area":26.3424,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","A4":"i3","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__or4_2","logic":"OR4","area":30.7328,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","A4":"i3","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__or4_4","logic":"OR4","area":57.0752,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","A4":"i3","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- XOR --------------------------------------------------------
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d007"],["power_tout","10x10","d007"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__xor2_1","logic":"XOR2","area":26.3424,
+   "ports_dict":{"A1":"i0","A2":"i1","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__xor2_2","logic":"XOR2","area":39.5136,
+   "ports_dict":{"A1":"i0","A2":"i1","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__xor2_4","logic":"XOR2","area":48.2944,
+   "ports_dict":{"A1":"i0","A2":"i1","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- XNOR -------------------------------------------------------
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d005"],["power_tout","10x10","d005"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__xnor2_1","logic":"XNOR2","area":28.5376,
+   "ports_dict":{"A1":"i0","A2":"i1","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__xnor2_2","logic":"XNOR2","area":37.3184,
+   "ports_dict":{"A1":"i0","A2":"i1","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__xnor2_4","logic":"XNOR2","area":46.0992,
+   "ports_dict":{"A1":"i0","A2":"i1","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- XOR3 -------------------------------------------------------
+  // ISS-00064 #0: 2026-04-26 added (mylogic_user.py prototype → mylogic_base.py)
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d007"],["power_tout","10x10","d007"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__xor3_1","logic":"XOR3","area":50.4896,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__xor3_2","logic":"XOR3","area":63.6608,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__xor3_4","logic":"XOR3","area":72.4416,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- XNOR3 ------------------------------------------------------
+  // ISS-00064 #1: 2026-04-26 added (mylogic_user.py prototype → mylogic_base.py)
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d005"],["power_tout","10x10","d005"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__xnor3_1","logic":"XNOR3","area":52.6848,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__xnor3_2","logic":"XNOR3","area":61.4656,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__xnor3_4","logic":"XNOR3","area":70.2464,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- AOI21 ------------------------------------------------------
+  // ISS-00064 #2: 2026-04-26 added (mylogic_user.py prototype → mylogic_comb_complex.py)
+  // function: !((A1&A2)|B)
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d007"],["power_tout","10x10","d007"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__aoi21_1","logic":"AOI21","area":17.5616,
+   "ports_dict":{"A1":"i0","A2":"i1","B":"i2","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__aoi21_2","logic":"AOI21","area":28.5376,
+   "ports_dict":{"A1":"i0","A2":"i1","B":"i2","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__aoi21_4","logic":"AOI21","area":52.6848,
+   "ports_dict":{"A1":"i0","A2":"i1","B":"i2","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- OAI21 ------------------------------------------------------
+  // ISS-00064 #3: 2026-04-26 added (mylogic_user.py prototype → mylogic_comb_complex.py)
+  // function: !((A1|A2)&B)
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d007"],["power_tout","10x10","d007"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai21_1","logic":"OAI21","area":17.5616,
+   "ports_dict":{"A1":"i0","A2":"i1","B":"i2","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d014"],["power_tout","10x10","d014"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai21_2","logic":"OAI21","area":32.9280,
+   "ports_dict":{"A1":"i0","A2":"i1","B":"i2","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d025"],["power_tout","10x10","d025"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai21_4","logic":"OAI21","area":59.2704,
+   "ports_dict":{"A1":"i0","A2":"i1","B":"i2","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- AOI211 -----------------------------------------------------
+  // ISS-00064 #4: 2026-04-26 added (mylogic_user.py prototype → mylogic_comb_complex.py)
+  // function: !((A1&A2)|B|C)
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d003"],["power_tout","10x10","d003"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__aoi211_1","logic":"AOI211","area":21.9520,
+   "ports_dict":{"A1":"i0","A2":"i1","B":"i2","C":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d010"],["power_tout","10x10","d010"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__aoi211_2","logic":"AOI211","area":37.3184,
+   "ports_dict":{"A1":"i0","A2":"i1","B":"i2","C":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d022"],["power_tout","10x10","d022"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__aoi211_4","logic":"AOI211","area":79.0272,
+   "ports_dict":{"A1":"i0","A2":"i1","B":"i2","C":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- OAI211 -----------------------------------------------------
+  // ISS-00064 #5: 2026-04-26 added (mylogic_user.py prototype → mylogic_comb_complex.py)
+  // function: !((A1|A2)&B&C)
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d007"],["power_tout","10x10","d007"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai211_1","logic":"OAI211","area":21.9520,
+   "ports_dict":{"A1":"i0","A2":"i1","B":"i2","C":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d014"],["power_tout","10x10","d014"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai211_2","logic":"OAI211","area":39.5136,
+   "ports_dict":{"A1":"i0","A2":"i1","B":"i2","C":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d025"],["power_tout","10x10","d025"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai211_4","logic":"OAI211","area":72.4416,
+   "ports_dict":{"A1":"i0","A2":"i1","B":"i2","C":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- OAI31 ------------------------------------------------------
+  // ISS-00064 #6: 2026-04-26 added (mylogic_user.py prototype → mylogic_comb_complex.py)
+  // function: !((A1|A2|A3)&B)
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d002"],["power_tout","10x10","d002"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai31_1","logic":"OAI31","area":24.1472,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","B":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d010"],["power_tout","10x10","d010"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai31_2","logic":"OAI31","area":41.7088,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","B":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d021"],["power_tout","10x10","d021"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai31_4","logic":"OAI31","area":76.8320,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","B":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- AOI22 ------------------------------------------------------
+  // ISS-00064 #7: 2026-04-26 added (mylogic_user.py prototype → mylogic_comb_complex.py)
+  // function: !((A1&A2)|(B1&B2))
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d011"],["power_tout","10x10","d011"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__aoi22_1","logic":"AOI22","area":19.7568,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d022"],["power_tout","10x10","d022"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__aoi22_2","logic":"AOI22","area":35.1232,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d029"],["power_tout","10x10","d029"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__aoi22_4","logic":"AOI22","area":70.2464,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- OAI22 ------------------------------------------------------
+  // ISS-00064 #8: 2026-04-26 added (mylogic_user.py prototype → mylogic_comb_complex.py)
+  // function: !((A1|A2)&(B1|B2))
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d006"],["power_tout","10x10","d006"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai22_1","logic":"OAI22","area":21.9520,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d014"],["power_tout","10x10","d014"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai22_2","logic":"OAI22","area":41.7088,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d025"],["power_tout","10x10","d025"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai22_4","logic":"OAI22","area":76.8320,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- AOI221 -----------------------------------------------------
+  // ISS-00064 #9: 2026-04-26 added (tmp/gen_logic_entries.py 自動生成 → mylogic_comb_complex.py)
+  // function: !((A1&A2)|(B1&B2)|C)、tmg_when same-group 省略
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d004"],["power_tout","10x10","d004"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__aoi221_1","logic":"AOI221","area":24.1472,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","C":"i4","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d012"],["power_tout","10x10","d012"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__aoi221_2","logic":"AOI221","area":50.4896,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","C":"i4","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d023"],["power_tout","10x10","d023"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__aoi221_4","logic":"AOI221","area":87.8080,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","C":"i4","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- OAI221 -----------------------------------------------------
+  // ISS-00064 #10: function !((A1|A2)&(B1|B2)&C)
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d006"],["power_tout","10x10","d006"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai221_1","logic":"OAI221","area":26.3424,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","C":"i4","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d014"],["power_tout","10x10","d014"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai221_2","logic":"OAI221","area":50.4896,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","C":"i4","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d024"],["power_tout","10x10","d024"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai221_4","logic":"OAI221","area":94.3936,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","C":"i4","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- OAI32 ------------------------------------------------------
+  // ISS-00064 #11: function !((A1|A2|A3)&(B1|B2))
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d002"],["power_tout","10x10","d002"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai32_1","logic":"OAI32","area":26.3424,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","B1":"i3","B2":"i4","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d008"],["power_tout","10x10","d008"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai32_2","logic":"OAI32","area":50.4896,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","B1":"i3","B2":"i4","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d019"],["power_tout","10x10","d019"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai32_4","logic":"OAI32","area":94.3936,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","B1":"i3","B2":"i4","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- MUX4 -------------------------------------------------------
+  // ISS-00064 #12: function ({S1,S0}=00)?I0:(01)?I1:(10)?I2:I3、出力 Z（active high）
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d010"],["power_tout","10x10","d010"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__mux4_1","logic":"MUX4","area":70.2464,
+   "ports_dict":{"I0":"i0","I1":"i1","I2":"i2","I3":"i3","S0":"i4","S1":"i5","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d021"],["power_tout","10x10","d021"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__mux4_2","logic":"MUX4","area":74.6368,
+   "ports_dict":{"I0":"i0","I1":"i1","I2":"i2","I3":"i3","S0":"i4","S1":"i5","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d030"],["power_tout","10x10","d030"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__mux4_4","logic":"MUX4","area":83.4176,
+   "ports_dict":{"I0":"i0","I1":"i1","I2":"i2","I3":"i3","S0":"i4","S1":"i5","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- OAI33 ------------------------------------------------------
+  // ISS-00064 #13: function !((A1|A2|A3)&(B1|B2|B3))
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d001"],["power_tout","10x10","d001"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai33_1","logic":"OAI33","area":32.9280,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","B1":"i3","B2":"i4","B3":"i5","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d008"],["power_tout","10x10","d008"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai33_2","logic":"OAI33","area":59.2704,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","B1":"i3","B2":"i4","B3":"i5","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d019"],["power_tout","10x10","d019"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai33_4","logic":"OAI33","area":111.9552,
+   "ports_dict":{"A1":"i0","A2":"i1","A3":"i2","B1":"i3","B2":"i4","B3":"i5","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- AOI222 -----------------------------------------------------
+  // ISS-00064 #14: function !((A1&A2)|(B1&B2)|(C1&C2))
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d006"],["power_tout","10x10","d006"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__aoi222_1","logic":"AOI222","area":30.7328,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","C1":"i4","C2":"i5","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__aoi222_2","logic":"AOI222","area":54.8800,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","C1":"i4","C2":"i5","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__aoi222_4","logic":"AOI222","area":103.1744,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","C1":"i4","C2":"i5","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- OAI222 -----------------------------------------------------
+  // ISS-00064 #15: function !((A1|A2)&(B1|B2)&(C1|C2))
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d004"],["power_tout","10x10","d004"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai222_1","logic":"OAI222","area":32.9280,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","C1":"i4","C2":"i5","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d013"],["power_tout","10x10","d013"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai222_2","logic":"OAI222","area":59.2704,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","C1":"i4","C2":"i5","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d024"],["power_tout","10x10","d024"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__oai222_4","logic":"OAI222","area":111.9552,
+   "ports_dict":{"A1":"i0","A2":"i1","B1":"i2","B2":"i3","C1":"i4","C2":"i5","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- MUX --------------------------------------------------------
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__mux2_1","logic":"MUX2","area":28.5376,
+   "ports_dict":{"I0":"i0","I1":"i1","S":"i2","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["power_tout","10x10","d028"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__mux2_2","logic":"MUX2","area":32.9280,
+   "ports_dict":{"I0":"i0","I1":"i1","S":"i2","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["power_tout","10x10","d036"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__mux2_4","logic":"MUX2","area":41.7088,
+   "ports_dict":{"I0":"i0","I1":"i1","S":"i2","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- TIE --------------------------------------------------------
+  {"template_kgn":[["leakage","0x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__tieh","logic":"TIE1","area":8.7808,
+   "ports_dict":{"Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__tiel","logic":"TIE0","area":8.7808,
+   "ports_dict":{"ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- ADDH/ADDF ------（ISS-00068 trial、2026-05-01）
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__addh_1","logic":"ADDH","area":39.5136,
+   "ports_dict":{"A":"i0","B":"i1","CO":"o1","S":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  // ISS-00150: addh_2 は S(o0)=d023 / CO(o1)=d028 の per-pin 割当（第 4 要素=出力 port）
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d028"],["delay","10x10","d023","o0"],["power_tout","10x10","d028"],["power_tout","10x10","d023","o0"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__addh_2","logic":"ADDH","area":48.2944,
+   "ports_dict":{"A":"i0","B":"i1","CO":"o1","S":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d034"],["power_tout","10x10","d034"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__addh_4","logic":"ADDH","area":87.8080,
+   "ports_dict":{"A":"i0","B":"i1","CO":"o1","S":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d018"],["power_tout","10x10","d018"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__addf_1","logic":"ADDF","area":72.4416,
+   "ports_dict":{"A":"i0","B":"i1","CI":"i2","CO":"o1","S":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  // ISS-00150: addf_2 は S(o0)=d025 / CO(o1)=d026
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d026"],["delay","10x10","d025","o0"],["power_tout","10x10","d026"],["power_tout","10x10","d025","o0"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__addf_2","logic":"ADDF","area":79.0272,
+   "ports_dict":{"A":"i0","B":"i1","CI":"i2","CO":"o1","S":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+  // ISS-00150: addf_4 は S(o0)=d035 / CO(o1)=d036
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d036"],["delay","10x10","d035","o0"],["power_tout","10x10","d036"],["power_tout","10x10","d035","o0"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__addf_4","logic":"ADDF","area":96.5888,
+   "ports_dict":{"A":"i0","B":"i1","CI":"i2","CO":"o1","S":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- HOLD (bus keeper, ISS-00069) --------------------------------
+  // SPICE port order: Z VDD VNW VPW VSS  (Z is inout / biport b0)
+  {"template_kgn":[["leakage","0x0","d00"],["power_tin","10x0","d000"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__hold","logic":"HOLD","area":19.7568,
+   "ports_dict":{"Z":"b0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"}},
+
+  // ---- BUFZ (tri-state buffer, ISS-00066) --------------------------------
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d017"],["power_tout","10x10","d017"],["power_tin","10x0","d000"],["delay_disable","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__bufz_1" ,"logic":"BUFZ","area":30.7328,
+   "ports_dict":{"EN":"i1","I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"},
+   "oe_infos":{"o0":{"drv0":{"type":"nmos","gate":"NI_N"},"drv1":{"type":"pmos","gate":"NI_P"}}}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d027"],["power_tout","10x10","d027"],["power_tin","10x0","d000"],["delay_disable","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__bufz_2" ,"logic":"BUFZ","area":32.9280,
+   "ports_dict":{"EN":"i1","I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"},
+   "oe_infos":{"o0":{"drv0":{"type":"nmos","gate":"NI_N"},"drv1":{"type":"pmos","gate":"NI_P"}}}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d032"],["power_tout","10x10","d032"],["power_tin","10x0","d000"],["delay_disable","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__bufz_3" ,"logic":"BUFZ","area":43.9040,
+   "ports_dict":{"EN":"i1","I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"},
+   "oe_infos":{"o0":{"drv0":{"type":"nmos","gate":"NI_N"},"drv1":{"type":"pmos","gate":"NI_P"}}}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d037"],["power_tout","10x10","d037"],["power_tin","10x0","d000"],["delay_disable","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__bufz_4" ,"logic":"BUFZ","area":48.2944,
+   "ports_dict":{"EN":"i1","I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"},
+   "oe_infos":{"o0":{"drv0":{"type":"nmos","gate":"NI_N"},"drv1":{"type":"pmos","gate":"NI_P"}}}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d039"],["power_tout","10x10","d039"],["power_tin","10x0","d000"],["delay_disable","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__bufz_8" ,"logic":"BUFZ","area":74.6368,
+   "ports_dict":{"EN":"i1","I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"},
+   "oe_infos":{"o0":{"drv0":{"type":"nmos","gate":"NI_N"},"drv1":{"type":"pmos","gate":"NI_P"}}}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d042"],["power_tout","10x10","d042"],["power_tin","10x0","d000"],["delay_disable","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__bufz_12","logic":"BUFZ","area":100.9792,
+   "ports_dict":{"EN":"i1","I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"},
+   "oe_infos":{"o0":{"drv0":{"type":"nmos","gate":"NI_N"},"drv1":{"type":"pmos","gate":"NI_P"}}}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d044"],["power_tout","10x10","d044"],["power_tin","10x0","d000"],["delay_disable","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__bufz_16","logic":"BUFZ","area":127.3216,
+   "ports_dict":{"EN":"i1","I":"i0","Z":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"},
+   "oe_infos":{"o0":{"drv0":{"type":"nmos","gate":"NI_N"},"drv1":{"type":"pmos","gate":"NI_P"}}}},
+
+  // ---- INVZ (tri-state inverter, ISS-00066) ------------------------------
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d015"],["power_tout","10x10","d015"],["power_tin","10x0","d000"],["delay_disable","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__invz_1" ,"logic":"INVZ","area":37.3184,
+   "ports_dict":{"EN":"i1","I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"},
+   "oe_infos":{"o0":{"drv0":{"type":"nmos","gate":"NI_N"},"drv1":{"type":"pmos","gate":"NI_P"}}}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d027"],["power_tout","10x10","d027"],["power_tin","10x0","d000"],["delay_disable","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__invz_2" ,"logic":"INVZ","area":37.3184,
+   "ports_dict":{"EN":"i1","I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"},
+   "oe_infos":{"o0":{"drv0":{"type":"nmos","gate":"NI_N"},"drv1":{"type":"pmos","gate":"NI_P"}}}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d032"],["power_tout","10x10","d032"],["power_tin","10x0","d000"],["delay_disable","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__invz_3" ,"logic":"INVZ","area":50.4896,
+   "ports_dict":{"EN":"i1","I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"},
+   "oe_infos":{"o0":{"drv0":{"type":"nmos","gate":"NI_N"},"drv1":{"type":"pmos","gate":"NI_P"}}}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d037"],["power_tout","10x10","d037"],["power_tin","10x0","d000"],["delay_disable","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__invz_4" ,"logic":"INVZ","area":52.6848,
+   "ports_dict":{"EN":"i1","I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"},
+   "oe_infos":{"o0":{"drv0":{"type":"nmos","gate":"NI_N"},"drv1":{"type":"pmos","gate":"NI_P"}}}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d039"],["power_tout","10x10","d039"],["power_tin","10x0","d000"],["delay_disable","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__invz_8" ,"logic":"INVZ","area":85.6128,
+   "ports_dict":{"EN":"i1","I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"},
+   "oe_infos":{"o0":{"drv0":{"type":"nmos","gate":"NI_N"},"drv1":{"type":"pmos","gate":"NI_P"}}}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d042"],["power_tout","10x10","d042"],["power_tin","10x0","d000"],["delay_disable","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__invz_12","logic":"INVZ","area":118.5408,
+   "ports_dict":{"EN":"i1","I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"},
+   "oe_infos":{"o0":{"drv0":{"type":"nmos","gate":"NI_N"},"drv1":{"type":"pmos","gate":"NI_P"}}}},
+  {"template_kgn":[["leakage","0x0","d00"],["delay","10x10","d044"],["power_tout","10x10","d044"],["power_tin","10x0","d000"],["delay_disable","10x0","d00"]],
+   "spice":"gf180mcu_fd_sc_mcu7t5v0.spice","cell":"gf180mcu_fd_sc_mcu7t5v0__invz_16","logic":"INVZ","area":153.6640,
+   "ports_dict":{"EN":"i1","I":"i0","ZN":"o0","VDD":"vdd","VNW":"vnw","VPW":"vpw","VSS":"vss"},
+   "oe_infos":{"o0":{"drv0":{"type":"nmos","gate":"NI_N"},"drv1":{"type":"pmos","gate":"NI_P"}}}}
+
+]
+}
