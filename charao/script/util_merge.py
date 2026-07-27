@@ -1,22 +1,29 @@
 #!/usr/bin/env python3
-"""util_merge.py - run_each の cell 別 .lib/.v/.md を 1 ファイルに統合する。
+"""util_merge.py - rslt ディレクトリ群の .lib/.v/.md を同名ファイル同士で統合する。
 
-charao の `debug_run.sh run_each` は cell ごとに rslt_<cell>/ へ
-.lib/.v/.md を出力する。 本スクリプトはそれらを 1 つの .lib/.v/.md に統合する。
+charao は実行単位ごとに rslt/（run_each は rslt_<cell>/）へ .lib/.v/.md を出力する。
+本スクリプトは複数の rslt を **順次上書き更新**しながら 1 つの rslt にまとめる。
 
 使い方:
-    util_merge.py <file>... --out <prefix>
+    util_merge.py --out_dir <dir> <in_dir>...
 
-  <file>...  .lib/.v/.md ファイル（混在可。 シェルのワイルドカードで展開）
-  --out      出力 prefix。 <prefix>.lib / <prefix>.v / <prefix>.md を生成
+  --out_dir    出力ディレクトリ（無ければ作成）。 入力と同じファイル名で出力する
+  <in_dir>...  入力ディレクトリ（rslt 等）。 **先頭がベース、以降が順次更新**
+
+ISS-00171: `in_dir1 in_dir2 in_dir3 ...` と与えると、 **in_dir1 をベースに in_dir2, in_dir3 ...
+を順次適用**する。 同名 cell は後のディレクトリで **上書き**、 未登場の cell は **追加**。
+出力順は in_dir1 の並びを保ち、 新規 cell は末尾へ追加する。 マージは **同じファイル名同士**で
+行うため、 PVT 条件でファイル名が変わる場合もそのまま扱える。 1 セルだけ再 sim した結果を
+既存の rslt へ差し戻す用途に使う（rslt を渡すと新しい rslt ができる）。
 
 ヘッダは date 行を除いて全ファイルの一致を検証し（不一致は ERROR で停止）、
 date は引数リスト末尾のファイルのものを採用する。
 
-ある拡張子のファイルが 1 つ（= 1 cell）のみの場合、 その拡張子はマージを
-スキップする（元ファイルをそのまま使えばよく、 統合ファイルを作る意味が無い）。
+入力が 1 ディレクトリだけの場合もそのまま出力する（= コピー相当。 入力にあるファイルは
+必ず出力に現れる）。
 """
 import argparse
+import os
 import re
 import sys
 
@@ -121,6 +128,24 @@ def split_md(path):
     return header, cells
 
 
+# --- cell 名の同定（ISS-00171: 上書き判定のキー）---
+def cell_name(block, kind):
+    """cell ブロックの先頭からセル名を取り出す。 .lib=cell (<name>) / .v=module <name> / .md=## <name>"""
+    if kind == "lib":
+        m = re.match(r"\s*cell\s*\(\s*([^)\s]+)\s*\)", block[0])
+    elif kind == "v":
+        m = None
+        for line in block:
+            m = re.match(r"\s*module\s+([A-Za-z_][\w$]*)", line)
+            if m:
+                break
+    else:  # md
+        m = re.match(r"##\s+(\S+)", block[0])
+    if not m:
+        fail(f"cell 名を同定できません（{kind}）: {block[0].rstrip()}")
+    return m.group(1)
+
+
 # --- ヘッダ照合 / date 置換 ---
 def check_headers(parsed, is_date, kind):
     ref_path, ref_h = parsed[0][0], parsed[0][1]
@@ -167,7 +192,20 @@ def merge_group(paths, splitter, is_date, kind, footer):
         parsed.append((p, h, cells))
     check_headers(parsed, is_date, kind)
     out = list(merged_header(parsed, is_date))
-    blocks = [blk for _, _, cells in parsed for blk in cells]
+    #-- ISS-00171: f1 をベースに f2, f3 ... を順次適用（同名 cell は上書き、 未登場の cell は追加）。
+    #   部分再実行の結果を既存の統合ファイルへ差し戻す運用（1 セルだけ再 sim して統合 lib を更新）
+    #   のため。 出力順は f1 の並びを保ち、 新規 cell は末尾へ追加する（dict の挿入順保持を利用）。
+    merged = {}
+    n_update = 0
+    for _, _, cells in parsed:
+        for blk in cells:
+            name = cell_name(blk, kind)
+            if name in merged:
+                n_update += 1
+            merged[name] = blk
+    if n_update:
+        print(f"util_merge: .{kind}: {n_update} cell(s) updated by later file(s)")
+    blocks = list(merged.values())
     for bi, block in enumerate(blocks):
         out.extend(block)
         # .lib/.v は cell ブロック間に空行を 1 行入れる（.md は元のセクション区切りを保つ）
@@ -191,34 +229,39 @@ SPECS = {
 
 def main():
     ap = argparse.ArgumentParser(
-        description="cell 別 .lib/.v/.md を 1 ファイルに統合する。"
+        description="rslt ディレクトリ群の .lib/.v/.md を同名ファイル同士で統合する。"
     )
-    ap.add_argument("files", nargs="+", help=".lib/.v/.md ファイル（混在可）")
     ap.add_argument(
-        "--out", required=True, metavar="PREFIX",
-        help="出力 prefix（<PREFIX>.lib / .v / .md を生成）",
+        "--out_dir", required=True, metavar="DIR",
+        help="出力ディレクトリ（無ければ作成）。 入力と同じファイル名で出力する",
     )
+    ap.add_argument("in_dir_list", nargs="+", help="入力ディレクトリ（rslt 等）。 先頭がベース、以降が順次更新")
     args = ap.parse_args()
 
-    groups = {"lib": [], "v": [], "md": []}
-    for f in args.files:
-        ext = f.rsplit(".", 1)[-1].lower() if "." in f else ""
-        if ext not in groups:
-            fail(f"未対応の拡張子: {f}")
-        groups[ext].append(f)
+    for d in args.in_dir_list:
+        if not os.path.isdir(d):
+            fail(f"入力ディレクトリがありません: {d}")
 
-    if not any(groups.values()):
-        fail("入力ファイルがありません。")
+    #-- ISS-00171: ファイル名（basename）ごとに束ねる。 PVT 条件でファイル名が変わっても
+    #   同名ファイル同士だけがマージ対象になる。 順序は in_dir_list の並び（先頭がベース）。
+    targets = {}   # basename -> [path, ...]
+    for d in args.in_dir_list:
+        for fn in sorted(os.listdir(d)):
+            ext = fn.rsplit(".", 1)[-1].lower() if "." in fn else ""
+            if ext not in SPECS:
+                continue
+            targets.setdefault(fn, []).append(os.path.join(d, fn))
 
-    for ext, paths in groups.items():
-        if not paths:
-            continue
-        if len(paths) == 1:
-            print(f"util_merge: .{ext} は 1 file のためマージをスキップ: {paths[0]}")
-            continue
+    if not targets:
+        fail(f"入力ディレクトリに .lib/.v/.md がありません: {' '.join(args.in_dir_list)}")
+
+    os.makedirs(args.out_dir, exist_ok=True)
+
+    for fn, paths in targets.items():
+        ext = fn.rsplit(".", 1)[-1].lower()
         splitter, is_date, footer = SPECS[ext]
         text, ncell = merge_group(paths, splitter, is_date, ext, footer)
-        outpath = f"{args.out}.{ext}"
+        outpath = os.path.join(args.out_dir, fn)
         with open(outpath, "w", encoding="utf-8") as fp:
             fp.write(text)
         print(f"util_merge: {outpath} <- {len(paths)} files, {ncell} cells")
