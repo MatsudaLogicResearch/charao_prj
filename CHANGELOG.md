@@ -4,6 +4,74 @@
 
 ---
 
+## [1.0.0] 2026-07-27
+
+`0.9.14`（main）からの正式リリース。`feature/1.0.0` 上の alpha a01〜a33 を統合し、GF180（`gf180mcu_fd_sc_mcu7t5v0`）の **全 229 セル**を full grid × 全 measure で特性化して Liberty / Verilog / Markdown を生成できる状態に到達した。
+
+### Added
+
+- **対象セルの完全網羅（229 セル）**: comb 161（基本 98・複合 48・三相態 15）＋ seq 54（dff 24・sdff 12・lat 12・icg 6、`_1`/`_2`/`_4` の全ドライブ）＋ physical 14。orig 標準ライブラリの全セルと 1:1（a31 ISS-00158／a33 ISS-00165）。
+- **三相態・bus keeper 対応**（a03/a04、ISS-00066/00069/00073）: BUFZ/INVZ 14 セル＋HOLD。`three_state_enable`/`three_state_disable` アークと `oe_infos`・`sim_pullres`・`delay_disable` 1D template。
+- **順序回路の全 family**: DFF 8 family（a06〜a23、ISS-00070）／SDFF 4 family（a14/a25、ISS-00086）／LAT 4 family（a16/a26、ISS-00090/00143）／**ICG 2 family**（a27、latch+AND / latch+OR）。
+- **物理セル（fill/fillcap/endcap/filltie）14 種**（a33、ISS-00165）: timing アークを持たない measure-less 方式。`mylogic_physical.py`＋`std_physical.jsonc`＋専用ループ。
+- **`--mylogic_only`（ISS-00169）**: mylogic モジュール単位で対象セルを選択（`comb_base` 等の短縮名指定、`mylogic_<name>.py` は charao 内で補完・存在確認）。`--cells_only` と AND。分割実行時の引数長制約を回避する。
+- **`vout_infos` 機構**（a27、ISS-00152）: const 計測の観測点をセル固有の内部 net に差し替える汎用機構（ICG の Q=CLK&IQ2 を内部ラッチ出力 QD で観測）。
+- **出力 port 別 template**（a29、ISS-00150）: `template_kgn` の第 4 要素で出力ピン別の load 軸を割当（adder 系の index 逸脱を解消）。
+- **min_pulse_width の slew-index テーブル化**（a31、ISS-00160）: template システムに統合し Liberty `timing()` constraint として出力。
+- **`leakage_offset` / `leakage_stable_time`**（a33、ISS-00165/00166）: leakage の一律加算値と op 前段 tran の静定時間（ともに config 側で tunable）。
+- **波形取得と閲覧**（a08、ISS-00078）: `--wave_raw`（sim ごとの `sim.sp.raw`＋`.pinmap.json`）と、オフライン 1 ファイル完結の `tools/raw_viewer.html`。
+- **`util_merge.py`**（a17、ISS-00096）: セル別 `.lib`/`.v`/`.md` を 1 ファイルへ統合。
+- **`.md` の full-index 化**（a30）: DELAY / THREE_STATE / CONSTRAINTS を 10×10 全格子で出力（pandoc で PDF / HTML 化可）。
+- **SPEC ドキュメント群**: `SPEC_measure` / `SPEC_const` / `SPEC_internal_power` / `SPEC_pin_oirc` / `SPEC_seq_lat` / `SPEC_specify` / `SPEC_three_state` / `SPEC_config_lib`。
+- **`debug_run.sh` の運用強化**: `RESULT_ITEMS` / `SOURCE_ITEMS` / `MYLOGIC` / `RUN_NAME` / `DEBUG_STOP` / `WAVE_RAW` env。
+
+### Changed
+
+- **mylogic を 8 モジュールに分割**（ISS-00064 系）: comb_base / comb_complex / comb_tristate / seq_ff / seq_scan / seq_lat / io / physical を `charao.py` で merge（logic 名重複は ERR）。
+- **internal_power を power_tout / power_tin に分離**（ISS-00065）: 出力ピンの active アークと入力ピンの出力不変 state を別計測。
+- **刺激ピン基準への統一**（a24/a30、ISS-00142/00155）: 積分窓・slew 割当・cin 選択を「遷移するピンを駆動するスロット」に anchoring（power_tout=related／power_tin=target）。入力 slew 依存性を初再現。
+- **const 計測の統一パス化**（a26〜a28、ISS-00138/00143/00153）: setup/hold/recovery/removal を単一経路へ集約し、判定方式を出力挙動の型で選択（**遷移型**＝FF の degradation 判定／**保持型**＝LAT・ICG の電圧化け判定）。
+- **出力 transition に `slew_derate_from_library` を適用**（a31、ISS-00157）: Liberty 規約どおり格納値＝実測 30-70% ÷ derate。
+- **seq/lat/icg の leakage を tran → DC(op) 化**（a33、ISS-00166）＋ **`pleak = min(p_supply, p_absorb)`**（ISS-00167）: μs 級時定数の保持ノード未静定と入力駆動電流の混入を排除。
+- **`min_pulse_width_high/low` の scalar 属性を撤去**（a31）: Liberty 仕様上 `timing()` constraint が authoritative。
+- **`util_merge` を順次上書き更新方式に変更（ISS-00171）**: 引数を `--out_dir <dir> <in_dir>...` とし、**先頭ディレクトリをベースに以降を順次適用**（同名セルは上書き・未登場は追加）。マージは同じファイル名同士で行うため PVT 別ファイル名も扱える。1 セルだけ再 sim した結果を既存 rslt へ差し戻せる。
+
+### Fixed
+
+- ngspice timestep collapse（a22、ISS-00117）: 最終 DC 点の理想電圧源枝電流による行列特異を、テール限定の SW 制御抵抗で解消。
+- 入力 slew の切替スロット取り違えと ramp 換算の 2× 過大（a30、ISS-00155）。
+- `is_lat` 判定の取得方法誤り（a28、ISS-00153）: `logic_dict` 辞書引きへ修正し、LAT/ICG の judge 分岐が初めて有効化。
+- LAT const dispatch の未定義関数呼び出し（a26、ISS-00143）。
+- latch min_pulse の precondition 取り違えによる 1 秒 transient ハング（a31、ISS-00159）。
+- `.v` specify の Verilog 準拠化（a32、ISS-00147）: timing check の `&&&` 条件化・`reg notifier` と primitive N ポート接続・ifnone×edge の `ifdef` 切替。全 215 モジュールで iverilog EXIT=0。
+- sim 時間の最適化（a05、ISS-00076）: WOUT pre-charge SW 導入で BUFZ_1 full INDEX が 1h51m → 4m20s（約 25 倍）。
+- pre-charge と `tdelay_rel` の協調（a13、ISS-00089）: `sim_prop_max` を `sim_d2c_max` へ統一し sim 時間半減。
+- **antenna セルの leakage が負値（ISS-00170）**: `pleak = min(p_supply, p_absorb)` が、電源間経路を持たない antenna（ダイオード 2 個のみ）で **入力ピン駆動電流の帰り道になった電源枝の負値**を拾っていた（−0.179 µW vs orig 7.5e−05。旧 `max()` でも +0.18＝約 2,400 倍で誤り）。`p_supply`/`p_absorb` を 0.0 でクランプしてから `min` を取る形に修正し、antenna は `leakage_offset` のみの 5e−05 に。全 229 セルで leakage 負値ゼロ、timing/power の統計は不変。
+
+### Verified
+
+- **真打ち（全 229 セル × full grid × 全 measure、mylogic モジュール別 7 バッチ、2026-07-26〜27、17h10m）**: **全バッチ 0 failures・timestep collapse 0**。`.lib` 229 cell / `.v` 229 / `.md` 229（全ユニーク）。統合 orig 比較（NLDM 補間＋`--keep_zero_new`、661,020 点／有効 635,806 点／212 セル＝対象外 17 は physical 14 と antenna/tieh/tiel）: cell_rise median **−0.171**（p95 0.484）／cell_fall **−0.114**（0.493）／rise_transition **−0.145**（0.328、a30 の −0.805 から改善＝ISS-00157）／fall_transition **−0.054**（0.118）／rise_power **−0.033**（0.878）／fall_power **−0.112**（0.487）／rise_constraint **−0.097**（0.616）／fall_constraint **−0.099**（0.559）。matched groups 12,580 は a32 と同一（when 分解カバレッジ不変＝ISS-00140/00149）。上位外れは `inv_20`/`clkinv_20` の rise_power @slew 3〜4（orig 16.67→charao 13.90＝−16%）で ISS-00155 の既知残差。
+- **leakage（全 229 セル）**: **負値 0 件・貫通（ratio>3）0 件**、ratio median **1.002**（min 0.667 / max 1.255）。カテゴリ別 median＝comb 1.002／seq_ff 0.825／seq_scan 0.748／seq_lat 1.002／icg 0.816（残る 0.72〜0.83x は ISS-00168）。
+- **露払い（全 229 セル × 2x2 corner × 全 measure、2026-07-26、1h33m）**: 0 failures・collapse 0。
+
+### Known issues（post-1.0.0）
+
+| ISS | 優先度 | 概要 |
+|---|---|---|
+| ISS-00140 | HIGH | delay/transition の when 状態分解未実装（orig の状態別 when に対応する arc を持たない） |
+| ISS-00149 | MEDIUM | async 遷移の出力 internal_power 未計測＋入力 power の when 分解不足 |
+| ISS-00086B | MEDIUM | SDFF の SE/SI 別 when 計測（delay/power の orig 照合が不成立） |
+| ISS-00082 | MEDIUM | min_pulse / minimum_period の state 別 sim（FF/SCAN） |
+| ISS-00154 | MEDIUM | power_tout の帰属分解方式（1.0.0 は総量計上で確定） |
+| ISS-00141 | MEDIUM | OSU035 / TRIP62 での回帰未実施（GF180 外 PDK） |
+| ISS-00155 残 | MEDIUM | 低 slew の comb rise_power 過小・高 slew の seq Q power 過大 |
+| ISS-00168 | LOW | seq/lat/icg leakage の一律 0.72〜0.89x 系統オフセット |
+| ISS-00075 残 | LOW | seq CLK→Q delay の −0.3〜0.5ns 系統オフセット |
+| ISS-00145 | LOW | and2_1 pin(A1) power_tin の near-zero（when 分解ファミリーと同根） |
+| ISS-00079 | LOW | num_thread の多スレッド劣化（暫定運用 `num_thread=4`） |
+
+---
+
 ## [0.9.14a33] 2026-07-25
 
 Alpha pre-release. 物理セル leakage 対応（ISS-00165）＋ seq/lat/icg leakage の DC(op) 化（ISS-00166）＋ set/reset ラッチ貫通の pleak=min 修正（ISS-00167）。全 229 セル leakage 回帰で貫通全滅・orig オーダー収束。
