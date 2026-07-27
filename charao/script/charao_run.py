@@ -2694,6 +2694,13 @@ def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
   #   ため、 その状態では p_supply≠p_absorb と不均衡になる。 真の電源間リークは両側に均等に出る
   #   （clean 状態は p_supply==p_absorb）ので min を取れば片側の入力駆動貫通を除去でき、リークは保存。
   #   latrsnq 実測：VDD 側貫通(num86 系)も VSS 側貫通(num95/99)も min で正常値へ。 旧 max は逆に貫通側を拾う。
+  #-- ISS-00170: min の前に p_supply/p_absorb を 0.0 でクランプする（ダーマツ判断 2026-07-27）。
+  #   負値＝その電源枝が「供給／吸収」ではなく **入力ピン駆動電流の帰り道** になっている状態で、
+  #   リーク成分ではない（電源間経路を持たない antenna＝ダイオード 2 個のみのセルで顕在化。
+  #   min が負側を採り leakage_power が負＝Liberty 不正になっていた）。 供給／吸収の電力は
+  #   物理的に負にならないため 0 とみなす。 両側とも正の通常セルには影響しない。
+  p_supply = max(0.0, p_supply)
+  p_absorb = max(0.0, p_absorb)
   pleak = min(p_supply, p_absorb)
 
   #if h.target_relport_val == "0":
