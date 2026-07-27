@@ -12,6 +12,7 @@
 # Env vars (all optional):
 #   MODE=pip|local            # default: pip
 #   CELLS="short1 short2..."  # unset -> no --cells_only (all cells)
+#   MYLOGIC="comb_base seq_lat"# unset -> no --mylogic_only (all modules). mylogic_<name>.py の <name> を指定（ISS-00169）
 #   INDEX1="0 9"              # unset -> no --template_index1_only (all idx1)
 #   INDEX2="0 9"              # unset -> no --template_index2_only (all idx2)
 #   COMPARE_INTERPOLATE=0|1   # default: 1 (--interpolate on)
@@ -61,6 +62,8 @@ _setup_args() {
   [ -n "${INDEX2}" ] && INDEX2_OPT="--template_index2_only ${INDEX2}"
   MEAS_ONLY_OPT=""
   [ -n "${MEAS_ONLY}" ] && MEAS_ONLY_OPT="--measures_only ${MEAS_ONLY}"
+  MYLOGIC_OPT=""
+  [ -n "${MYLOGIC}" ] && MYLOGIC_OPT="--mylogic_only ${MYLOGIC}"          # ISS-00169: module 単位でセルを絞る
   WAVE_RAW_OPT=""
   [ -n "${WAVE_RAW}" ] && WAVE_RAW_OPT="--wave_raw"
   DEBUG_STOP_OPT=""
@@ -115,14 +118,14 @@ cmd_run_all() {
     CELLS_OPT="--cells_only${CELLS_FULL}"
   fi
 
-  echo "===== run_all: MODE=${MODE_} CELLS='${CELLS:-<all>}' INDEX1='${INDEX1:-<all>}' INDEX2='${INDEX2:-<all>}' RUN_NAME='${RUN_NAME:-}' (batch) ====="
+  echo "===== run_all: MODE=${MODE_} CELLS='${CELLS:-<all>}' MYLOGIC='${MYLOGIC:-<all>}' INDEX1='${INDEX1:-<all>}' INDEX2='${INDEX2:-<all>}' RUN_NAME='${RUN_NAME:-}' (batch) ====="
   local RSLT_PATH="${RUN_NAME:+$RUN_NAME/}rslt"
   local WORK_PATH="${RUN_NAME:+$RUN_NAME/}work"
   rm -rf "$RSLT_PATH" "$WORK_PATH"
   local LOG="lrpymrpc_debug_batch${RUN_NAME:+_$RUN_NAME}.log"
   local RUN_NAME_OPT=""
   [ -n "${RUN_NAME}" ] && RUN_NAME_OPT="--RUN_NAME ${RUN_NAME}"
-  local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target ${TARGET_DIR} ${CELLS_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}"
+  local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target ${TARGET_DIR} ${CELLS_OPT} ${MYLOGIC_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}"
   set -x
   # sim 中は非圧縮 .log に逐次書き込み（tail -f で進捗確認可）、 取得完了後に gzip 圧縮
   python -u -m lrPymRPC \
@@ -165,7 +168,7 @@ cmd_run_each() {
     local WORK_DEST="${RUN_NAME:+$RUN_NAME/}work_${short}"
     rm -rf "$RSLT_PATH" "$WORK_PATH" "$RSLT_DEST" "$WORK_DEST"
     local LOG="lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log"
-    local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target ${TARGET_DIR} --cells_only ${full} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}"
+    local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target ${TARGET_DIR} --cells_only ${full} ${MYLOGIC_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}"
     set -x
     python -u -m lrPymRPC \
       --SERVER_IP 192.168.168.103 \
@@ -300,9 +303,10 @@ cmd_merge() {
   fi
   local out="${RUN_NAME:+$RUN_NAME/}merged"
   set -x
+  # ISS-00171: util_merge は --out_dir + 入力ディレクトリ群（先頭がベース、以降が順次上書き更新）
   python -u -m charao.script.util_merge \
-    ${glob}/*.lib ${glob}/*.v ${glob}/*.md \
-    --out "$out"
+    --out_dir "$out" \
+    ${glob}
   { set +x; } 2>/dev/null
 }
 
