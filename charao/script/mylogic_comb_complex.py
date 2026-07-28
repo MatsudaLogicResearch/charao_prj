@@ -20,9 +20,8 @@
 #  (compound combinational gates: AOI, OAI, MUX4, ADDF, ADDH, etc.).
 #  User-defined Logic entries may be added via mylogic_user.py specified in ARGS.
 #
-# def get_code_primitive():
-#  Returns the comb-complex primitive code (currently empty).
-#  User-defined primitive code may override this via mylogic_user.py specified in ARGS.
+#  (ISS-00172) primitive code is supplied by <target>/primitives.v.
+#              see docs/SPEC_primitives.md
 #
 # 充填予定セル（ISS-00064、2026-04-26 着手）：
 #   AOI21, AOI22, AOI211, AOI221, AOI222
@@ -3318,7 +3317,3 @@ def get_logic_dict():
             ]
     },
   }
-
-###############################################################################
-def get_code_primitive():
-    return ""

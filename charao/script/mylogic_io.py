@@ -21,9 +21,9 @@
 #  (IO cells: P_VDD, P_VSS, P_ANA1, P_I[X|A|P|N]_SMT[...]_PU[...]_PD[...]_O[...]_SLW[...]_HD[...]_LD[...])
 #  User-defined Logic entries may be added via mylogic_user.py specified in ARGS.
 #
-# def get_code_primitive():
-#  Returns the IO primitive code (currently empty).
-#  User-defined primitive code may override this via mylogic_user.py specified in ARGS.
+#  (ISS-00172) primitive code is supplied by <target>/primitives.v.
+#              cell_group=io では primitive を出力しない (std のみ)。
+#              see docs/SPEC_primitives.md
 #
 ###############################################################################
 from .myExpectCell import MyExpectCell
@@ -313,7 +313,3 @@ def get_logic_dict():
            ]
   }
   }
-
-###############################################################################
-def get_code_primitive():
-    return ""

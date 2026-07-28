@@ -15,13 +15,13 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 ###############################################################################
-# def get_logic_dict():      
-#  Returns Uesr-define Logic definitions. 
+# def get_logic_dict():
+#  Returns Uesr-define Logic definitions.
 #  Add to mylogic_base.py.
 #
-# def get_code_primitive():
-#  Returns User-define primitive code.
-#  Replace to mylogic_base.py.
+#  (ISS-00172) get_code_primitive() は廃止した。
+#              primitive は <target>/primitives.v が供給する。
+#              see docs/SPEC_primitives.md
 #
 ###############################################################################
 from charao.script.myExpectCell import MyExpectCell
@@ -43,8 +43,4 @@ def get_logic_dict():
 #  }
 
 ###############################################################################
-def get_code_primitive():
-  return None
-#  return '''
-#primitive lr_dff (q, d, cp, cdn, sdn, notifier);
-#'''
+#--- (ISS-00172) get_code_primitive() は廃止。 primitive は primitives.v で供給する。

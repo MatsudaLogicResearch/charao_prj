@@ -23,8 +23,9 @@
 #    - ISS-00069: HOLD (bus keeper, 1 cell)         [implemented]
 #    - ISS-00066: BUFZ / INVZ (tri-state, 14 cells) [pending]
 #
-# def get_code_primitive():
-#  No additional primitive (Verilog built-in `buf (weak0,weak1)` is used).
+#  No additional primitive is required (Verilog built-in `buf (weak0,weak1)` is used).
+#  (ISS-00172) primitive code is supplied by <target>/primitives.v.
+#              see docs/SPEC_primitives.md
 #
 ###############################################################################
 from .myExpectCell import MyExpectCell
@@ -194,8 +195,3 @@ def get_logic_dict():
              ]
     },
   }
-
-
-###############################################################################
-def get_code_primitive():
-    return ""

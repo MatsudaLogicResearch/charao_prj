@@ -68,6 +68,7 @@ class MyLibrarySetting(BaseModel):
   dotlib_name       : str = "libname.lib" ; #
   doc_name          : str = "libname.md"  ; #
   verilog_name      : str = "libname.v"   ; #
+  primitives_name   : str = "libname_primitives.v"; # ISS-00172
   cell_name_suffix  : str = "libname_"    ; #
   voltage_mag       : float = 1.0         ; #
   capacitance_mag   : float = 1e-12       ; #
@@ -119,6 +120,7 @@ class MyLibrarySetting(BaseModel):
   
   #--- update by mylogc_user.py (class variable)
   logic_dict : dict[Any,Any] = {}
+  #--- (ISS-00172) loaded from <target>/<vendor>/<rev>/primitives.v
   code_primitive : str = ""
   
   ## characterizer setting 
@@ -286,7 +288,9 @@ class MyLibrarySetting(BaseModel):
     self.doc_name         = f"{self.result_path}/{self.lib_name}_{build_stamp}.md"
     #self.verilog_name     = f"{self.lib_name}.v"
     self.verilog_name     = f"{self.result_path}/{basename}_{build_stamp}.v"
-    
+    #--- (ISS-00172) primitive は build 非依存のため build_stamp を付けない
+    self.primitives_name  = f"{self.result_path}/{basename}_primitives.v"
+
     self.cell_name_suffix = f"{basename}".upper()
     
   def update_mag(self):

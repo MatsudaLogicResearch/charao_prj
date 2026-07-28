@@ -71,6 +71,17 @@ pip install git+https://github.com/MatsudaLogicResearch/lrPymRPC_prj.git
     ```
     - These configuration files provide the necessary information for SPICE model paths, cell definitions, and IO configurations.
 
+- Verilog Primitives (std_primitives.v)
+    - Place `std_primitives.v` in the same directory as `config_lib.jsonc`:
+    ```
+    <ARGS.target>/<ARGS.fab_process>/<ARGS.cell_vendor>/<ARGS.cell_revision>/std_primitives.v
+    ```
+    - It must define the four UDPs that the generated Verilog instantiates
+      (`udp_iq_ff_n` / `udp_iq_ff_hn` / `udp_iq_latch_n` / `udp_iq_latch_hn`).
+    - charao copies this file to `<result_path>/<lib_basename>_primitives.v` as-is
+      (for `ARGS.cell_group=std` only). If the file is absent, the primitive output is skipped.
+    - See `docs/SPEC_primitives.md` for the required interface and porting steps.
+
 
 ## USAGE
 
@@ -181,6 +192,16 @@ To show full lrPymRPC output (pip install logs etc.) on success, set `lrpymrpc_v
 - [Internal Power Specification](docs/SPEC_internal_power.md): output pin / input pin separation (`power_tout` / `power_tin`), mylogic entry rules, and verification guidelines (introduced in `0.9.14a01`).
 - [Three-state cell support specification](docs/SPEC_three_state.md): bus keeper (HOLD) and tri-state buffer/inverter (BUFZ/INVZ) characterization rules, three_state_enable / three_state_disable arcs, `delay_disable` 1D template, and porting guide for new PDKs (introduced in `0.9.14a03`).
 - [Sequential FF / SDFF cell support specification](docs/SPEC_seq_ff.md): D-Flip-Flop characterization rules (8 GF180 families: dffq / dffnq / dffrnq / dffnrnq / dffsnq / dffnsnq / dffrsnq / dffnrsnq), naming convention (`<S>DFF[B]_<P\|N>C[_<P\|N>R][_<P\|N>S]`), GF180 wrap-style vcode (`not gate + udp_iq_ff_n/hn + not gate`), and porting guide for new PDKs (introduced in `0.9.14a06`).
+- [Verilog primitive specification](docs/SPEC_primitives.md): the four UDPs required by the generated Verilog (`udp_iq_ff_n` / `udp_iq_ff_hn` / `udp_iq_latch_n` / `udp_iq_latch_hn`), their port order and semantics, the `<target>/std_primitives.v` input, the `<lib_basename>_primitives.v` output, and porting steps for new PDKs.
+
+## License
+
+- **charao itself** : GNU General Public License v2.0 or later (see `LICENSE`).
+- **`sample_target/gf180/fd/*/std_primitives.v`** : Apache License 2.0,
+  Copyright 2022 GlobalFoundries PDK Authors.
+  Derived from open_pdks gf180mcu; the primitives were renamed for charao
+  (see the notice of modification in the file itself).
+  A copy of the license is provided at `sample_target/gf180/LICENSE-Apache-2.0.txt`.
 
 ## Known issues (future works)
 4. Multiple voltage for IOs and level shifters

@@ -20,9 +20,9 @@
 #  Returns the seq Logic definitions (sequential cells: DFF, LATCH, etc.).
 #  User-defined Logic entries may be added via mylogic_user.py specified in ARGS.
 #
-# def get_code_primitive():
-#  Returns the seq primitive code (lr_dff).
-#  User-defined primitive code may override this via mylogic_user.py specified in ARGS.
+#  (ISS-00172) primitive code (udp_iq_ff_n / udp_iq_ff_hn / udp_iq_latch_n /
+#              udp_iq_latch_hn) is supplied by <target>/primitives.v.
+#              see docs/SPEC_primitives.md
 #
 ###############################################################################
 from .myExpectCell import MyExpectCell
@@ -1168,115 +1168,3 @@ def get_logic_dict():
            ]
     },
   }
-
-###############################################################################
-def get_code_primitive():
-    return '''
-// Copyright 2022 GlobalFoundries PDK Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-// Note: charao 4-primitive set (udp_iq_ff_hn / udp_iq_latch_hn / udp_iq_ff_n /
-//       udp_iq_latch_n) is adapted from GF180MCU PDK primitives by
-//       GlobalFoundries (gf180mcu_fd_sc_mcu7t5v0__udp_*_iq_*).
-//       Pin order is preserved: (Q, C, P, CK, D, N).
-//       `hn` = P (preset) dominates over C (clear)
-//       `n`  = C (clear) dominates over P (preset)  (normal)
-
-primitive udp_iq_ff_hn ( Q, C, P, CK, D, N );
-output Q;
-reg Q;
-input C, P, CK, D, N;
-table
-// C  P  CK D  N  :  Q  :  Q
-   0  0  n  ?  ?  :  ?  :  -;
-   ?  0  r  0  ?  :  ?  :  0;
-   ?  0  p  0  ?  :  0  :  0;
-   1  0  ?  ?  ?  :  ?  :  0;
-   0  ?  r  1  ?  :  ?  :  1;
-   0  ?  p  1  ?  :  1  :  1;
-   ?  1  ?  ?  ?  :  ?  :  1;
-   0  0  ?  *  ?  :  ?  :  -;
-   ?  ?  ?  ?  *  :  ?  :  x;
-   0  n  ?  ?  ?  :  ?  :  -;
-   n  0  ?  ?  ?  :  ?  :  -;
-   0  p  ?  ?  ?  :  ?  :  -;
-endtable
-endprimitive
-
-primitive udp_iq_ff_n ( Q, C, P, CK, D, N );
-output Q;
-reg Q;
-input C, P, CK, D, N;
-table
-// C  P  CK D  N  :  Q  :  Q
-   0  0  n  ?  ?  :  ?  :  -;
-   ?  0  r  0  ?  :  ?  :  0;
-   ?  0  p  0  ?  :  0  :  0;
-   1  0  ?  ?  ?  :  ?  :  0;
-   0  ?  r  1  ?  :  ?  :  1;
-   0  ?  p  1  ?  :  1  :  1;
-   0  1  ?  ?  ?  :  ?  :  1;
-   ?  ?  ?  ?  *  :  ?  :  x;
-   0  0  ?  *  ?  :  ?  :  -;
-   0  n  ?  ?  ?  :  ?  :  -;
-   n  0  ?  ?  ?  :  ?  :  -;
-   0  p  ?  ?  ?  :  ?  :  -;
-endtable
-endprimitive
-
-primitive udp_iq_latch_hn ( Q, C, P, CK, D, N );
-output Q;
-reg Q;
-input C, P, CK, D, N;
-table
-// C    P    CK   D    N  :  Q  :  Q
-   0    0    0    *    ?  :  ?  :  -;
-   0    0    (?0) ?    ?  :  ?  :  -;
-   0    (?0) 0    ?    ?  :  ?  :  -;
-   (?0) 0    0    ?    ?  :  ?  :  -;
-   ?    0    1    0    ?  :  ?  :  0;
-   ?    0    ?    (?0) ?  :  0  :  0;
-   ?    (?0) ?    0    ?  :  0  :  0;
-   1    0    ?    ?    ?  :  ?  :  0;
-   0    ?    1    1    ?  :  ?  :  1;
-   0    ?    ?    (?1) ?  :  1  :  1;
-   (?0) ?    ?    1    ?  :  1  :  1;
-   ?    1    ?    ?    ?  :  ?  :  1;
-   ?    ?    ?    ?    *  :  ?  :  x;
-endtable
-endprimitive
-
-primitive udp_iq_latch_n ( Q, C, P, CK, D, N );
-output Q;
-reg Q;
-input C, P, CK, D, N;
-table
-// C    P    CK   D    N  :  Q  :  Q
-   0    0    0    *    ?  :  ?  :  -;
-   0    0    (?0) ?    ?  :  ?  :  -;
-   0    (?0) 0    ?    ?  :  ?  :  -;
-   (?0) 0    0    ?    ?  :  ?  :  -;
-   ?    0    1    0    ?  :  ?  :  0;
-   ?    0    ?    (?0) ?  :  0  :  0;
-   ?    (?0) ?    0    ?  :  0  :  0;
-   1    0    ?    ?    ?  :  ?  :  0;
-   0    ?    1    1    ?  :  ?  :  1;
-   0    ?    ?    (?1) ?  :  1  :  1;
-   (?0) ?    ?    1    ?  :  1  :  1;
-   0    1    ?    ?    ?  :  ?  :  1;
-   ?    ?    ?    ?    *  :  ?  :  x;
-endtable
-endprimitive
-
-'''

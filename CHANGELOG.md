@@ -4,6 +4,70 @@
 
 ---
 
+## [2.0.0.a01] 2026-07-28
+
+`2.0.0` に向けた開発版（alpha）。**非互換変更を含む**ため major を上げる。
+
+本バージョンから TAG 命名を **`x.y.z`（リリース）／ `x.y.z.aNN`（開発中）** とし、
+x = 入力・出力仕様の非互換変更 / y = 機能追加（出力が増える）/ z = 修正（値が変わる）と定義した。
+
+### Changed (breaking)
+
+- **Verilog primitive を charao 本体から target 側へ移設**（ISS-00172）。
+  従来は `mylogic_*.py` の `get_code_primitive()` が UDP を Python ソースに埋め込み、
+  本体 `.v` の `` `ifndef SYNTHESIS `` ブロックへ出力していた。以下に変更する。
+    - **入力**: `<target>/<vendor>/<rev>/std_primitives.v` を読む。
+      **このファイルが無いと primitive は出力されない**（`[INF]` を表示してスキップ、実行は継続）。
+      既存 target には配置が必要。
+    - **出力**: `<result_path>/<lib_basename>_primitives.v` として**加工せずそのまま**出力する
+      （`cell_group=std` のみ、build stamp は付けない）。**本体 `.v` からは primitive が消える**ため、
+      シミュレータには 2 ファイルを渡すこと。論理合成へ渡すのは本体 `.v` のみ。
+    - **API 廃止**: `mylogic_*.py` および `mylogic_user.py` の `get_code_primitive()` を削除した。
+      user 定義による primitive 上書き経路も廃止。
+    - 理由: (1) GF180 由来の UDP は Apache-2.0 であり、GPL-2.0-or-later の charao ソースへの
+      埋め込みを解消する。(2) PDK ごとに UDP を差し替え可能にする。
+    - 契約（4 UDP の名前・ポート順・意味論）は `docs/SPEC_primitives.md` に明文化した。
+
+### Removed
+
+- **dead primitive の削除**（ISS-00173）。
+    - `lr_mux`: 定義され生成 `.v` にも出力されていたが、インスタンス化箇所はゼロだった
+      （MUX2/MUX4 は `functions` の assign 文で出力されるため primitive を使わない）。
+    - `lr_dff`: `myExportLib.py` が `lr_dff(...)` を出力していたが、**定義がどこにも存在しなかった**。
+      到達条件は「vcode を持たない flop」で現行セルは全て vcode 持ちのため dead path だったが、
+      未定義 primitive を参照する `.v` が生成されうる状態だった。該当分岐は ERR に変更した。
+
+### Added
+
+- `docs/SPEC_primitives.md`: `std_primitives.v` の入出力仕様、charao が要求する 4 UDP の
+  インタフェース契約（`udp_iq_ff_n` / `udp_iq_ff_hn` / `udp_iq_latch_n` / `udp_iq_latch_hn`、
+  ポート順 `(Q, C, P, CK, D, N)`）、`n` と `hn` の違い、他 PDK への移植手順。
+- `sample_target/gf180/fd/mcuC7t20240817/std_primitives.v`: GF180 の UDP 4 種
+  （open_pdks gf180mcu 由来、charao 命名へ改名。Apache-2.0 §4(b) の改変告知を付記）。
+- `sample_target/gf180/LICENSE-Apache-2.0.txt`: Apache License 2.0 条文。
+- `README.md` に License 節を追加（charao 本体＝GPL-2.0-or-later、`std_primitives.v`＝Apache-2.0）。
+
+### Fixed
+
+- **`n` / `hn` UDP の説明の誤記**を訂正。従来 `mylogic_seq_ff.py` のコメントは
+  「`n` = C (clear) dominates over P (preset)」としていたが、実際の table は
+  **C/P 同時 assert を未定義（Q=x）とする**。`hn` のみ P に優先度を与える。
+
+### Changed
+
+- `debug_run.sh`: `--SOURCE_INCLUDE` に `std_primitives.v` を追加（local / pip 両モード）。
+  lrPymRPC の `--SOURCE_INCLUDE` はパスの**後方一致**判定のため、拡張子ではなくファイル名を指定する。
+  `.v` を指定すると PDK 同梱の `*.v`（約 2 MB）まで転送対象になるため、この形にした。
+
+### Verified
+
+- seq_ff 24 セル × 2x2 corner × 全 measure（lrPymRPC 経由）: **0 failures**。
+- 生成物: `_primitives.v` が入力と **diff ゼロ**、本体 `.v` に primitive 定義なし、
+  本体 `.v` が参照する UDP がすべて `_primitives.v` に定義済み（未定義参照ゼロ）。
+- `.lib` / `.md` / 本体 `.v` は変更前の run と **build date 行以外すべて同一**（回帰なし）。
+
+---
+
 ## [1.0.0] 2026-07-27
 
 `0.9.14`（main）からの正式リリース。`feature/1.0.0` 上の alpha a01〜a33 を統合し、GF180（`gf180mcu_fd_sc_mcu7t5v0`）の **全 229 セル**を full grid × 全 measure で特性化して Liberty / Verilog / Markdown を生成できる状態に到達した。

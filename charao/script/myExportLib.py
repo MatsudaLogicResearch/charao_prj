@@ -76,20 +76,22 @@ def initLib(targetLib:Mls):
   outlines.append(f'`default_nettype wire')
   outlines.append(f'`timescale 1ns/1ps')
   outlines.append(f'')
+  #--- (ISS-00172) primitive は本体 .v に埋め込まず、 別ファイル(primitives_name)へ出力する
 
-  
-  if targetLib.cell_group == "std":
-    outlines.append(f'`ifndef SYNTHESIS')
-    outlines.append(f'{targetLib.code_primitive}')
-    outlines.append(f'`endif //SYNTHESIS')
-    outlines.append(f'')
-  
   out_file = Path(targetLib.verilog_name)
   out_file.parent.mkdir(parents=True, exist_ok=True)
   with open(targetLib.verilog_name, 'w') as f:
     s = "\n".join(outlines) + "\n"
     f.write(s)
     #f.writelines(outlines)
+
+  ## initilize primitives file (ISS-00172)
+  ##   <target>/primitives.v をそのまま出力する(std のみ、 無ければ出力しない)
+  if (targetLib.cell_group == "std") and targetLib.code_primitive:
+    out_file = Path(targetLib.primitives_name)
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(targetLib.primitives_name, 'w') as f:
+      f.write(targetLib.code_primitive)
 
 
 ## export library definition to .lib
@@ -931,67 +933,14 @@ def exportVerilog(targetLib:Mls, targetCell:Mlc):
   
   #===================================================================
   ## branch for sequencial cell
+  ##  (ISS-00173) 旧 lr_dff 自動生成パスは廃止した。
+  ##              lr_dff はどの primitives.v にも定義が無く、 未定義 primitive を
+  ##              参照する .v が生成されるため。 flop は vcode で記述すること。
   elif(targetCell.isflop):
-    ## lr_dff (q, d, cp, cdn, sdn, notifier)  ---- q=o0, d=i0, cp=c0, cdn=r0, sdn=s0
-      
-    ##---- clock
-    if "c0" != targetCell.clock:
-      print(f"[ERROR] clock port is not defined.")
-      my_exit()
-    cp     = targetCell.rvs_portmap(["c0"])[0]
-    cp_buf = cp
-        
-    ##---- d
-    if "i0" not in  targetCell.inports:
-      print(f"[ERROR] clock port is not defined.")
-      my_exit()
+    print(f"[ERROR] flop cell '{targetCell.cell}' has no vcode.")
+    print(f"        Define vcode in mylogic_*.py. (see docs/SPEC_primitives.md)")
+    my_exit()
 
-    d=targetCell.rvs_portmap(["i0"])[0]
-    d_buf = d
-        
-    ##---- reset
-    rst_buf ="rst_buf"
-    if "r0" in targetCell.inports:
-      rst =targetCell.rvs_portmap(["r0"])[0]
-      if "_NR" in targetCell.logic:
-        outlines.append(f'buf   ({rst_buf}, {rst});'); #-- reset=active low
-      else:
-        outlines.append(f'not   ({rst_buf}, {rst});'); #-- reset=active high
-    else:
-      outlines.append(f'pullup({rst_buf});'); #-- active low on primitive
-
-    ##---- set
-    set_buf ="set_buf"
-    if "s0" in targetCell.inports:
-      set =targetCell.rvs_portmap(["s0"])[0]
-      if "_NS" in targetCell.logic:
-        outlines.append(f'buf   ({set_buf}, {set});'); #-- set=active low
-      else:        
-        outlines.append(f'not   ({set_buf}, {set});'); #-- set=active high
-    else:
-      outlines.append(f'pullup({set_buf});'); #-- active low on primitive
-
-    ##---- q
-    q_buf ="q_buf"
-    if "o0" in targetCell.outports:
-      q =targetCell.rvs_portmap(["o0"])[0]
-      outlines.append(f'buf   ({q}, {q_buf});')
-    else:
-      print(f"[ERROR] output port(o0) is not defined.")
-      my_exit()
-
-    ##---- qn
-    qn_buf ="qn_buf"
-    if "o1" in targetCell.outports:
-      qn =targetCell.rvs_portmap(["o1"])[0]
-      outlines.append(f'not   ({qn}, {q_buf});')
-
-    ##---- notifier
-    outlines.append(f'reg   notifier;')
-      
-    ##---- instance
-    outlines.append(f'lr_dff({q_buf},{d_buf},{cp_buf},{rst_buf},{set_buf},notifier);')
-        
   #===================================================================
   ## branch for combinational cell/io cell
   else:

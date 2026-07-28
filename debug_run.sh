@@ -83,13 +83,15 @@ _setup_args() {
     CHARAO_CMD="python3 -m charao.script.charao"
     REPO_ARG="--REPO_URL jsoncomment=jsoncomment,pydantic=pydantic,numpy=numpy,jinja2=jinja2"
     SOURCE_ARG="--SOURCE ${SRC_DIR} ${TARGET_DIR} ${MYLOGIC_USER_SOURCE} charao"
-    SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE .spice .ngspice .sp .jsonc .py .jp2"
+    # ISS-00172: std_primitives.v はファイル名で指定（--SOURCE_INCLUDE は後方一致）。
+    #            ".v" にすると PDK 同梱の *.v（約 2MB）まで巻き込むため。
+    SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE .spice .ngspice .sp .jsonc .py .jp2 std_primitives.v"
     SOURCE_MATCH_ARG="--SOURCE_MATCH gf180 ${MYLOGIC_USER_MATCH} charao"
   else
     CHARAO_CMD="python3 -m charao"
     REPO_ARG="--REPO_URL charao=git+https://github.com/MatsudaLogicResearch/charao_prj.git"
     SOURCE_ARG="--SOURCE ${SRC_DIR} ${TARGET_DIR} ${MYLOGIC_USER_SOURCE}"
-    SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE .spice .ngspice .sp .jsonc .py"
+    SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE .spice .ngspice .sp .jsonc .py std_primitives.v"
     SOURCE_MATCH_ARG="--SOURCE_MATCH gf180 ${MYLOGIC_USER_MATCH}"
   fi
 

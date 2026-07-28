@@ -1029,51 +1029,6 @@ class MyExpectCell:
 #---
 #---}
 #---
-#---
-#---code_primitive='''
-#---primitive lr_dff (q, d, cp, cdn, sdn, notifier);
-#---`protect
-#---   output q;
-#---   input d, cp, cdn, sdn, notifier;
-#---   reg q;
-#---
-#---   table
-#---      ?   ?   0   ?   ? : ? : 0 ; // CDN dominate SDN
-#---      ?   ?   1   0   ? : ? : 1 ; // SDN is set
-#---      ?   ?   1   x   ? : 0 : x ; // SDN affect Q
-#---
-#---      0 (01)  ?   1   ? : ? : 0 ; // Latch 0
-#---      0   *   ?   1   ? : 0 : 0 ; // Keep 0 (D==Q)
-#---
-#---      1 (01)  1   ?   ? : ? : 1 ; // Latch 1
-#---      1   *   1   ?   ? : 1 : 1 ; // Keep 1 (D==Q)
-#---
-#---      ? (1?)  1   1   ? : ? : - ; // ignore negative edge of clock
-#---      ? (?0)  1   1   ? : ? : - ; // ignore negative edge of clock
-#---      ?   ? (?1)  ?   ? : ? : - ; // ignore positive edge of CDN
-#---      ?   ?   ? (?1)  ? : ? : - ; // ignore posative edge of SDN
-#---      *   ?   ?   ?   ? : ? : - ; // ignore data change on steady clock
-#---
-#---      ?   ?   ?   ?   * : ? : x ; // timing check violation
-#---   endtable
-#---`endprotect
-#---endprimitive
-#---
-#---
-#---primitive lr_mux (q, d0, d1, s);
-#---   output q;
-#---   input s, d0, d1;
-#---`protect
-#---   table
-#---   // d0  d1  s   : q 
-#---      0   ?   0   : 0 ;
-#---      1   ?   0   : 1 ;
-#---      ?   0   1   : 0 ;
-#---      ?   1   1   : 1 ;
-#---      0   0   x   : 0 ;
-#---      1   1   x   : 1 ;
-#---   endtable
-#---`endprotect
-#---endprimitive
-#---
-#---'''
+#--- (ISS-00173) lr_dff / lr_mux の旧定義はここから削除した。
+#---              lr_mux は参照ゼロ、 lr_dff は定義が存在しない dead primitive だった。
+#---              primitive は <target>/primitives.v が供給する (ISS-00172)。

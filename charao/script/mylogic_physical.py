@@ -21,9 +21,8 @@
 #  (filler / decap-filler / endcap / filltie: no signal pin, no timing arc)
 #  User-defined Logic entries may be added via mylogic_user.py specified in ARGS.
 #
-# def get_code_primitive():
-#  Returns the physical primitive code (currently empty).
-#  User-defined primitive code may override this via mylogic_user.py specified in ARGS.
+#  (ISS-00172) primitive code is supplied by <target>/primitives.v.
+#              see docs/SPEC_primitives.md
 #
 ###############################################################################
 # ISS-00165: 物理セル（fill/fillcap/endcap/filltie）対応。
@@ -47,7 +46,3 @@ def get_logic_dict():
            "expect":[]
     },
   }
-
-
-def get_code_primitive():
-    return ""

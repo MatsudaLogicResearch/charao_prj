@@ -20,9 +20,8 @@
 #  Returns the comb-base Logic definitions (basic combinational gates).
 #  User-defined Logic entries may be added via mylogic_user.py specified in ARGS.
 #
-# def get_code_primitive():
-#  Returns the comb-base primitive code (lr_mux).
-#  User-defined primitive code may override this via mylogic_user.py specified in ARGS.
+#  (ISS-00172) primitive code is supplied by <target>/primitives.v.
+#              see docs/SPEC_primitives.md
 #
 ###############################################################################
 from .myExpectCell import MyExpectCell
@@ -1017,24 +1016,3 @@ def get_logic_dict():
              ]
     },
   }
-
-###############################################################################
-def get_code_primitive():
-    return '''
-primitive lr_mux (q, d0, d1, s);
-   output q;
-   input s, d0, d1;
-`protect
-   table
-   // d0  d1  s   : q 
-      0   ?   0   : 0 ;
-      1   ?   0   : 1 ;
-      ?   0   1   : 0 ;
-      ?   1   1   : 1 ;
-      0   0   x   : 0 ;
-      1   1   x   : 1 ;
-   endtable
-`endprotect
-endprimitive
-
-'''

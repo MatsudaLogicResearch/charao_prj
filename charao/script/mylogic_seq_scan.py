@@ -18,11 +18,9 @@
 ###############################################################################
 # def get_logic_dict():
 #  Returns scan-FF (SDFF) Logic definitions. Internal MUX2: next_state = (SE)? SI : D.
-#  Primitives (udp_iq_ff_n / udp_iq_ff_hn) are shared with mylogic_seq_ff.py.
+#  Primitives (udp_iq_ff_n / udp_iq_ff_hn) are supplied by <target>/primitives.v
+#  (ISS-00172, see docs/SPEC_primitives.md).
 #  User-defined Logic entries may be added via mylogic_user.py specified in ARGS.
-#
-# def get_code_primitive():
-#  Returns empty string (no SDFF-specific primitives, see mylogic_seq_ff.py).
 #
 # Characterization mode (Phase B, ISS-00086):
 #  SE=0 (functional mode) で D->Q timing/power を計測。 SI/SE は ival で "0" 固定
@@ -470,8 +468,3 @@ def get_logic_dict():
            ]
     },
   }
-
-###############################################################################
-def get_code_primitive():
-  # SDFF uses udp_iq_ff_n / udp_iq_ff_hn from mylogic_seq_ff.py (no new primitives).
-  return ""

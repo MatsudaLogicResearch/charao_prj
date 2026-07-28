@@ -20,10 +20,8 @@
 #  Returns level-sensitive latch (LATCH) Logic definitions.
 #  logic_type:"seq_lat" で myLogicCell.add_latch() が呼ばれる (charao.py 分岐)。
 #  Liberty 出力は ff block ではなく latch block (myExportLib.py で islatch 分岐)。
-#  Primitives (udp_iq_latch_n / udp_iq_latch_hn) は mylogic_seq_ff.py から共有。
-#
-# def get_code_primitive():
-#  Returns empty string (no LATCH-specific primitives, see mylogic_seq_ff.py).
+#  Primitives (udp_iq_latch_n / udp_iq_latch_hn) は <target>/primitives.v が供給する
+#  (ISS-00172、 see docs/SPEC_primitives.md)。
 #
 # Characterization (Phase B0+B1, ISS-00070 LAT):
 #  rising_edge   : E rise → Q transition (DFF_PC 同型 harness)
@@ -831,8 +829,3 @@ def get_logic_dict():
            ]
     },
   }
-
-###############################################################################
-def get_code_primitive():
-  # LATCH uses udp_iq_latch_n / udp_iq_latch_hn from mylogic_seq_ff.py (no new primitives).
-  return ""

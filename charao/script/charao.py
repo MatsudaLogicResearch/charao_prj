@@ -86,7 +86,8 @@ def main():
   history()
 
   #=====================================================
-  # Logic entries/ primitive code
+  # Logic entries
+  #  (ISS-00172) primitive code is supplied by <target>/primitives.v, not by mylogic_*.py
 
   #--(Base defined: 8 modules — comb_base / comb_complex / comb_tristate / seq_ff / seq_scan / seq_lat / io / physical)
   modules = [
@@ -101,7 +102,6 @@ def main():
   ]
   logic_dict = {}
   logic_owner = {}   # ISS-00169: logic 名 -> mylogic モジュール短縮名（--mylogic_only の絞り込み用）
-  code_primitive_parts = []
   for mod_name in modules:
     mod = importlib.import_module(mod_name)
     mod_short = mod_name.split(".")[-1].replace("mylogic_", "", 1)
@@ -111,10 +111,6 @@ def main():
         my_exit()
       logic_dict[k] = v
       logic_owner[k] = mod_short
-    p = mod.get_code_primitive()
-    if p:
-      code_primitive_parts.append(p)
-  code_primitive = "".join(code_primitive_parts)
 
   #--(User defined)
   mylogic_user = None
@@ -137,11 +133,6 @@ def main():
         print(f"  [INF]: {k} is overridden by user definitions.")
       logic_dict[k]=v
       logic_owner[k]="user"   # ISS-00169: user 定義は --mylogic_only user で選択する
-
-    new_primitive=mylogic_user.get_code_primitive()
-    if new_primitive:
-      print(f"  [INF]: code_primitive is replaced by user definitions.")
-      code_primitive = new_primitive
 
   #--(ISS-00169) --mylogic_only : 指定は短縮名（ex "comb_base"）。 mylogic_<name>.py はここで補完し、 存在を確認する
   script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -179,7 +170,20 @@ def main():
     print (f" [ERR]: not valid json files(config_lib.jsonc, {args.cell_group}*.jsonc)")
     my_exit()
 
-  
+  #--- (ISS-00172) std_primitives.v : PDK 固有の UDP は target 側が供給する
+  #     見つからない場合は primitive 出力をスキップする（未整備 PDK でも実行可能）
+  #     ファイル名を "std_" 付きにしているのは、 PDK 同梱の primitives.v と区別し、
+  #     lrPymRPC の --SOURCE_INCLUDE（後方一致）で本ファイルだけを転送するため
+  code_primitive=""
+  json_primitives=f"{json_path}/std_primitives.v"
+  if os.path.isfile(json_primitives):
+    with open (json_primitives, "r") as f:
+      code_primitive = f.read()
+    print (f" [INF]: detected primitives={json_primitives}")
+  else:
+    print (f" [INF]: std_primitives.v is not found in {json_path}. (skip primitive output)")
+
+
   #--- read setting from  jsonc(lib_common, char_dict)
   parser=JsonComment()
   with open (json_config_lib, "r") as f:
