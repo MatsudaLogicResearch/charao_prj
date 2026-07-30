@@ -20,6 +20,13 @@
 #   SRC_DIR="sample_src"      # default: sample_src (PDK SPICE / lib 等の src 群)
 #   TARGET_DIR="sample_target"# default: sample_target。旧版 sim 比較時は old_target に切替
 #
+#   --- PDK 切替（未指定なら gf180）---
+#   FAB / VENDOR / REV        # charao の -f / -v / -r（target dir の 3 階層）
+#   GROUP / UV / CORNER / TEMP / VDD  # -g / -u / -p / -t / --vdd
+#   CELL_PREFIX               # CELLS の短縮名に前置するセル名 prefix（OSU035 は空）
+#   MATCH                     # --SOURCE_MATCH の PDK 判別語（default: $FAB）
+#   LIB_FILE / ORIG_LIB / ORIG_CSV_DIR  # 通常は自動導出。orig 無し PDK は compare 系を使わない
+#
 # Examples:
 #   # 2x2 corners, all cells, local charao, then extract + compare
 #   INDEX1="0 9" INDEX2="0 9" MODE=local bash debug_run.sh clean run_all lib2csv_charao compare
@@ -32,6 +39,11 @@
 #   INDEX1="9" INDEX2="9" CELLS="inv_1" MODE=local RUN_NAME=run_new bash debug_run.sh clean run_each
 #   #   旧版: MODE=pip + TARGET_DIR=old_target
 #   INDEX1="9" INDEX2="9" CELLS="inv_1" MODE=pip  TARGET_DIR=old_target RUN_NAME=run_old bash debug_run.sh run_each
+#
+#   # OSU035（他 PDK）2x2 corner を数セルで確認
+#   FAB=OSU035 VENDOR=VENDOR REV=CB_REV2 UV=3P30 VDD=3.3 MATCH=OSU035 CELL_PREFIX= \
+#   INDEX1="0 6" INDEX2="0 6" CELLS="INV_1X NAND2_1X DFFARAS_1X" \
+#   MODE=local RESULT_ITEMS="rslt" RUN_NAME=run_osu bash debug_run.sh run_all
 
 # Activate venv if available (no-op when already activated or absent)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -49,9 +61,36 @@ RUN_NAME="${RUN_NAME:-run}"
 SRC_DIR="${SRC_DIR:-sample_src}"
 TARGET_DIR="${TARGET_DIR:-sample_target}"
 
-LIB_FILE="gf180CB5P00fdmcuC7t20240817_TTV5P00C25_b00.lib"
-ORIG_LIB="${SRC_DIR}/gf180mcuC/libs.ref/gf180mcu_fd_sc_mcu7t5v0/lib/gf180mcu_fd_sc_mcu7t5v0__tt_025C_5v00.lib"
-ORIG_CSV_DIR="tmp/gf180_fd_mcuC7t20240817/tt_025C_5v00"
+# ---------------------------------------------------------------------------
+# PDK パラメータ（未指定なら gf180）。 他 PDK は env で切替える。
+#   例) OSU035:
+#     FAB=OSU035 VENDOR=VENDOR REV=CB_REV2 UV=3P30 VDD=3.3 \
+#     MATCH=OSU035 CELL_PREFIX= bash debug_run.sh run_all
+# ---------------------------------------------------------------------------
+FAB="${FAB:-gf180}"          # -f : プロセス名（target dir の第 1 階層）
+VENDOR="${VENDOR:-fd}"       # -v : ベンダ ID（第 2 階層）
+REV="${REV:-mcuC7t20240817}" # -r : リビジョン（第 3 階層）
+GROUP="${GROUP:-std}"        # -g : cell_group（std / io）
+UV="${UV:-5P00}"             # -u : usage_voltage（.lib 名に入る文字列）
+CORNER="${CORNER:-TT}"       # -p : process_corner
+TEMP="${TEMP:-25.0}"         # -t : 温度
+VDD="${VDD:-5.0}"            # --vdd
+# CELL_PREFIX: CELLS へ短縮名を渡すときに前置するセル名 prefix
+CELL_PREFIX="${CELL_PREFIX-gf180mcu_fd_sc_mcu7t5v0__}"
+# MATCH: lrPymRPC の --SOURCE_MATCH に渡す PDK 判別文字列（src/target 双方に含まれる語）
+MATCH="${MATCH:-${FAB}}"
+
+# --- .lib ファイル名は charao の update_name() と同じ規則で組み立てる ---
+#     basename = <process><ip_type><usage_voltage><vendor><revision>
+#     lib_name = <basename>_<corner><Vx_xx><Cxx>   (ip_type: std->CB / io->P)
+_IP_TYPE="CB"; [ "${GROUP}" = "io" ] && _IP_TYPE="P"
+_VDD_STR="V$(printf '%.2f' "${VDD}" | tr '.' 'P')"
+_TEMP_STR="C$(printf '%.0f' "${TEMP}")"
+LIB_FILE="${LIB_FILE:-${FAB}${_IP_TYPE}${UV}${VENDOR}${REV}_${CORNER}${_VDD_STR}${_TEMP_STR}_b00.lib}"
+
+# --- orig .lib（比較用）。 orig を持たない PDK では compare 系を使わない ---
+ORIG_LIB="${ORIG_LIB:-${SRC_DIR}/gf180mcuC/libs.ref/gf180mcu_fd_sc_mcu7t5v0/lib/gf180mcu_fd_sc_mcu7t5v0__tt_025C_5v00.lib}"
+ORIG_CSV_DIR="${ORIG_CSV_DIR:-tmp/gf180_fd_mcuC7t20240817/tt_025C_5v00}"
 
 _setup_args() {
   MODE_="${MODE:-pip}"
@@ -85,14 +124,14 @@ _setup_args() {
     SOURCE_ARG="--SOURCE ${SRC_DIR} ${TARGET_DIR} ${MYLOGIC_USER_SOURCE} charao"
     # ISS-00172: std_primitives.v はファイル名で指定（--SOURCE_INCLUDE は後方一致）。
     #            ".v" にすると PDK 同梱の *.v（約 2MB）まで巻き込むため。
-    SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE .spice .ngspice .sp .jsonc .py .jp2 std_primitives.v"
-    SOURCE_MATCH_ARG="--SOURCE_MATCH gf180 ${MYLOGIC_USER_MATCH} charao"
+    SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE .spice .spi .ngspice .sp .jsonc .py .jp2 std_primitives.v"
+    SOURCE_MATCH_ARG="--SOURCE_MATCH ${MATCH} ${MYLOGIC_USER_MATCH} charao"
   else
     CHARAO_CMD="python3 -m charao"
     REPO_ARG="--REPO_URL charao=git+https://github.com/MatsudaLogicResearch/charao_prj.git"
     SOURCE_ARG="--SOURCE ${SRC_DIR} ${TARGET_DIR} ${MYLOGIC_USER_SOURCE}"
-    SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE .spice .ngspice .sp .jsonc .py std_primitives.v"
-    SOURCE_MATCH_ARG="--SOURCE_MATCH gf180 ${MYLOGIC_USER_MATCH}"
+    SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE .spice .spi .ngspice .sp .jsonc .py std_primitives.v"
+    SOURCE_MATCH_ARG="--SOURCE_MATCH ${MATCH} ${MYLOGIC_USER_MATCH}"
   fi
 
   # env override: SOURCE_ITEMS で --SOURCE の対象一式を上書き（未指定時は上記 MODE 別デフォルト）
@@ -115,7 +154,7 @@ cmd_run_all() {
   if [ -n "${CELLS}" ]; then
     local CELLS_FULL=""
     for s in $CELLS; do
-      CELLS_FULL="${CELLS_FULL} gf180mcu_fd_sc_mcu7t5v0__${s}"
+      CELLS_FULL="${CELLS_FULL} ${CELL_PREFIX}${s}"
     done
     CELLS_OPT="--cells_only${CELLS_FULL}"
   fi
@@ -127,7 +166,7 @@ cmd_run_all() {
   local LOG="lrpymrpc_debug_batch${RUN_NAME:+_$RUN_NAME}.log"
   local RUN_NAME_OPT=""
   [ -n "${RUN_NAME}" ] && RUN_NAME_OPT="--RUN_NAME ${RUN_NAME}"
-  local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target ${TARGET_DIR} ${CELLS_OPT} ${MYLOGIC_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}"
+  local CMD="${CHARAO_CMD} -f ${FAB} -v ${VENDOR} -r ${REV} -g ${GROUP} -u ${UV} -p ${CORNER} -t ${TEMP} --vdd ${VDD} --target ${TARGET_DIR} ${CELLS_OPT} ${MYLOGIC_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}"
   set -x
   # sim 中は非圧縮 .log に逐次書き込み（tail -f で進捗確認可）、 取得完了後に gzip 圧縮
   python -u -m lrPymRPC \
@@ -160,7 +199,7 @@ cmd_run_each() {
   local RUN_NAME_OPT=""
   [ -n "${RUN_NAME}" ] && RUN_NAME_OPT="--RUN_NAME ${RUN_NAME}"
   for short in $CELLS; do
-    local full="gf180mcu_fd_sc_mcu7t5v0__${short}"
+    local full="${CELL_PREFIX}${short}"
     echo "=========================================="
     echo "===== running cell: ${short}"
     echo "=========================================="
@@ -170,7 +209,7 @@ cmd_run_each() {
     local WORK_DEST="${RUN_NAME:+$RUN_NAME/}work_${short}"
     rm -rf "$RSLT_PATH" "$WORK_PATH" "$RSLT_DEST" "$WORK_DEST"
     local LOG="lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log"
-    local CMD="${CHARAO_CMD} -f gf180 -v fd -r mcuC7t20240817 -g std -u 5P00 -p TT -t 25.0 --vdd 5.0 --target ${TARGET_DIR} --cells_only ${full} ${MYLOGIC_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}"
+    local CMD="${CHARAO_CMD} -f ${FAB} -v ${VENDOR} -r ${REV} -g ${GROUP} -u ${UV} -p ${CORNER} -t ${TEMP} --vdd ${VDD} --target ${TARGET_DIR} --cells_only ${full} ${MYLOGIC_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}"
     set -x
     python -u -m lrPymRPC \
       --SERVER_IP 192.168.168.103 \
