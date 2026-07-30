@@ -9,9 +9,9 @@
    "process_name"       :"OSU035"
   ,"lib_vendor_id"      :"VENDOR"
   ,"revision"           :"REV2"
-  ,"model_path"         :"./sample/target/OSU035"
-//,"cell_spice_path"    :"./sample/src/OSU035/std/NORMAL/V00.00/spice"
-//,"io_spice_path"      :"./sample/src/OSU035/io/NORMAL/V00.00/spice"
+  ,"model_path"         :"./sample_target/OSU035"
+//,"cell_spice_path"    :"./sample_src/OSU035/std/NORMAL/V00.00/spice"
+//,"io_spice_path"      :"./sample_src/OSU035/io/NORMAL/V00.00/spice"
   ,"result_path"        :"./rslt"
   ,"vdd_name"           :"VDD"
   ,"vss_name"           :"VSS"
@@ -41,18 +41,27 @@
   ,"energy_meas_high_threshold"  : 0.99
   ,"hold_meas_high_threshold"    : 0.01
   ,"hold_meas_low_threshold"     : 0.99 
+//--- templates（2026-07-29 全面刷新。 V02.00 セル用）
+//    index_1 = 入力 slew [ns]  : 0.05〜8.0 ns（0.35um / 3.3V）を physical curve で 7 点
+//    index_2 = 出力 load [pF]  : floor 0.001 ＋ Cin(0.0045) x fanout{1,3,8,16,32,48}
+//    const は両軸とも slew（constrained_pin_transition x related_pin_transition）
+//    mpw は slew 3 点（ISS-00160 で timing() constraint テーブル化）
+//    OSU035 に三相態セルは無いため delay_disable は定義しない
   ,"templates"                   :[
-                                   //---- for leakage
-                                   {"kind":"leakage","grid":"0x0","name":"d0" ,"index_1":[], "index_2":[]},
-                                   //---- for std
-                                   {"kind":"const"  ,"grid":"2x2","name":"d1","index_1":[0.1,1.1], "index_2":[0.11,1.11]},
-                                   {"kind":"delay"  ,"grid":"2x2","name":"d1","index_1":[0.2,1.2], "index_2":[0.22,1.22]},
-                                   {"kind":"delay"  ,"grid":"2x2","name":"d2","index_1":[0.2,1.2], "index_2":[0.222,1.222]},
-                                   {"kind":"mpw"    ,"grid":"2x0","name":"d1","index_1":[0.3,1.3], "index_2":[]},
-                                   {"kind":"passive","grid":"2x0","name":"d1","index_1":[0.4,1.4], "index_2":[]},
-                                   {"kind":"power"  ,"grid":"2x2","name":"d1","index_1":[0.21,1.21], "index_2":[0.211,1.211]},
-                                   {"kind":"power"  ,"grid":"2x2","name":"d2","index_1":[0.21,1.21], "index_2":[0.2111,1.2111]},
-                                   ]
+    {"kind":"leakage"   ,"grid":"0x0","name":"d000","index_1":[], "index_2":[]}
+       ,{"kind":"passive"   ,"grid":"7x0","name":"d000","index_1":[0.05,0.137973,0.343982,0.815147,1.93169,4.13575,8], "index_2":[]}
+       ,{"kind":"mpw"       ,"grid":"3x0","name":"d000","index_1":[0.05,0.815147,8], "index_2":[]}
+       ,{"kind":"const"     ,"grid":"7x7","name":"d000","index_1":[0.05,0.137973,0.343982,0.815147,1.93169,4.13575,8],"index_2":[0.05,0.137973,0.343982,0.815147,1.93169,4.13575,8]}
+
+    //---- delay: 1 group (generated from new: single Cin)
+       ,{"kind":"delay"     ,"grid":"7x7","name":"d000","index_1":[0.05,0.137973,0.343982,0.815147,1.93169,4.13575,8],"index_2":[0.001,0.0045,0.0135,0.036,0.072,0.144,0.216]}
+
+    //---- power_tout: 出力ピンの internal_power（delay と同じ軸）
+       ,{"kind":"power_tout","grid":"7x7","name":"d000","index_1":[0.05,0.137973,0.343982,0.815147,1.93169,4.13575,8],"index_2":[0.001,0.0045,0.0135,0.036,0.072,0.144,0.216]}
+
+    //---- power_tin: 入力ピンの internal_power（load 非依存＝slew のみ）
+       ,{"kind":"power_tin" ,"grid":"7x0","name":"d000","index_1":[0.05,0.137973,0.343982,0.815147,1.93169,4.13575,8], "index_2":[]}
+      ]
   
 //characterizer settings
 //,"work_dir"  :"work"      //--- set by argv of libretto.py
@@ -62,8 +71,19 @@
 //,"simulator" :/"usr/local/bin/ngspice"
 //,"simulator" :"/eda/synopsys/hspice/T-2022.06/hspice/linux64/hspice"
   ,"run_sim"    :"true"
-  ,"num_thread" : 8
+//--- num_thread : ISS-00079 の sweet spot（8 以上は ngspice 内部の直列ボトルネックで逆に遅い）
+  ,"num_thread" : 4
   ,"sim_nice"   : 19
+
+//--- 2026-07-29 追加（a29〜a33 で導入されたキー。 未指定でも既定値で動くが明示する）
+//    slew_derate: OSU035 に orig .lib が無いため derate なし（1.0）。 .lib 格納値＝実測値
+  ,"slew_derate_from_library"    : 1.0
+//    leakage_offset: 全セル一律加算（orig .lib が無く校正できないため 0.0）
+  ,"leakage_offset"              : 0.0
+//    leakage_stable_time: leakage の DC op 前段 tran の静定時間 [ns]（ISS-00166）
+  ,"leakage_stable_time"         : 1.0
+//    simulation_slew_min: min_pulse/setup/hold の PWL slew 下限 [ns]
+  ,"simulation_slew_min"         : 0.001
   ,"simulation_timestep_max"    : 1.000
   ,"simulation_timestep_min"    : 0.001
   ,"sim_pulse_max"              : 3.0

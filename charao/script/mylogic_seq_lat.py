@@ -51,7 +51,7 @@ def get_logic_dict():
            "latch":{"out":"Io0,IQB",
                     "enable":"c0",
                     "data_in":"(!i0)"},
-           "vcode":"reg notifier; wire mgm_d0; wire iq1; not (mgm_d0, i0); udp_iq_latch_n inst (iq1, 1'b0, 1'b0, c0, mgm_d0, notifier); not (o0, iq1);",
+           "vcode":"reg notifier; wire mgm_d0; wire iq1; not (mgm_d0, i0); udp_iq_latch_n inst (iq1, 1'b0, 1'b0, c0, mgm_d0, notifier, vdd, vss); not (o0, iq1);",
            "expect":
            [
              #--- rising_edge (E rise -> Q) + power_tout
@@ -126,7 +126,7 @@ def get_logic_dict():
                     "enable":"c0",
                     "data_in":"i0",
                     "clear":"(!r0)"},
-           "vcode":"reg notifier; wire c_int; wire iq2; not (c_int, r0); udp_iq_latch_n inst (iq2, c_int, 1'b0, c0, i0, notifier); buf (o0, iq2);",
+           "vcode":"reg notifier; wire c_int; wire iq2; not (c_int, r0); udp_iq_latch_n inst (iq2, c_int, 1'b0, c0, i0, notifier, vdd, vss); buf (o0, iq2);",
            "expect":
            [
              #--- rising_edge (E rise -> Q) -- RN=1
@@ -260,7 +260,7 @@ def get_logic_dict():
                     "enable":"c0",
                     "data_in":"i0",
                     "preset":"(!s0)"},
-           "vcode":"reg notifier; wire p_int; wire iq2; not (p_int, s0); udp_iq_latch_n inst (iq2, 1'b0, p_int, c0, i0, notifier); buf (o0, iq2);",
+           "vcode":"reg notifier; wire p_int; wire iq2; not (p_int, s0); udp_iq_latch_n inst (iq2, 1'b0, p_int, c0, i0, notifier, vdd, vss); buf (o0, iq2);",
            "expect":
            [
              #--- rising_edge -- SETN=1
@@ -397,7 +397,7 @@ def get_logic_dict():
                     "preset":"(!s0)",
                     "clear_preset_var1":"L",
                     "clear_preset_var2":"H"},
-           "vcode":"reg notifier; wire c_int; wire p_int; wire iq2; not (c_int, r0); not (p_int, s0); udp_iq_latch_hn inst (iq2, c_int, p_int, c0, i0, notifier); buf (o0, iq2);",
+           "vcode":"reg notifier; wire c_int; wire p_int; wire iq2; not (c_int, r0); not (p_int, s0); udp_iq_latch_hn inst (iq2, c_int, p_int, c0, i0, notifier, vdd, vss); buf (o0, iq2);",
            "expect":
            [
              #--- rising_edge -- RN=1, SETN=1  #ISS-00101: ival[c]=f で init 内 CLK H→L (D を latch)、 計測中 arc[3]=r で CLK L→H (transparent 化 → Q に新 D 反映)、 mondrv_oirc 省略  #ISS-00127: pin_tr=["o0","c0"] (target=Q, related=E)
@@ -643,7 +643,7 @@ def get_logic_dict():
            "latch":{"out":"Io0,IQB",
                     "enable":"(!c0)",
                     "data_in":"(i0|i1)"},
-           "vcode":"reg notifier; wire mgm_d0; wire mgm_en0; wire iq2; or (mgm_d0, i0, i1); not (mgm_en0, c0); udp_iq_latch_n inst (iq2, 1'b0, 1'b0, mgm_en0, mgm_d0, notifier); and (o0, c0, iq2);",
+           "vcode":"reg notifier; wire mgm_d0; wire mgm_en0; wire iq2; or (mgm_d0, i0, i1); not (mgm_en0, c0); udp_iq_latch_n inst (iq2, 1'b0, 1'b0, mgm_en0, mgm_d0, notifier, vdd, vss); and (o0, c0, iq2);",
            "expect":
            [
              #--- delay (CLK -> Q, comb 型) + power_tout -- when E&!TE（functional mode 代表）
@@ -741,7 +741,7 @@ def get_logic_dict():
            "latch":{"out":"Io0,IQB",
                     "enable":"c0",
                     "data_in":"(i0|i1)"},
-           "vcode":"reg notifier; wire mgm_d0; wire iq3; wire iq3n; or (mgm_d0, i0, i1); udp_iq_latch_n inst (iq3, 1'b0, 1'b0, c0, mgm_d0, notifier); not (iq3n, iq3); or (o0, c0, iq3n);",
+           "vcode":"reg notifier; wire mgm_d0; wire iq3; wire iq3n; or (mgm_d0, i0, i1); udp_iq_latch_n inst (iq3, 1'b0, 1'b0, c0, mgm_d0, notifier, vdd, vss); not (iq3n, iq3); or (o0, c0, iq3n);",
            "expect":
            [
              #--- delay (CLKN -> Q) + power_tout -- when E&!TE

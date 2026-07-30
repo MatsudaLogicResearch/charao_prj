@@ -65,7 +65,7 @@ iverilog gf180CB5P00fdmcuC7t20240817_primitives.v gf180CB5P00fdmcuC7t20240817_b0
 `mylogic_*.py` の `vcode` が UDP を**名前とポート順で直接インスタンス化**する。
 
 ```verilog
-udp_iq_ff_n inst (iq1, c_int, p_int, c0, d_int, notifier);
+udp_iq_ff_n inst (iq1, c_int, p_int, c0, d_int, notifier, vdd, vss);
 ```
 
 したがって **primitives.v は下表の 4 つを、この名前・このポート順・この意味論で定義する義務**を負う。
@@ -74,10 +74,10 @@ udp_iq_ff_n inst (iq1, c_int, p_int, c0, d_int, notifier);
 
 | primitive | ポート順 | 用途 |
 |---|---|---|
-| `udp_iq_ff_n` | `(Q, C, P, CK, D, N)` | posedge FF。非同期端子 0〜1 本のセル用 |
-| `udp_iq_ff_hn` | `(Q, C, P, CK, D, N)` | posedge FF。C/P 同時 assert 時は **P が優先** |
-| `udp_iq_latch_n` | `(Q, C, P, CK, D, N)` | level latch（CK = enable, active-H） |
-| `udp_iq_latch_hn` | `(Q, C, P, CK, D, N)` | level latch。C/P 同時 assert 時は **P が優先** |
+| `udp_iq_ff_n` | `(Q, C, P, CK, D, N, VPWR, VGND)` | posedge FF。非同期端子 0〜1 本のセル用 |
+| `udp_iq_ff_hn` | `(Q, C, P, CK, D, N, VPWR, VGND)` | posedge FF。C/P 同時 assert 時は **P が優先** |
+| `udp_iq_latch_n` | `(Q, C, P, CK, D, N, VPWR, VGND)` | level latch（CK = enable, active-H） |
+| `udp_iq_latch_hn` | `(Q, C, P, CK, D, N, VPWR, VGND)` | level latch。C/P 同時 assert 時は **P が優先** |
 
 ### ポートの意味
 
@@ -89,20 +89,62 @@ udp_iq_ff_n inst (iq1, c_int, p_int, c0, d_int, notifier);
 | `CK` | input | FF はクロック（posedge）、LATCH は enable（active-High） |
 | `D` | input | データ |
 | `N` | input | notifier（タイミングチェック違反で `Q=x` にする） |
+| **`VPWR`** | input | **電源**。UDP 内のローカル名。`vcode` はセルの電源ピンを配線する |
+| **`VGND`** | input | **接地**。同上 |
 
-- 非同期端子を持たないセルでも 6 ポートは省略できない。`vcode` 側が `1'b0` を渡す
+- 非同期端子を持たないセルでも 8 ポートは省略できない。`vcode` 側が `1'b0` を渡す
 
   ```verilog
-  udp_iq_ff_n inst (o0, 1'b0, 1'b0, c0, i0, notifier);
+  udp_iq_ff_n inst (o0, 1'b0, 1'b0, c0, i0, notifier, vdd, vss);
   ```
 
 - active-Low の外部端子（RN / SETN）は `vcode` 側で `not` を挟んで active-High に変換する
 
   ```verilog
-  not (p_int, r0); udp_iq_ff_n inst (iq1, 1'b0, p_int, c0, d_int, notifier);
+  not (p_int, r0); udp_iq_ff_n inst (iq1, 1'b0, p_int, c0, d_int, notifier, vdd, vss);
   ```
 
-- negedge クロックのセル（dffnq 等）も `vcode` 側で `not` を挟む。UDP は posedge 版のみ
+- **negedge クロックのセル（dffnq 等）も `vcode` 側で `not` を挟む。UDP は posedge 版のみ。**
+  このとき **`specify` のタイミングチェックはセル端子側に付ける**（内部反転信号ではない）。
+  charao は既にこの分離ができており、追加対応は不要。
+
+  ```verilog
+  not (clkn_int, c0);                                   // UDP へは内部反転信号
+  udp_iq_ff_n inst (iq1, 1'b0, 1'b0, clkn_int, d_int, notifier, vdd, vss);
+  ...
+  $setup(posedge i0, negedge c0, 0, notifier);           // specify はセル端子 c0 の negedge
+  $hold (negedge c0, posedge i0, 0, notifier);
+  ```
+
+### 電源ポート（`VPWR` / `VGND`）について
+
+**2026-07-30 に 6 ポート → 8 ポートへ拡張**（ダーマツ判断）。パワーカット時にセルの入出力信号が
+影響を受けるため、電源状態を UDP の表に取り込む。
+
+`vcode` は **`vdd` / `vss`**（logic 側のポート名）を渡し、`ports_dict` 経由でセルの実ピン名へ
+自動的に置換される。したがって **同一の vcode が PDK ごとの電源ピン名へ展開される**。
+
+| PDK | 展開結果 |
+|---|---|
+| gf180 | `udp_iq_ff_hn inst (iq1, c_int, p_int, CLK, d_int, notifier, **VDD**, **VSS**)` |
+| OSU035 | `udp_iq_ff_hn inst (iq1, c_int, p_int, CLK, d_int, notifier, **VDD**, **VSS**)` |
+| SKY130 | `udp_iq_ff_n inst (iq1, 1'b0, p_int, CLK, d_int, notifier, **VPWR**, **VGND**)` |
+
+表の作りは SKY130 の `*_pp$PG$N` 版に倣う。
+
+- **通常の全行で `VPWR=1` / `VGND=0` を要求**（電源正常時のみ動作する）
+- **末尾に「電源が変化したら `Q=x`」の 2 行**を置く
+
+  ```
+  //--- 電源が変化したら Q は不定（パワーカット時の x 伝播）
+     ?  ?  ?  ?  ?  *  ?  :  ?  :  x;
+     ?  ?  ?  ?  ?  ?  *  :  ?  :  x;
+  ```
+
+これにより論理シミュレーションでパワーカット時の `x` 伝播が正しく現れる。
+
+> **なお `.lib` 側の多電源対応（`KAPWR` のような第 2 電源、`is_isolation_cell`、`level_shifter`）は
+> 別課題**（ISS-00182）。本節は Verilog モデルの品質向上のみを扱う。
 
 ---
 
@@ -186,9 +228,157 @@ RN と SETN を両方持つセルは、ユーザが同時に assert しうる。
 
 ---
 
-## 5. 関連
+## 5. 配線規約 — 優先度と極性は「表」ではなく「配線」で作る
+
+UDP の表は **`P` 側が優先**という 1 種類（`hn`）と、**優先度を定義しない**もの（`n`）しか無い。
+実セルが「リセット優先」でも「セット優先」でも、**新しい UDP を作る必要は無い**。
+**どちらを優先させるかは、UDP へ何を配線するかで決まる。**
+
+### 規約 1 — 極性が違うときは反転して渡す
+
+UDP の `C` / `P` は **active-High**。実セルの `RN` / `SETN` が active-Low なら、
+vcode 側で `not` を挟んで反転してから渡す。
+
+```verilog
+not (p_int, r0);      // P <= !RN
+not (c_int, s0);      // C <= !SETN
+```
+
+### 規約 2 — 優先させたい信号を `P` へ渡し、出力を反転して取り出す
+
+`hn` は `P` が勝つ表なので、**リセット優先なら `RN` 由来の信号を `P` へ**配線する。
+このとき UDP の出力は「内部ノード `IQ1`」として受け、**その反転をセル出力 `Q`** とする。
+
+```verilog
+udp_iq_ff_hn inst (iq1, c_int, p_int, c0, d_int, notifier);
+not (o0, iq1);        // Q <= !IQ1
+```
+
+### 実例：gf180 と charao は同型
+
+gf180 純正の `dffrsnq_func` は次のとおりで、charao の `DFF_PC_NR_NS` vcode と完全に同じ形をしている。
+
+```verilog
+not MGM_BG_0( MGM_P0, RN );      // P <= !RN      ← リセットを優先ポートへ
+not MGM_BG_1( MGM_C0, SETN );    // C <= !SETN
+not MGM_BG_2( MGM_D0, D );       // D <= !D
+gf180mcu_fd_sc_mcu7t5v0__udp_hn_iq_ff( IQ1, MGM_C0, MGM_P0, CLK, MGM_D0, notifier );
+not MGM_BG_3( Q, IQ1 );          // Q <= !IQ1
+```
+
+**gf180 は preset 優先の UDP しか用意していないが、この配線によってリセット優先の実回路を
+正しく表現している。** 実測でも gf180 `dffrsnq_1` / OSU035 `DFFARAS_1X` はともに
+**セルの端子で見ればリセット優先**であり、この 1 種類の UDP で両方とも表現できる。
+
+> **注意**：UDP 座標（`C` / `P` / `Q`）とセル端子（`SETN` / `RN` / `Q`）を取り違えると、
+> 「リセット優先だから新しい UDP が必要」という誤った結論になる。**必ず vcode の配線を見て、
+> どちらが `P` に入っているか、出力が反転されているかを確認すること。**
+
+---
+
+## 6. `tools/gen_udp.py` — 実回路から UDP を検証・生成する
+
+UDP は「実回路の挙動を Verilog の真理値表として再現する」ものなので、**実回路を測って表を決める**
+のが正しい。契約端子が `(Q, C, P, CK, D, N, VPWR, VGND)` に固定されているため検証すべき状態空間も固定でき、
+テストベンチは 1 本で済む。セル依存部は「インスタンス行」と「端子の極性」だけになる。
+
+### 機能
+
+対象セルの SPICE netlist と端子対応を受け取り、ngspice で実回路を動かして挙動を判定し、
+対応する UDP を標準出力へ書き出す。
+
+| 測る | 測らない |
+|---|---|
+| 取り込みエッジ（posedge / negedge） | UDP 表中の `x` や `(?0)` 等のエッジ記法 |
+| clear 単独 / preset 単独での `Q` | （解析シミュレーションでは観測できないため） |
+| **clear と preset の同時アサート時にどちらが勝つか** | → 測定結果に対応する**正準表を選んで**出力する |
+| 保持（クロックエッジ無し）で `Q` が保たれるか | |
+
+### 使い方
+
+```bash
+# OSU035（素の .include だけで済む PDK）
+python3 tools/gen_udp.py \
+    --model   sample_src/OSU035/TT/nmos.sp \
+    --model   sample_src/OSU035/TT/pmos.sp \
+    --netlist sample_src/OSU035/std/NORMAL/V02.00/spice/DFFARAS_1X.spi \
+    --subckt  DFFARAS_1X \
+    --ports   "CLK DATA NRST NSET Q VDD VSS VNW VPW" \
+    --map     "CK=CLK,D=DATA:L,C=NSET:L,P=NRST:L,Q=Q:L" \
+    --power   "VDD=VDD,VSS=VSS,VNW=VNW,VPW=VPW" \
+    --vdd 3.3 --kind ff --name udp_iq_ff_hn
+```
+
+### 主なオプション
+
+| オプション | 意味 |
+|---|---|
+| `--map` | `<UDP端子>=<セルピン>[:L]`。**`:L` で反転**。`§5` の配線規約をそのまま写す |
+| `--ports` | subckt のピン順 |
+| `--power` | `VDD=` / `VSS=` / `VNW=` / `VPW=` |
+| `--kind` | `ff` / `latch` |
+| `--name` | 出力する primitive 名 |
+| `--raw` | TB 冒頭へ挿入する行。**コーナーをセクションで選ぶ PDK は `.lib` をここで渡す** |
+| `--raw-path` | `--model` / `--netlist` を絶対パス化しない（リモート実行用） |
+| `--tb-only` | TB を書き出すだけで sim しない |
+| `--lis` | 既存の ngspice 出力から測定値を読む（リモート実行の結果を持ち込む） |
+
+### `--map` は配線規約どおりに写すこと
+
+**最重要**。`§5` のとおり、優先させたい信号は `P` に入り、出力は反転される。
+gf180 / OSU035 のようなリセット優先セルは次のように書く。
+
+```
+--map "CK=CLK,D=DATA:L,C=NSET:L,P=NRST:L,Q=Q:L"
+             ^^^^^^^^^ ^^^^^^^^^ ^^^^^^^^^ ^^^^
+             D 反転     C←SETN    P←RN      Q 反転
+```
+
+**`C` と `P` を取り違えると誤った UDP を出力する。** vcode の配線を必ず確認すること。
+
+### リモート実行（gf180 等）
+
+ローカル ngspice が PDK モデルに対応していない場合（gf180 の `mulu0` は ngspice-36 で未対応）は、
+`--tb-only` で TB だけ生成し、lrPymRPC でリモート実行してから `--lis` で結果を読み込む。
+
+```bash
+# ① TB 生成
+python3 tools/gen_udp.py --tb-only --tb-out . --raw-path \
+    --raw ".inc sample_src/gf180mcuC/libs.tech/ngspice/design.ngspice" \
+    --raw ".lib sample_src/gf180mcuC/libs.tech/ngspice/sm141064.ngspice typical" \
+    ... （以下同じ）
+
+# ② リモート実行
+python -m lrPymRPC --SERVER_IP <ip> --SOURCE .spiceinit udp_tb.sp sample_src \
+    --SOURCE_INCLUDE .spice .ngspice .sp .spiceinit udp_tb.sp \
+    --SOURCE_MATCH gf180 udp_tb spiceinit \
+    --RESULT udp_tb.lis --CMD "ngspice -b -o udp_tb.lis udp_tb.sp"
+
+# ③ 結果から UDP を生成
+python3 tools/gen_udp.py --lis udp_tb.lis ... （同じ引数）
+```
+
+### 実装上の注意（TB 生成側で対処済み）
+
+| 症状 | 原因 | 対処 |
+|---|---|---|
+| DC が `nan` | `.tran` だけでも ngspice は先に DC 動作点を解く。FF のクロスカップル・ラッチは**双安定**で解が一意に決まらない | `.tran ... uic` |
+| 初期タイムステップ破綻 | `uic` では t=0 に全ノード 0V なのに電源だけ印加済みという不整合が生じる | **電源を 0 から立ち上げる**（入力も同時にランプ） |
+| DC が壊れる | 極性反転を B ソース（挙動ソース）で行うと不連続関数になる | **波形生成側で反転**し、挙動ソースを使わない |
+
+### 順序セルを触るときの注意
+
+ラッチは「**書き込み経路 > フィードバック（キーパー）**」の強さ関係で成立している。
+`W` を n/p で非対称にスケールするとこの関係が壊れ、**ラッチが書けなくなって sim が発振・非収束**する。
+順序セルのサイズを変えるときは、全トランジスタを同率でスケールするか、`L` のみ変更すること。
+
+---
+
+## 7. 関連
 
 - `docs/SPEC_seq_ff.md` — FF セルの vcode 記述規約
 - `docs/SPEC_seq_lat.md` — LATCH セルの vcode 記述規約
+- `tools/gen_udp.py` — 実回路から UDP を検証・生成する
 - ISS-00172 — primitive を target 側へ移設
 - ISS-00173 — dead primitive（`lr_mux` / `lr_dff`）の削除
+- ISS-00176 — `gen_udp.py` の整備

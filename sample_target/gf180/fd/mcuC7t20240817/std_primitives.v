@@ -38,25 +38,28 @@
 `ifndef GF180MCU_FD_SC_MCU7T5V0__UDP_HN_IQ_FF_V
 `define GF180MCU_FD_SC_MCU7T5V0__UDP_HN_IQ_FF_V
 
-primitive udp_iq_ff_hn( Q, C, P, CK, D, N );
+primitive udp_iq_ff_hn ( Q, C, P, CK, D, N, VPWR, VGND );
 output Q;
 reg Q;
-input C, P, CK, D, N;
+input C, P, CK, D, N, VPWR, VGND;
 table
-// C  P  CK D  N  :  Q  :  Q
-   0  0  n  ?  ?  :  ?  :  -;
-   ?  0  r  0  ?  :  ?  :  0;
-   ?  0  p  0  ?  :  0  :  0;
-   1  0  ?  ?  ?  :  ?  :  0;
-   0  ?  r  1  ?  :  ?  :  1;
-   0  ?  p  1  ?  :  1  :  1;
-   ?  1  ?  ?  ?  :  ?  :  1;
-   0  0  ?  *  ?  :  ?  :  -;
-   ?  ?  ?  ?  *  :  ?  :  x;
-   0  n  ?  ?  ?  :  ?  :  -;
-   n  0  ?  ?  ?  :  ?  :  -;
-   0  p  ?  ?  ?  :  ?  :  -;
+// C  P  CK D  N  VPWR VGND :  Q  :  Q
+   0  0  n  ?  ?  1    0   :  ?  :  -;
+   ?  0  r  0  ?  1    0   :  ?  :  0;
+   ?  0  p  0  ?  1    0   :  0  :  0;
+   1  0  ?  ?  ?  1    0   :  ?  :  0;
+   0  ?  r  1  ?  1    0   :  ?  :  1;
+   0  ?  p  1  ?  1    0   :  1  :  1;
+   ?  1  ?  ?  ?  1    0   :  ?  :  1;
+   0  0  ?  *  ?  1    0   :  ?  :  -;
+   ?  ?  ?  ?  *  1    0   :  ?  :  x;
+   0  n  ?  ?  ?  1    0   :  ?  :  -;
+   n  0  ?  ?  ?  1    0   :  ?  :  -;
+   0  p  ?  ?  ?  1    0   :  ?  :  -;
 
+//--- 電源が変化したら Q は不定（パワーカット時の x 伝播）
+   ?  ?  ?  ?  ?  *  ?  :  ?  :  x;
+   ?  ?  ?  ?  ?  ?  *  :  ?  :  x;
 endtable
 endprimitive
 
@@ -82,26 +85,29 @@ endprimitive
 `ifndef GF180MCU_FD_SC_MCU7T5V0__UDP_HN_IQ_LATCH_V
 `define GF180MCU_FD_SC_MCU7T5V0__UDP_HN_IQ_LATCH_V
 
-primitive udp_iq_latch_hn( Q, C, P, CK, D, N );
+primitive udp_iq_latch_hn ( Q, C, P, CK, D, N, VPWR, VGND );
 output Q;
 reg Q;
-input C, P, CK, D, N;
+input C, P, CK, D, N, VPWR, VGND;
 table
-// C    P    CK   D    N  :  Q  :  Q
-   0    0    0    *    ?  :  ?  :  -;
-   0    0    (?0) ?    ?  :  ?  :  -;
-   0    (?0) 0    ?    ?  :  ?  :  -;
-   (?0) 0    0    ?    ?  :  ?  :  -;
-   ?    0    1    0    ?  :  ?  :  0;
-   ?    0    ?    (?0) ?  :  0  :  0;
-   ?    (?0) ?    0    ?  :  0  :  0;
-   1    0    ?    ?    ?  :  ?  :  0;
-   0    ?    1    1    ?  :  ?  :  1;
-   0    ?    ?    (?1) ?  :  1  :  1;
-   (?0) ?    ?    1    ?  :  1  :  1;
-   ?    1    ?    ?    ?  :  ?  :  1;
-   ?    ?    ?    ?    *  :  ?  :  x;
+// C    P    CK   D    N  VPWR VGND :  Q  :  Q
+   0    0    0    *    ?  1    0   :  ?  :  -;
+   0    0    (?0) ?    ?  1    0   :  ?  :  -;
+   0    (?0) 0    ?    ?  1    0   :  ?  :  -;
+   (?0) 0    0    ?    ?  1    0   :  ?  :  -;
+   ?    0    1    0    ?  1    0   :  ?  :  0;
+   ?    0    ?    (?0) ?  1    0   :  0  :  0;
+   ?    (?0) ?    0    ?  1    0   :  0  :  0;
+   1    0    ?    ?    ?  1    0   :  ?  :  0;
+   0    ?    1    1    ?  1    0   :  ?  :  1;
+   0    ?    ?    (?1) ?  1    0   :  1  :  1;
+   (?0) ?    ?    1    ?  1    0   :  1  :  1;
+   ?    1    ?    ?    ?  1    0   :  ?  :  1;
+   ?    ?    ?    ?    *  1    0   :  ?  :  x;
 
+//--- 電源が変化したら Q は不定（パワーカット時の x 伝播）
+   ?  ?  ?  ?  ?  *  ?  :  ?  :  x;
+   ?  ?  ?  ?  ?  ?  *  :  ?  :  x;
 endtable
 endprimitive
 
@@ -127,25 +133,28 @@ endprimitive
 `ifndef GF180MCU_FD_SC_MCU7T5V0__UDP_N_IQ_FF_V
 `define GF180MCU_FD_SC_MCU7T5V0__UDP_N_IQ_FF_V
 
-primitive udp_iq_ff_n( Q, C, P, CK, D, N );
+primitive udp_iq_ff_n ( Q, C, P, CK, D, N, VPWR, VGND );
 output Q;
 reg Q;
-input C, P, CK, D, N;
+input C, P, CK, D, N, VPWR, VGND;
 table
-// C  P  CK  D  N  :  Q  :  Q
-   0  0  n   ?  ?  :  ?  :  -;
-   ?  0  r   0  ?  :  ?  :  0;
-   ?  0  p   0  ?  :  0  :  0;
-   1  0  ?   ?  ?  :  ?  :  0;
-   0  ?  r   1  ?  :  ?  :  1;
-   0  ?  p   1  ?  :  1  :  1;
-   0  1  ?   ?  ?  :  ?  :  1;
-   ?  ?  ?   ?  *  :  ?  :  x;
-   0  0  ?   *  ?  :  ?  :  -;
-   0  n  ?   ?  ?  :  ?  :  -;
-   n  0  ?   ?  ?  :  ?  :  -;
-   0  p  ?   ?  ?  :  ?  :  -;
+// C  P  CK  D  N  VPWR VGND :  Q  :  Q
+   0  0  n   ?  ?  1    0   :  ?  :  -;
+   ?  0  r   0  ?  1    0   :  ?  :  0;
+   ?  0  p   0  ?  1    0   :  0  :  0;
+   1  0  ?   ?  ?  1    0   :  ?  :  0;
+   0  ?  r   1  ?  1    0   :  ?  :  1;
+   0  ?  p   1  ?  1    0   :  1  :  1;
+   0  1  ?   ?  ?  1    0   :  ?  :  1;
+   ?  ?  ?   ?  *  1    0   :  ?  :  x;
+   0  0  ?   *  ?  1    0   :  ?  :  -;
+   0  n  ?   ?  ?  1    0   :  ?  :  -;
+   n  0  ?   ?  ?  1    0   :  ?  :  -;
+   0  p  ?   ?  ?  1    0   :  ?  :  -;
 
+//--- 電源が変化したら Q は不定（パワーカット時の x 伝播）
+   ?  ?  ?  ?  ?  *  ?  :  ?  :  x;
+   ?  ?  ?  ?  ?  ?  *  :  ?  :  x;
 endtable
 endprimitive
 
@@ -171,26 +180,29 @@ endprimitive
 `ifndef GF180MCU_FD_SC_MCU7T5V0__UDP_N_IQ_LATCH_V
 `define GF180MCU_FD_SC_MCU7T5V0__UDP_N_IQ_LATCH_V
 
-primitive udp_iq_latch_n( Q, C, P, CK, D, N );
+primitive udp_iq_latch_n ( Q, C, P, CK, D, N, VPWR, VGND );
 output Q;
 reg Q;
-input C, P, CK, D, N;
+input C, P, CK, D, N, VPWR, VGND;
 table
-// C    P    CK   D    N  :  Q  :  Q
-   0    0    0    *    ?  :  ?  :  -;
-   0    0    (?0) ?    ?  :  ?  :  -;
-   0    (?0) 0    ?    ?  :  ?  :  -;
-   (?0) 0    0    ?    ?  :  ?  :  -;
-   ?    0    1    0    ?  :  ?  :  0;
-   ?    0    ?    (?0) ?  :  0  :  0;
-   ?    (?0) ?    0    ?  :  0  :  0;
-   1    0    ?    ?    ?  :  ?  :  0;
-   0    ?    1    1    ?  :  ?  :  1;
-   0    ?    ?    (?1) ?  :  1  :  1;
-   (?0) ?    ?    1    ?  :  1  :  1;
-   0    1    ?    ?    ?  :  ?  :  1;
-   ?    ?    ?    ?    *  :  ?  :  x;
+// C    P    CK   D    N  VPWR VGND :  Q  :  Q
+   0    0    0    *    ?  1    0   :  ?  :  -;
+   0    0    (?0) ?    ?  1    0   :  ?  :  -;
+   0    (?0) 0    ?    ?  1    0   :  ?  :  -;
+   (?0) 0    0    ?    ?  1    0   :  ?  :  -;
+   ?    0    1    0    ?  1    0   :  ?  :  0;
+   ?    0    ?    (?0) ?  1    0   :  0  :  0;
+   ?    (?0) ?    0    ?  1    0   :  0  :  0;
+   1    0    ?    ?    ?  1    0   :  ?  :  0;
+   0    ?    1    1    ?  1    0   :  ?  :  1;
+   0    ?    ?    (?1) ?  1    0   :  1  :  1;
+   (?0) ?    ?    1    ?  1    0   :  1  :  1;
+   0    1    ?    ?    ?  1    0   :  ?  :  1;
+   ?    ?    ?    ?    *  1    0   :  ?  :  x;
 
+//--- 電源が変化したら Q は不定（パワーカット時の x 伝播）
+   ?  ?  ?  ?  ?  *  ?  :  ?  :  x;
+   ?  ?  ?  ?  ?  ?  *  :  ?  :  x;
 endtable
 endprimitive
 

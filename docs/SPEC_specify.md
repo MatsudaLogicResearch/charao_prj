@@ -166,7 +166,7 @@ charao の seq セルは `mylogic_*.py` の **vcode** で primitive をインス
 - **宣言**：vcode 先頭に `reg notifier;` を置く。
 - **接続**：primitive 末尾の **N ポート**へ notifier を接続する。
   charao の 4 primitive は末尾が N（notifier）：
-  `udp_iq_ff_n (Q, C, P, CK, D, N)` / `udp_iq_ff_hn(...)` /
+  `udp_iq_ff_n (Q, C, P, CK, D, N, VPWR, VGND)` / `udp_iq_ff_hn(...)` /
   `udp_iq_latch_n(...)` / `udp_iq_latch_hn(...)`。
 
 ```
