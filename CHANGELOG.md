@@ -4,6 +4,65 @@
 
 ---
 
+## [2.0.0.a02] 2026-07-30
+
+`2.0.0` に向けた開発版。他 PDK 対応（ISS-00141）を進め、UDP 契約を電源端子付きへ拡張した。
+
+### Changed (breaking)
+
+- **UDP 契約を 6 端子 → 8 端子へ拡張**（ISS-00183）。
+  `(Q, C, P, CK, D, N)` → **`(Q, C, P, CK, D, N, VPWR, VGND)`**。
+  パワーカット時にセルの入出力信号が影響を受けるため、電源状態を UDP の表に取り込む。
+    - 表は SKY130 の `*_pp$PG$N` 版に倣い、**通常の全行で `VPWR=1` / `VGND=0` を要求**し、
+      末尾に **電源変化 → `Q=x`** の 2 行を置く。論理シミュレーションでパワーカット時の
+      `x` 伝播が正しく現れる。
+    - `vcode` は `vdd` / `vss`（logic 側のポート名）を渡し、`ports_dict` 経由で
+      **セルの実ピン名へ自動置換**される（gf180/OSU035 は `VDD`/`VSS`、SKY130 は `VPWR`/`VGND`）。
+      同一 vcode が PDK ごとの電源ピン名へ展開されるため、PDK 追加時の作業は不要。
+    - **既存の `std_primitives.v` は 8 端子へ更新が必要**（gf180 はバックポート済み）。
+    - `.lib` 側の多電源対応（`KAPWR` のような第 2 電源、`is_isolation_cell`、`level_shifter`）は
+      別課題として分離（ISS-00182）。
+
+### Added
+
+- **`tools/gen_udp.py`**（ISS-00176）: 実回路(SPICE)の挙動を測って UDP を生成・検証するツール。
+  契約端子が固定なのでテストベンチは 1 本で足り、セル依存部は「インスタンス行」と「端子の極性」だけ。
+  取り込みエッジ／clear・preset 単独／**同時アサート時の優先度**／保持を測定し、
+  対応する正準表を出力する。ローカル simulator が PDK モデルに未対応の場合は
+  `--tb-only` で TB のみ生成し、`--lis` でリモート実行の結果を読み込める。
+- **`docs/SPEC_primitives.md`** に 2 節を追加。
+    - **§5 配線規約**: 優先度と極性は「表」ではなく「配線」で作る。優先させたい信号を `P` へ渡し、
+      出力を `IQ1` で受けてその反転を `Q` に出す（gf180 純正 `dffrsnq_func` と charao の vcode は同型）。
+    - **§6 `gen_udp.py`** の使用方法と機能。
+- **OSU035 target の V02.00 対応**（ISS-00177）: `std_primitives.v` 新規、`config_lib.jsonc` の
+  templates を 7x7 で再定義（`Cin=0.0045pF`、slew 0.05〜8.0ns）、`template_kgn` を現行スキーマへ
+  更新（`power` は無効 kind のため `power_tout` / `power_tin` へ）、旧パス体系（`sample/target`,
+  `sample/src`）の是正。
+
+### Changed
+
+- **`debug_run.sh` の PDK パラメータを env 化**: `FAB` / `VENDOR` / `REV` / `GROUP` / `UV` /
+  `CORNER` / `TEMP` / `VDD` / `CELL_PREFIX` / `MATCH`。`LIB_FILE` は `update_name()` と同じ規則で
+  自動導出する。**gf180 の既定値は従来と完全に一致**（後方互換）。
+- `--SOURCE_INCLUDE` に **`.spi`** を追加。gf180 は `.spice` のため露見しなかったが、
+  `--SOURCE_INCLUDE` はパスの後方一致判定なので `.sp` では `.spi` に当たらず、
+  OSU035 のセル netlist が転送されていなかった。
+
+### Fixed
+
+- `docs/SPEC_primitives.md` §3 の注記: 1.0.0 以前の `mylogic_seq_ff.py` のコメント
+  「`n` = C (clear) dominates over P (preset)」は誤り。正しくは「`n` は C/P 同時 assert を
+  未定義（x）とする」。
+
+### Verified
+
+- OSU035（`sample_target/OSU035/VENDOR/CB_REV2`）で **charao が完走**（0 failures）。
+  `.lib` / `.md` / `.v` / `_primitives.v` の 4 点を生成＝**gf180 以外の PDK で初めて**。
+- 生成 .v の UDP インスタンスが 8 端子で出力され（`udp_iq_ff_hn inst (…, notifier, VDD, VSS)`）、
+  参照 UDP が定義に含まれ未定義参照ゼロ。`_primitives.v` は入力と diff ゼロ。
+
+---
+
 ## [2.0.0.a01] 2026-07-28
 
 `2.0.0` に向けた開発版（alpha）。**非互換変更を含む**ため major を上げる。
