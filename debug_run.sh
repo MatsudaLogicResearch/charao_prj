@@ -23,6 +23,7 @@
 #   --- PDK 切替（未指定なら gf180）---
 #   FAB / VENDOR / REV        # charao の -f / -v / -r（target dir の 3 階層）
 #   GROUP / UV / CORNER / TEMP / VDD  # -g / -u / -p / -t / --vdd
+#   VNW / VPW                 # --vnw / --vpw（未指定なら charao が --vdd/--vss を反映）
 #   CELL_PREFIX               # CELLS の短縮名に前置するセル名 prefix（OSU035 は空）
 #   MATCH                     # --SOURCE_MATCH の PDK 判別語（default: $FAB）
 #   LIB_FILE / ORIG_LIB / ORIG_CSV_DIR  # 通常は自動導出。orig 無し PDK は compare 系を使わない
@@ -44,6 +45,11 @@
 #   FAB=OSU035 VENDOR=VENDOR REV=CB_REV2 UV=3P30 VDD=3.3 MATCH=OSU035 CELL_PREFIX= \
 #   INDEX1="0 6" INDEX2="0 6" CELLS="INV_1X NAND2_1X DFFARAS_1X" \
 #   MODE=local RESULT_ITEMS="rslt" RUN_NAME=run_osu bash debug_run.sh run_all
+#
+#   # SKY130（MATCH は既定の PDK 名でよい。 モデルが libs.ref/sky130_fd_pr にあるため絞れない）
+#   FAB=sky130 VENDOR=fd REV=sc_hd UV=1P80 VDD=1.8 MATCH=sky130 CELL_PREFIX=sky130_fd_sc_hd__ \
+#   INDEX1="0 6" INDEX2="0 6" CELLS="inv_1" \
+#   MODE=local RESULT_ITEMS="rslt" RUN_NAME=run_sky bash debug_run.sh run_all
 
 # Activate venv if available (no-op when already activated or absent)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -75,9 +81,31 @@ UV="${UV:-5P00}"             # -u : usage_voltage（.lib 名に入る文字列�
 CORNER="${CORNER:-TT}"       # -p : process_corner
 TEMP="${TEMP:-25.0}"         # -t : 温度
 VDD="${VDD:-5.0}"            # --vdd
+#--- ISS-00185: well 電圧は charao 側で --vdd/--vss に追従する（--vnw/--vpw の既定は None）。
+#    ユーザは --vdd/--vss を指定するだけでよい。 トリプルウェル等で別電位が要る場合のみ
+#    VNW/VPW を env で明示する。 ここでは明示時だけオプションを渡す（既定をダブらせない）。
+#    ※ 従来は charao の --vnw 既定が 5.0V 固定で、 5V の gf180 では偶然正しかったが
+#      1.8V の SKY130 では nwell に 5V ＝ pMOS バルクに 3.2V の逆バイアスが掛かり、
+#      rise 側の遅延だけが伸びていた（OSU035 3.3V も同様に 1.7V の逆バイアス）。
+VNW_OPT=""; [ -n "${VNW:-}" ] && VNW_OPT="--vnw ${VNW}"
+VPW_OPT=""; [ -n "${VPW:-}" ] && VPW_OPT="--vpw ${VPW}"
 # CELL_PREFIX: CELLS へ短縮名を渡すときに前置するセル名 prefix
 CELL_PREFIX="${CELL_PREFIX-gf180mcu_fd_sc_mcu7t5v0__}"
-# MATCH: lrPymRPC の --SOURCE_MATCH に渡す PDK 判別文字列（src/target 双方に含まれる語）
+# MATCH: lrPymRPC の --SOURCE_MATCH に渡す文字列（複数可、OR 判定）。
+#   既定は PDK 名。 転送量を削りたくなるが、 モデルの include 連鎖を壊しやすいので注意。
+#
+#   【SKY130 での実測（2026-07-31）】
+#     MATCH=sky130                                    1074 ファイル / 64.6MB
+#     libs.tech + sc_hd/spice のみに絞る                390 ファイル /  9.7MB → ★sim 全滅
+#     libs.tech + fd_pr/spice + sc_hd/spice           1065 ファイル / 58.2MB（正しい最小構成）
+#
+#   モデル本体は libs.tech ではなく **libs.ref/sky130_fd_pr/spice/** にあり、
+#   libs.tech/ngspice/all.spice が ../../libs.ref/sky130_fd_pr/... を 62 箇所から
+#   include している。 fd_pr を外すと ngspice が起動できず returncode=1 で全滅する。
+#   結局この PDK では削れるのは他ライブラリ（sram_macros / fd_io / sc_hvl）だけで
+#   約 10% にしかならないため、 **既定の MATCH=<FAB> のままでよい**。
+#
+#   絞り込む場合は「モデルの include 連鎖を実際に追ってから」行うこと。
 MATCH="${MATCH:-${FAB}}"
 
 # --- .lib ファイル名は charao の update_name() と同じ規則で組み立てる ---
@@ -166,7 +194,7 @@ cmd_run_all() {
   local LOG="lrpymrpc_debug_batch${RUN_NAME:+_$RUN_NAME}.log"
   local RUN_NAME_OPT=""
   [ -n "${RUN_NAME}" ] && RUN_NAME_OPT="--RUN_NAME ${RUN_NAME}"
-  local CMD="${CHARAO_CMD} -f ${FAB} -v ${VENDOR} -r ${REV} -g ${GROUP} -u ${UV} -p ${CORNER} -t ${TEMP} --vdd ${VDD} --target ${TARGET_DIR} ${CELLS_OPT} ${MYLOGIC_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}"
+  local CMD="${CHARAO_CMD} -f ${FAB} -v ${VENDOR} -r ${REV} -g ${GROUP} -u ${UV} -p ${CORNER} -t ${TEMP} --vdd ${VDD} ${VNW_OPT} ${VPW_OPT} --target ${TARGET_DIR} ${CELLS_OPT} ${MYLOGIC_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}"
   set -x
   # sim 中は非圧縮 .log に逐次書き込み（tail -f で進捗確認可）、 取得完了後に gzip 圧縮
   python -u -m lrPymRPC \
@@ -180,11 +208,15 @@ cmd_run_all() {
     --CMD "$CMD" 2>&1 | tee "$LOG"
   { set +x; } 2>/dev/null
   echo ""
+  #--- ISS-00187 で判明: この集計は ngspice の失敗しか数えず、 charao 自身の Python 例外は
+  #    「0 failures」と表示されてしまう（生成物が空でも気づけない）。 Traceback も数える。
   echo "===== summary: failed-spice grep (batch log) ====="
-  local n
+  local n t
   n=$(grep -c "Failed to launch spice" "$LOG" 2>/dev/null || true)
+  t=$(grep -c "Traceback (most recent call last)" "$LOG" 2>/dev/null || true)
   [ -z "$n" ] && n=0
-  printf "  %-20s : %s failures\n" "batch${RUN_NAME:+_$RUN_NAME}" "$n"
+  [ -z "$t" ] && t=0
+  printf "  %-20s : %s failures / %s traceback\n" "batch${RUN_NAME:+_$RUN_NAME}" "$n" "$t"
   # 取得完了後に gzip 圧縮（読み出しは zcat / zgrep / zless で透過アクセス可）
   gzip -f "$LOG"
 }
@@ -209,7 +241,7 @@ cmd_run_each() {
     local WORK_DEST="${RUN_NAME:+$RUN_NAME/}work_${short}"
     rm -rf "$RSLT_PATH" "$WORK_PATH" "$RSLT_DEST" "$WORK_DEST"
     local LOG="lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log"
-    local CMD="${CHARAO_CMD} -f ${FAB} -v ${VENDOR} -r ${REV} -g ${GROUP} -u ${UV} -p ${CORNER} -t ${TEMP} --vdd ${VDD} --target ${TARGET_DIR} --cells_only ${full} ${MYLOGIC_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}"
+    local CMD="${CHARAO_CMD} -f ${FAB} -v ${VENDOR} -r ${REV} -g ${GROUP} -u ${UV} -p ${CORNER} -t ${TEMP} --vdd ${VDD} ${VNW_OPT} ${VPW_OPT} --target ${TARGET_DIR} --cells_only ${full} ${MYLOGIC_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}"
     set -x
     python -u -m lrPymRPC \
       --SERVER_IP 192.168.168.103 \
@@ -227,10 +259,12 @@ cmd_run_each() {
   echo ""
   echo "===== summary: failed-spice grep across logs ====="
   for short in $CELLS; do
-    local n
+    local n t
     n=$(grep -c "Failed to launch spice" "lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log" 2>/dev/null || true)
+    t=$(grep -c "Traceback (most recent call last)" "lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log" 2>/dev/null || true)
+    [ -z "$t" ] && t=0
     [ -z "$n" ] && n=0
-    printf "  %-20s : %s failures\n" "$short" "$n"
+    printf "  %-20s : %s failures / %s traceback\n" "$short" "$n" "$t"
   done
   # 取得完了後に gzip 圧縮（読み出しは zcat / zgrep / zless で透過アクセス可）
   for short in $CELLS; do

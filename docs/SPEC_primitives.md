@@ -121,8 +121,15 @@ udp_iq_ff_n inst (iq1, c_int, p_int, c0, d_int, notifier, vdd, vss);
 **2026-07-30 に 6 ポート → 8 ポートへ拡張**（ダーマツ判断）。パワーカット時にセルの入出力信号が
 影響を受けるため、電源状態を UDP の表に取り込む。
 
-`vcode` は **`vdd` / `vss`**（logic 側のポート名）を渡し、`ports_dict` 経由でセルの実ピン名へ
+`vcode` は **`vdd` / `vss`**（logic 側のポート名）を渡し、セルの実ピン名へ
 自動的に置換される。したがって **同一の vcode が PDK ごとの電源ピン名へ展開される**。
+
+> **置換の根拠（2026-08-01 実装＝ISS-00187）**：`vdd` / `vss` / `vnw` / `vpw` は `ports_dict` の
+> 値ではないため、`ports_dict` の逆置換では変換されない。`replace_by_portmap()` が
+> **`config_lib.jsonc` の `vdd_name` / `vss_name` / `nwell_name` / `pwell_name`** を使って
+> 語境界一致で置換する。**これらは vcode 内で予約語扱い**になる。
+> 2026-07-31 まで実装が無く、gf180 は `ports_dict` の値が `"vdd"` のため偶然置換されていたが、
+> SKY130 は未置換のまま残り、生成 `.v` で**未宣言の暗黙 wire**（UDP の電源入力が `x`）になっていた。
 
 | PDK | 展開結果 |
 |---|---|
@@ -142,6 +149,40 @@ udp_iq_ff_n inst (iq1, c_int, p_int, c0, d_int, notifier, vdd, vss);
   ```
 
 これにより論理シミュレーションでパワーカット時の `x` 伝播が正しく現れる。
+
+### `USE_POWER_PINS` — 電源端子の on/off（2026-08-01、ダーマツ判断＝ISS-00187）
+
+生成 `.v` の**セル側の電源端子**は `` `ifdef USE_POWER_PINS `` で切り替える。
+**SKY130 純正 `.v` と同じ流儀**（`sky130_fd_sc_hd__blackbox.v` が同型）。
+
+```verilog
+module sky130_fd_sc_hd__dfxtp_1 (CLK,D,Q
+`ifdef USE_POWER_PINS
+  ,VGND,VNB,VPB,VPWR
+`endif
+);
+output Q;  input CLK;  input D;
+`ifdef USE_POWER_PINS
+inout VGND;  inout VNB;  inout VPB;  inout VPWR;
+`else
+supply0 VGND;  supply0 VNB;  supply1 VPB;  supply1 VPWR;
+`endif
+`ifndef SYNTHESIS
+reg notifier; udp_iq_ff_n inst (Q, 1'b0, 1'b0, CLK, D, notifier, VPWR, VGND);
+```
+
+| モード | 電源端子 | 用途 |
+|--------|----------|------|
+| `USE_POWER_PINS` 有効 | port list と `inout` 宣言に出る | パワーアウェア検証（パワーカットの `x` 伝播を見る） |
+| 無効（既定） | port から外れ、`supply1`/`supply0` でモジュール内宣言 | 通常の論理シミュレーション |
+
+- `supply1` / `supply0` の割当は `config_lib.jsonc` の
+  `vdd_name` / `nwell_name` → **`supply1`**、`vss_name` / `pwell_name` → **`supply0`**
+- **ネット名が両モードで同じ**なので、**UDP の接続行は 1 本で済む**
+  （`1'b1` / `1'b0` を直結する案より素直。UDP 側も 8 端子の 1 種で足りる）
+- 検証：全 181 セル（SKY130）で `iverilog -g2012 -tnull -Wall` が**両モードとも error 0**
+
+---
 
 > **なお `.lib` 側の多電源対応（`KAPWR` のような第 2 電源、`is_isolation_cell`、`level_shifter`）は
 > 別課題**（ISS-00182）。本節は Verilog モデルの品質向上のみを扱う。
