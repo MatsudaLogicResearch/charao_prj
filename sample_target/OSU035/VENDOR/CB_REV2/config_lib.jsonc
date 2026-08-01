@@ -10,6 +10,10 @@
   ,"lib_vendor_id"      :"VENDOR"
   ,"revision"           :"REV2"
   ,"model_path"         :"./sample_target/OSU035"
+//--- ISS-00184: model file の .lib section 名（既定）。 charao は
+//    .lib '<model file>' <section> で読む。 セル個別に変えたい場合は
+//    cell_info 側の "model_section" が優先される（例 decap: ["mos","rc"]）。
+  ,"model_section"      : ["mos"]
 //,"cell_spice_path"    :"./sample_src/OSU035/std/NORMAL/V00.00/spice"
 //,"io_spice_path"      :"./sample_src/OSU035/io/NORMAL/V00.00/spice"
   ,"result_path"        :"./rslt"
@@ -49,18 +53,18 @@
 //    OSU035 に三相態セルは無いため delay_disable は定義しない
   ,"templates"                   :[
     {"kind":"leakage"   ,"grid":"0x0","name":"d000","index_1":[], "index_2":[]}
-       ,{"kind":"passive"   ,"grid":"7x0","name":"d000","index_1":[0.05,0.137973,0.343982,0.815147,1.93169,4.13575,8], "index_2":[]}
-       ,{"kind":"mpw"       ,"grid":"3x0","name":"d000","index_1":[0.05,0.815147,8], "index_2":[]}
-       ,{"kind":"const"     ,"grid":"7x7","name":"d000","index_1":[0.05,0.137973,0.343982,0.815147,1.93169,4.13575,8],"index_2":[0.05,0.137973,0.343982,0.815147,1.93169,4.13575,8]}
+       ,{"kind":"passive"   ,"grid":"7x0","name":"d000","index_1":[0.05,0.138,0.344,0.815,1.93,4.14,8], "index_2":[]}
+       ,{"kind":"mpw"       ,"grid":"3x0","name":"d000","index_1":[0.05,0.815,8], "index_2":[]}
+       ,{"kind":"const"     ,"grid":"7x7","name":"d000","index_1":[0.05,0.138,0.344,0.815,1.93,4.14,8],"index_2":[0.05,0.138,0.344,0.815,1.93,4.14,8]}
 
     //---- delay: 1 group (generated from new: single Cin)
-       ,{"kind":"delay"     ,"grid":"7x7","name":"d000","index_1":[0.05,0.137973,0.343982,0.815147,1.93169,4.13575,8],"index_2":[0.001,0.0045,0.0135,0.036,0.072,0.144,0.216]}
+       ,{"kind":"delay"     ,"grid":"7x7","name":"d000","index_1":[0.05,0.138,0.344,0.815,1.93,4.14,8],"index_2":[0.001,0.0045,0.0135,0.036,0.072,0.144,0.216]}
 
     //---- power_tout: 出力ピンの internal_power（delay と同じ軸）
-       ,{"kind":"power_tout","grid":"7x7","name":"d000","index_1":[0.05,0.137973,0.343982,0.815147,1.93169,4.13575,8],"index_2":[0.001,0.0045,0.0135,0.036,0.072,0.144,0.216]}
+       ,{"kind":"power_tout","grid":"7x7","name":"d000","index_1":[0.05,0.138,0.344,0.815,1.93,4.14,8],"index_2":[0.001,0.0045,0.0135,0.036,0.072,0.144,0.216]}
 
     //---- power_tin: 入力ピンの internal_power（load 非依存＝slew のみ）
-       ,{"kind":"power_tin" ,"grid":"7x0","name":"d000","index_1":[0.05,0.137973,0.343982,0.815147,1.93169,4.13575,8], "index_2":[]}
+       ,{"kind":"power_tin" ,"grid":"7x0","name":"d000","index_1":[0.05,0.138,0.344,0.815,1.93,4.14,8], "index_2":[]}
       ]
   
 //characterizer settings

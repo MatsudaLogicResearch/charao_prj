@@ -28,6 +28,7 @@ from .myFunc                 import my_exit
 @dataclass
 class MyTbParam:
   model        :str  ="";
+  model_sections:list[str]=Field(default_factory=list); #ISS-00184: .lib <model> <section> の section 群
   netlist      :str  ="";
   temp         :float=0.0;
   voltage_vsnp :list[float]=Field(default_factory=list);#for vdd/vss/vnw/vpw
@@ -163,7 +164,8 @@ class MyTbParam:
     
     #self.model        = h.mlc.model   if h.mlc.model.startswith("/")   else "../" + h.mlc.model
     #self.netlist      = h.mlc.netlist if h.mlc.netlist.startswith("/") else "../" + h.mlc.netlist
-    self.model        = h.mlc.model   
+    self.model        = h.mlc.model
+    self.model_sections = h.mlc.model_sections
     self.netlist      = h.mlc.netlist
 
     #--

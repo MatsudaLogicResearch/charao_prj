@@ -26,7 +26,10 @@
 * ISS-00077: reltol=1e-4 で adaptive step を tight に → 入力 slew 大 × load 大での出力急変解像度向上（setup_rising avg +2.5ns → +0.16ns）
 .option reltol=1e-4
 
-.inc '{{param.model}}'
+* ISS-00184: model は .lib <file> <section> で読む（.inc だと全 section が素通しで読まれる）
+{% for sec in param.model_sections -%}
+.lib '{{param.model}}' {{sec}}
+{% endfor -%}
 .inc '{{param.netlist}}'
 
 .temp {{param.temp}}

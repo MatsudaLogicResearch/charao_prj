@@ -56,6 +56,11 @@ class MyLogicCell(BaseModel):
   #pin       : Dict[str,str] = Field(default_factory=dict); ## pin infomation for IO cell
   ports_dict: Dict[str,str] = Field(default_factory=dict); ## spice-port/name mapper
 
+  #--- ISS-00184: cell_info の "model_section"。 空なら config_lib.jsonc の既定を使う。
+  ##   例) 通常セル: 記述なし（＝既定 ["mos"]） / decap,fill,tap: ["mos","rc"]
+  model_section: list[str] = Field(default_factory=list); ## model file の .lib section 名
+  model_sections: list[str]= Field(default_factory=list); ## 解決後（cell 優先、無ければ lib 既定）
+
   cell_infos: Dict[str,Any]= Field(default_factory=dict); ## additional cell infomation
   rail_connections:Dict[str,str]= Field(default_factory=dict); ## additional cell infomation
   pad_infos : Dict[str,Dict[str,Any]]= Field(default_factory=dict); ## PAD infomation
@@ -335,6 +340,12 @@ class MyLogicCell(BaseModel):
     if not os.path.exists(self.model):
       print("  model file is not exits. {0}".format(self.model))
       my_exit()
+
+    #--- ISS-00184: 読み込む .lib section を決める（cell_info 優先、無ければ config_lib 既定）
+    self.model_sections = self.model_section if self.model_section else targetLib.model_section
+    if not self.model_sections:
+      print(f"[Error] model_section is empty. set it in config_lib.jsonc or cell_info. cell={self.cell}")
+      my_exit()
       
   #def add_simulation_timestep(self):
   #  self.simulation_timestep =self.slope[0] * self.timestep_res 
@@ -481,15 +492,35 @@ class MyLogicCell(BaseModel):
 
   #--- convert from local port name(i0) to spice port name(A).
   def rvs_portmap(self, local_ports:list):
-    rvs_dict={v:k for k,v in self.ports_dict.items()}
-    return [rvs_dict[v] for v in local_ports if v in rvs_dict]
+    #--- ISS-00187: 逆引きは大小文字を無視する。
+    #    chk_ports は inports/outports/vports へ ports_dict の「値」を .lower() して格納するが、
+    #    ここは値をそのまま鍵にしていたため、値が大文字の PDK で逆引きが外れていた。
+    #    gf180 は電源ピン値が "vdd" と小文字なので一致し、SKY130 は "VPWR" なので外れ、
+    #    生成 .v の `inout VPWR;` 等が 1 本も出ず iverilog が通らなかった。
+    #    （SPICE 側は myConditionsAndResults.py:640 が vdd_name 等と .upper() 照合するため
+    #      ports_dict の電源ピン値は「実ピン名」でなければならない＝値が大文字になるのは正当）
+    #    local_ports には clock が None のまま渡ることがある（組合せセル）ので None を弾く。
+    rvs_dict={v.lower():k for k,v in self.ports_dict.items()}
+    return [rvs_dict[v.lower()] for v in local_ports if v and v.lower() in rvs_dict]
   
   #--- replace local port name in local_str to spice port name.
   def replace_by_portmap(self, local_str):
     new_str=local_str
-    
+
     for k,v in self.ports_dict.items():
       new_str = new_str.replace(v, k)
+
+    #--- ISS-00187: vcode 内の電源リテラル vdd/vss/vnw/vpw を実ピン名へ解決する。
+    #    vcode（mylogic_*.py）は UDP へ `..., vdd, vss);` と charao の論理名で書くが、
+    #    これは ports_dict の値ではないため上の置換では変換されない。
+    #    gf180 は ports_dict の値が "vdd"/"vss" なので偶然置換され、 SKY130 は
+    #    値が "VPWR"/"VGND" のため未変換のまま残り、 生成 .v で未宣言の暗黙 wire に
+    #    なっていた（UDP の電源入力が x になり順序セルの sim が機能しない）。
+    #    語境界付きで置換する（vdd_dyn 等の部分一致を避ける）。
+    for logic_name, pin_name in (("vdd", self.mls.vdd_name), ("vss", self.mls.vss_name),
+                                 ("vnw", self.mls.nwell_name), ("vpw", self.mls.pwell_name)):
+      if pin_name and pin_name.lower() != logic_name:
+        new_str = re.sub(rf'\b{logic_name}\b', pin_name, new_str)
     return(new_str)
 
     

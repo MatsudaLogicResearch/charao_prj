@@ -42,7 +42,11 @@ class MyLibrarySetting(BaseModel):
   #--- update by config_lib_common.jsonc
   process_name     : str = "FAB0P80"
   lib_vendor_id    : str = "VENDOR"      
-  model_path       : str = "./target"    
+  model_path       : str = "./target"
+  #--- ISS-00184: モデルファイルは .lib <file> <section> で読む。
+  #    ここは PDK 既定のセクション名（config_lib.jsonc で上書き）。
+  #    セル個別に変えたい場合は cell_info 側の model_section が優先される。
+  model_section    : list[str] = Field(default_factory=lambda: ["mos"])
 #  cell_spice_path  : str = "./spice"     
 # io_spice_path    : str = "./spice"
   result_path      : str = "./rslt"

@@ -19,6 +19,10 @@
   ,"lib_vendor_id"      : "fd"
   ,"revision"           : "mcuC7t20240817"
   ,"model_path"         : "./sample_target/gf180"
+//--- ISS-00184: model file の .lib section 名（既定）。 charao は
+//    .lib '<model file>' <section> で読む。 セル個別に変えたい場合は
+//    cell_info 側の "model_section" が優先される（例 decap: ["mos","rc"]）。
+  ,"model_section"      : ["mos"]
   ,"result_path"        : "./rslt"
   ,"vdd_name"           : "VDD"
   ,"vss_name"           : "VSS"
