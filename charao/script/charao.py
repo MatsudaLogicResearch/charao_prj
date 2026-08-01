@@ -58,8 +58,14 @@ def main():
   parser.add_argument('-t','--temp'     , type=float            , default=25.0  , help='temperature.')
   parser.add_argument('--vdd'           , type=float            , default=5.0   , help='VDD voltage.')
   parser.add_argument('--vss'           , type=float            , default=0.0   , help='VSS voltage.')
-  parser.add_argument('--vnw'           , type=float            , default=5.0   , help='NWELL voltage')
-  parser.add_argument('--vpw'           , type=float            , default=0.0   , help='PWELL voltage')
+  #--- ISS-00185: well 電圧は PDK の電源に追従させる。
+  #    従来は --vnw の既定が 5.0V 固定で、5V プロセスの gf180 では偶然正しかったが、
+  #    1.8V の SKY130 では nwell に 5V が掛かり pMOS バルクに 3.2V の逆バイアスが生じて
+  #    |Vt| が上昇し、rise 側の遅延だけが伸びていた（OSU035 3.3V も同様に 1.7V の逆バイアス）。
+  #    default=None として、未指定なら --vdd / --vss に追従させる。
+  #    トリプルウェル等で別電位が要る場合のみ明示指定する。
+  parser.add_argument('--vnw'           , type=float            , default=None  , help='NWELL voltage (default: same as --vdd)')
+  parser.add_argument('--vpw'           , type=float            , default=None  , help='PWELL voltage (default: same as --vss)')
 
   parser.add_argument('--target'        , type=str              , default="./sample/target"   , help='PATH to <target> directory')
   
@@ -76,6 +82,16 @@ def main():
   parser.add_argument('--debug_stop'    , type=int              , default=0    , help='DEBUG: stop charao after N sp files generated (os._exit(0)). 0=disabled. Use for hang debug / sp inspection (ISS-00118).')
 
   args = parser.parse_args()
+
+  #--- ISS-00185: well 電圧の既定は電源に追従（--vnw=--vdd / --vpw=--vss）。
+  #    明示指定があればそれを尊重し、電源と異なる場合は必ずログに出す
+  #    （sim.sp.lis の初期解にしか現れず、誤設定が長期間潜伏していたため）。
+  if args.vnw is None: args.vnw = args.vdd
+  if args.vpw is None: args.vpw = args.vss
+  if args.vnw != args.vdd or args.vpw != args.vss:
+    print(f" [INF]: well bias is not tied to the supply."
+          f" vdd={args.vdd} vnw={args.vnw} / vss={args.vss} vpw={args.vpw}")
+
   #--- DEBUG: set sp-generation limit (ISS-00118 debug helper)
   from . import charao_run as _cr
   _cr._DBG_SP_LIMIT = args.debug_stop
