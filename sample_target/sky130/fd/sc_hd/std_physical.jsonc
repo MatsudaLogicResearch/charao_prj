@@ -1,0 +1,71 @@
+//===================================================================
+// This file is associated with the charao project.
+// Copyright (C) 2026 MATSUDA Masahiro
+//
+// This configuration file is licensed under the MIT License.
+//===================================================================
+// SKY130 / sky130_fd_sc_hd  (ISS-00181 Step 1、 2026-07-30 自動生成)
+//   既存の charao logic でそのまま通るセルのみを登録
+//   ports_dict は subckt のピン順どおり（chk_ports が挿入順で厳密照合するため）
+{
+"spice_path":"./sample_src/sky130A/libs.ref/sky130_fd_sc_hd/spice",
+
+"cell_info": [
+  {"template_kgn":[],
+   "spice":"sky130_fd_sc_hd.spice","cell":"sky130_fd_sc_hd__decap_12","logic":"PHYSICAL","area":15.0144,
+   "model_section":["mos","rc"],
+   "ports_dict":{"VGND": "VGND", "VNB": "VNB", "VPB": "VPB", "VPWR": "VPWR"}},
+  {"template_kgn":[],
+   "spice":"sky130_fd_sc_hd.spice","cell":"sky130_fd_sc_hd__decap_3","logic":"PHYSICAL","area":3.7536,
+   "model_section":["mos","rc"],
+   "ports_dict":{"VGND": "VGND", "VNB": "VNB", "VPB": "VPB", "VPWR": "VPWR"}},
+  {"template_kgn":[],
+   "spice":"sky130_fd_sc_hd.spice","cell":"sky130_fd_sc_hd__decap_4","logic":"PHYSICAL","area":5.0048,
+   "model_section":["mos","rc"],
+   "ports_dict":{"VGND": "VGND", "VNB": "VNB", "VPB": "VPB", "VPWR": "VPWR"}},
+  {"template_kgn":[],
+   "spice":"sky130_fd_sc_hd.spice","cell":"sky130_fd_sc_hd__decap_6","logic":"PHYSICAL","area":7.5072,
+   "model_section":["mos","rc"],
+   "ports_dict":{"VGND": "VGND", "VNB": "VNB", "VPB": "VPB", "VPWR": "VPWR"}},
+  {"template_kgn":[],
+   "spice":"sky130_fd_sc_hd.spice","cell":"sky130_fd_sc_hd__decap_8","logic":"PHYSICAL","area":10.0096,
+   "model_section":["mos","rc"],
+   "ports_dict":{"VGND": "VGND", "VNB": "VNB", "VPB": "VPB", "VPWR": "VPWR"}},
+  {"template_kgn":[],
+   "spice":"sky130_fd_sc_hd.spice","cell":"sky130_fd_sc_hd__fill_1","logic":"PHYSICAL","area":1.0,
+   "model_section":["mos","rc"],
+   "ports_dict":{"VGND": "VGND", "VNB": "VNB", "VPB": "VPB", "VPWR": "VPWR"}},
+  {"template_kgn":[],
+   "spice":"sky130_fd_sc_hd.spice","cell":"sky130_fd_sc_hd__fill_2","logic":"PHYSICAL","area":1.0,
+   "model_section":["mos","rc"],
+   "ports_dict":{"VGND": "VGND", "VNB": "VNB", "VPB": "VPB", "VPWR": "VPWR"}},
+  {"template_kgn":[],
+   "spice":"sky130_fd_sc_hd.spice","cell":"sky130_fd_sc_hd__fill_4","logic":"PHYSICAL","area":1.0,
+   "model_section":["mos","rc"],
+   "ports_dict":{"VGND": "VGND", "VNB": "VNB", "VPB": "VPB", "VPWR": "VPWR"}},
+  {"template_kgn":[],
+   "spice":"sky130_fd_sc_hd.spice","cell":"sky130_fd_sc_hd__fill_8","logic":"PHYSICAL","area":1.0,
+   "model_section":["mos","rc"],
+   "ports_dict":{"VGND": "VGND", "VNB": "VNB", "VPB": "VPB", "VPWR": "VPWR"}},
+  {"template_kgn":[],
+   "spice":"sky130_fd_sc_hd.spice","cell":"sky130_fd_sc_hd__tap_1","logic":"PHYSICAL","area":1.0,
+   "model_section":["mos","rc"],
+   "ports_dict":{"VGND": "VGND", "VNB": "VNB", "VPB": "VPB", "VPWR": "VPWR"}},
+  {"template_kgn":[],
+   "spice":"sky130_fd_sc_hd.spice","cell":"sky130_fd_sc_hd__tap_2","logic":"PHYSICAL","area":1.0,
+   "model_section":["mos","rc"],
+   "ports_dict":{"VGND": "VGND", "VNB": "VNB", "VPB": "VPB", "VPWR": "VPWR"}},
+  {"template_kgn":[],
+   "spice":"sky130_fd_sc_hd.spice","cell":"sky130_fd_sc_hd__tapvgnd2_1","logic":"PHYSICAL","area":1.0,
+   "model_section":["mos","rc"],
+   "ports_dict":{"VGND": "VGND", "VPB": "VPB", "VPWR": "VPWR"}},
+  {"template_kgn":[],
+   "spice":"sky130_fd_sc_hd.spice","cell":"sky130_fd_sc_hd__tapvgnd_1","logic":"PHYSICAL","area":1.0,
+   "model_section":["mos","rc"],
+   "ports_dict":{"VGND": "VGND", "VPB": "VPB", "VPWR": "VPWR"}},
+  {"template_kgn":[],
+   "spice":"sky130_fd_sc_hd.spice","cell":"sky130_fd_sc_hd__tapvpwrvgnd_1","logic":"PHYSICAL","area":1.0,
+   "model_section":["mos","rc"],
+   "ports_dict":{"VGND": "VGND", "VPWR": "VPWR"}},
+]
+}

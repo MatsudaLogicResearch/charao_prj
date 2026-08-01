@@ -1,0 +1,107 @@
+//===================================================================
+// This file is associated with the charao project.
+// Copyright (C) 2026 MATSUDA Masahiro
+//
+// This configuration file is licensed under the MIT License.
+//===================================================================
+// SkyWater SKY130 / sky130_fd_sc_hd（high density、 1.8V core）
+//   2026-07-30 新規（ISS-00181 Step 1）
+//   数値は orig .lib（sky130_fd_sc_hd__tt_025C_1v80.lib）から抽出し、 有効 3 桁に丸めた値
+//
+// [Info] The order of "ports_dict" is same as the order of pin-list in the spice file.
+{
+   "process_name"       : "sky130"
+  ,"lib_vendor_id"      : "fd"
+  ,"revision"           : "sc_hd"
+  ,"model_path"         : "./sample_target/sky130"
+//--- ISS-00184: model file の .lib section 名（既定）。 charao は
+//    .lib '<model file>' <section> で読む。 セル個別に変えたい場合は
+//    cell_info 側の "model_section" が優先される（例 decap: ["mos","rc"]）。
+  ,"model_section"      : ["mos"]
+  ,"result_path"        : "./rslt"
+
+//--- 電源端子（sky130 は VPWR/VGND ＋ バルク VPB/VNB の 4 本）
+//    inv_1 の実接続： nMOS bulk = VNB ／ pMOS bulk = VPB
+  ,"vdd_name"           : "VPWR"
+  ,"vss_name"           : "VGND"
+  ,"nwell_name"         : "VPB"
+  ,"pwell_name"         : "VNB"
+
+  ,"voltage_unit"       : "V"
+  ,"capacitance_unit"   : "pf"
+  ,"resistance_unit"    : "Ohm"
+  ,"current_unit"       : "mA"
+//--- orig .lib は leakage_power_unit : "1nW"
+  ,"leakage_power_unit" : "nW"
+  ,"energy_unit"        : "pJ"
+  ,"time_unit"          : "ns"
+
+//--- characterization conditions（-p / -t / --vdd は argv で与える）
+//    orig: nom_voltage 1.8 / nom_temperature 25
+//--- 閾値は orig .lib の実値
+//    input/output_threshold_pct : 50
+//    slew_lower/upper_threshold_pct : 20 / 80
+  ,"logic_threshold_high"        : 0.8
+  ,"logic_threshold_low"         : 0.2
+  ,"logic_high_to_low_threshold" : 0.5
+  ,"logic_low_to_high_threshold" : 0.5
+  ,"energy_meas_low_threshold"   : 0.01
+  ,"energy_meas_high_threshold"  : 0.99
+  ,"hold_meas_high_threshold"    : 0.01
+  ,"hold_meas_low_threshold"     : 0.99
+
+//--- orig .lib の slew_derate_from_library : 1.0（derate なし＝格納値＝実測値）
+  ,"slew_derate_from_library"    : 1.0
+//--- leakage の一律加算（orig 比較で校正するまで 0.0）
+  ,"leakage_offset"              : 0.0
+//--- leakage の DC op 前段 tran の静定時間 [ns]（ISS-00166）
+  ,"leakage_stable_time"         : 1.0
+  ,"simulation_slew_min"         : 0.001
+
+//--- templates（2026-07-30、 orig .lib の index を有効 3 桁に丸めて採用）
+//    丸めによるズレは 0.5% 以下で、 遅延は slew/load の滑らかな関数なので影響しない
+//    （2026-07-31 ダーマツ判断。 orig 比較は NLDM 補間で index を揃えるため問題ない）
+//    index_1 = 入力 slew [ns] : 0.01 〜 1.5（del_1_7_7 の実値）
+//    index_2 = 出力 load [pF] : 0.0005 〜 0.181（同上）
+//    const は両軸とも slew（constrained_pin_transition x related_pin_transition）
+//    mpw は slew 3 点（ISS-00160）。 orig の constraint_3_0_1 が 3 点なのと整合
+  ,"templates"                   :[
+    {"kind":"leakage"   ,"grid":"0x0","name":"d000","index_1":[], "index_2":[]}
+       ,{"kind":"passive"   ,"grid":"7x0","name":"d000","index_1":[0.01,0.0231,0.0531,0.122,0.282,0.651,1.5], "index_2":[]}
+       ,{"kind":"mpw"       ,"grid":"3x0","name":"d000","index_1":[0.01,0.122,1.5], "index_2":[]}
+       ,{"kind":"const"     ,"grid":"7x7","name":"d000","index_1":[0.01,0.0231,0.0531,0.122,0.282,0.651,1.5],"index_2":[0.01,0.0231,0.0531,0.122,0.282,0.651,1.5]}
+       ,{"kind":"delay"     ,"grid":"7x7","name":"d000","index_1":[0.01,0.0231,0.0531,0.122,0.282,0.651,1.5],"index_2":[0.0005,0.00134,0.00357,0.00952,0.0254,0.0679,0.181]}
+       ,{"kind":"power_tout","grid":"7x7","name":"d000","index_1":[0.01,0.0231,0.0531,0.122,0.282,0.651,1.5],"index_2":[0.0005,0.00134,0.00357,0.00952,0.0254,0.0679,0.181]}
+       ,{"kind":"power_tin" ,"grid":"7x0","name":"d000","index_1":[0.01,0.0231,0.0531,0.122,0.282,0.651,1.5], "index_2":[]}
+      ]
+
+//--- characterizer settings
+  ,"simulator" :"ngspice"
+//--- sky130 のセル netlist は .option scale=1.0u 前提（all.spice 側で設定される）
+  ,"spiceinit" : ["set ngbehavior=hs"]
+  ,"run_sim"    :"true"
+//--- ISS-00079 の sweet spot
+  ,"num_thread" : 4
+  ,"sim_nice"   : 19
+  ,"simulation_timestep_max"    : 1.000
+  ,"simulation_timestep_min"    : 0.001
+  ,"sim_pulse_max"              : 3.0
+  ,"sim_prop_max"               : 10.0
+  ,"sim_prop_tri_max"           : 10.0
+  ,"sim_prop_io_max"            : 15.0
+  ,"sim_prop_io_tri_max"        : 15.0
+  ,"sim_d2c_max"                : 3.0
+  ,"sim_c2d_min"                : 5.0
+  ,"sim_c2d_max"                : 100.0
+  ,"sim_c2d_max_per_unit"       : 20.0
+  ,"sim_segment_timestep_start" : 1.0
+  ,"sim_segment_timestep_ratio" : 0.1
+  ,"sim_segment_timestep_min"   : 0.001
+  ,"sim_time_const_threshold"   : 0.05
+  ,"sim_tsim_end4hold"          : 20.0
+
+  ,"compress_result" :"False"
+  ,"supress_message"     :"false"
+  ,"supress_sim_message" :"false"
+  ,"supress_debug_message":"true"
+}
