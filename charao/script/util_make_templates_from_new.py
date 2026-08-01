@@ -52,19 +52,32 @@ PHYSICAL_CURVE_WEIGHTS = {
 
 # ── index 生成 ────────────────────────────────────────────────────────
 
+def _sig3(x, digits=3):
+    """有効 <digits> 桁へ丸める（2026-07-31 ダーマツ判断）。
+
+    index は計算で作った値なので下位桁に意味がない。 3 桁で十分（ズレ 0.5% 以下）。
+    遅延は slew/load の滑らかな関数なので、 この程度のズレは結果に影響しない。
+    """
+    import math
+    if x == 0:
+        return 0.0
+    d = digits - int(math.floor(math.log10(abs(x)))) - 1
+    v = round(x, d)
+    return int(v) if v == int(v) and abs(v) >= 1 else v
+
 def build_index1(slew_min, slew_max, count, curve):
     """index_1（slew, ns）を生成。physical curve は PHYSICAL_CURVE_WEIGHTS を使用。"""
     if curve == "physical" and count in PHYSICAL_CURVE_WEIGHTS:
         w = PHYSICAL_CURVE_WEIGHTS[count]
-        return [slew_min * ((slew_max / slew_min) ** wi) for wi in w]
+        return [_sig3(slew_min * ((slew_max / slew_min) ** wi)) for wi in w]
     # geometric fallback
     r = (slew_max / slew_min) ** (1.0 / (count - 1))
-    return [slew_min * (r ** i) for i in range(count)]
+    return [_sig3(slew_min * (r ** i)) for i in range(count)]
 
 
 def build_index2(cin, fanout_list, floor, count):
     """index_2（load, pF）を生成。先頭 1 点は floor、残りは cin×fanout。"""
-    pts = [floor] + [cin * f for f in fanout_list]
+    pts = [_sig3(floor)] + [_sig3(cin * f) for f in fanout_list]
     if len(pts) != count:
         raise ValueError(
             f"fanout 要素数 {len(fanout_list)} と index2_count-1 ({count - 1}) が不一致")

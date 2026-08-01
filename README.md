@@ -193,6 +193,10 @@ To show full lrPymRPC output (pip install logs etc.) on success, set `lrpymrpc_v
 - [Three-state cell support specification](docs/SPEC_three_state.md): bus keeper (HOLD) and tri-state buffer/inverter (BUFZ/INVZ) characterization rules, three_state_enable / three_state_disable arcs, `delay_disable` 1D template, and porting guide for new PDKs (introduced in `0.9.14a03`).
 - [Sequential FF / SDFF cell support specification](docs/SPEC_seq_ff.md): D-Flip-Flop characterization rules (8 GF180 families: dffq / dffnq / dffrnq / dffnrnq / dffsnq / dffnsnq / dffrsnq / dffnrsnq), naming convention (`<S>DFF[B]_<P\|N>C[_<P\|N>R][_<P\|N>S]`), GF180 wrap-style vcode (`not gate + udp_iq_ff_n/hn + not gate`), and porting guide for new PDKs (introduced in `0.9.14a06`).
 - [Verilog primitive specification](docs/SPEC_primitives.md): the four UDPs required by the generated Verilog (`udp_iq_ff_n` / `udp_iq_ff_hn` / `udp_iq_latch_n` / `udp_iq_latch_hn`), their port order and semantics, the `<target>/std_primitives.v` input, the `<lib_basename>_primitives.v` output, and porting steps for new PDKs.
+- [Cell definition jsonc specification](docs/SPEC_cell_jsonc.md): how to write `std_comb.jsonc` /
+  `std_seq.jsonc` — `ports_dict` (pin order must match the subckt; power pins take the real pin
+  name as the value), `template_kgn` and the valid template kinds, and the porting steps for a
+  new PDK.
 
 ## License
 
