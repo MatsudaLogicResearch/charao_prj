@@ -335,8 +335,12 @@ class LibertyParser:
             })
 
     def parse_internal_power(self, cell_name, pin_name):
+        #--- ISS-00181: table と属性（related_pin / when）の順序は PDK 依存。
+        #    gf180 は属性が先、 sky130 は table が先に来る。 逐次 emit すると
+        #    sky130 で related_pin が空になるため、 table を溜めてブロック終端で emit する。
         related_pin = None
         when = ""
+        pending = []
         while self.i < self.n:
             line = self.peek()
             # internal_power 内の power テーブルを認識。 rise_power/fall_power に加え、
@@ -348,15 +352,10 @@ class LibertyParser:
                 pt_type = m.group(1)
                 self.advance()
                 i1, i2, vals = self.parse_2d_table()
-                self._emit_table(i1, i2, vals,
-                                 {"cell_name": cell_name, "pin": pin_name,
-                                  "related_pin": related_pin, "when": when,
-                                  "rise_fall": pt_type},
-                                 self.power_rows, COL_POWER_VALUE,
-                                 self.s["energy_scale"])
+                pending.append((i1, i2, vals, pt_type))
                 continue
             line = self.advance()
-            m = re.search(r'related_pin\s*:\s*"([^"]*)"', line)
+            m = re.search(r'related_pin\s*:\s*"?([^";\s]*)"?\s*;', line)
             if m:
                 related_pin = m.group(1)
             m = re.search(r'when\s*:\s*"([^"]*)"', line)
@@ -364,11 +363,21 @@ class LibertyParser:
                 when = _normalize_when(m.group(1))
             if "}" in line and "{" not in line:
                 break
+        for i1, i2, vals, pt_type in pending:
+            self._emit_table(i1, i2, vals,
+                             {"cell_name": cell_name, "pin": pin_name,
+                              "related_pin": related_pin, "when": when,
+                              "rise_fall": pt_type},
+                             self.power_rows, COL_POWER_VALUE,
+                             self.s["energy_scale"])
 
     def parse_timing(self, cell_name, pin_name):
+        #--- ISS-00181: 属性が table の後ろに来る PDK（sky130）に対応するため
+        #    table を溜めてブロック終端で emit する（parse_internal_power と同じ理由）。
         related_pin = None
         when = ""
         timing_type = ""
+        pending = []
         timing_tables = {"cell_rise", "cell_fall", "rise_transition", "fall_transition",
                          "rise_constraint", "fall_constraint"}
         while self.i < self.n:
@@ -378,16 +387,10 @@ class LibertyParser:
                 tt_type = m.group(1)
                 self.advance()
                 i1, i2, vals = self.parse_2d_table()
-                self._emit_table(i1, i2, vals,
-                                 {"cell_name": cell_name, "pin": pin_name,
-                                  "related_pin": related_pin, "when": when,
-                                  "timing_type": timing_type,
-                                  "table_type": tt_type},
-                                 self.timing_rows, COL_TIMING_VALUE,
-                                 self.s["time_scale"])
+                pending.append((i1, i2, vals, tt_type))
                 continue
             line = self.advance()
-            m = re.search(r'related_pin\s*:\s*"([^"]*)"', line)
+            m = re.search(r'related_pin\s*:\s*"?([^";\s]*)"?\s*;', line)
             if m:
                 related_pin = m.group(1)
             m = re.search(r'when\s*:\s*"([^"]*)"', line)
@@ -398,6 +401,14 @@ class LibertyParser:
                 timing_type = m.group(1)
             if "}" in line and "{" not in line:
                 break
+        for i1, i2, vals, tt_type in pending:
+            self._emit_table(i1, i2, vals,
+                             {"cell_name": cell_name, "pin": pin_name,
+                              "related_pin": related_pin, "when": when,
+                              "timing_type": timing_type,
+                              "table_type": tt_type},
+                             self.timing_rows, COL_TIMING_VALUE,
+                             self.s["time_scale"])
 
     def parse_pin(self, cell_name, pin_name):
         depth = 1
@@ -427,7 +438,8 @@ class LibertyParser:
             m = re.match(r'pin\s*\((\S+)\)\s*\{', line)
             if m:
                 self.advance()
-                self.parse_pin(cell_name, m.group(1))
+                #--- ISS-00181: sky130 は pin ("A") と引用符付き。 gf180 は pin (A)
+                self.parse_pin(cell_name, m.group(1).strip('"'))
                 continue
             line = self.advance()
             depth += line.count("{") - line.count("}")
@@ -441,7 +453,8 @@ class LibertyParser:
             m = re.match(r'cell\s*\((\S+)\)\s*\{', line)
             if m:
                 self.advance()
-                self.parse_cell(m.group(1))
+                #--- ISS-00181: sky130 は cell ("name") と引用符付き。 gf180 は cell (name)
+                self.parse_cell(m.group(1).strip('"'))
                 continue
             self.advance()
         return self.leakage_rows, self.power_rows, self.timing_rows
