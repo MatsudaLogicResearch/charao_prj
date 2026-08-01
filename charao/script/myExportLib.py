@@ -898,10 +898,24 @@ def exportVerilog(targetLib:Mls, targetCell:Mlc):
   ports_s=targetCell.definition.split(); # .subckt NAND2_1X A B YB VDD VSS VNW VPW
   ports_s.pop(0);                   # NAND2_1X A B YB VDD VSS VNW VPW
   ports_s.pop(0);                   # A B YB VDD VSS VNW VPW
-  portlist = "(" + ",".join(ports_s) + ");"
-    
+
+  #--- ISS-00187: 電源端子は `USE_POWER_PINS` で on/off する（SKY130 純正 .v と同じ流儀）。
+  #    on  : port list と inout 宣言に電源ピンを出す（パワーアウェア検証用）
+  #    off : port list から外し、 モジュール内で supply1/supply0 として宣言する
+  #          → UDP の接続行（... , VPWR, VGND）は両モードで同じでよい
+  vports_up = [p.upper() for p in targetCell.rvs_portmap(targetCell.vports)]
+  sig_ports = [p for p in ports_s if p.upper() not in vports_up]
+  pwr_ports = [p for p in ports_s if p.upper() in vports_up]
+
   outlines.append(f'`celldefine')
-  outlines.append(f'module {targetCell.cell} {portlist}')
+  if pwr_ports:
+    outlines.append(f'module {targetCell.cell} (' + ",".join(sig_ports))
+    outlines.append(f'`ifdef USE_POWER_PINS')
+    outlines.append(f'  ,' + ",".join(pwr_ports))
+    outlines.append(f'`endif')
+    outlines.append(f');')
+  else:
+    outlines.append(f'module {targetCell.cell} (' + ",".join(sig_ports) + ');')
   #outlines.append(f'module {targetCell.cell}_{cell_suffix} {portlist}\n')
 
   ## input/output statement
@@ -918,10 +932,20 @@ def exportVerilog(targetLib:Mls, targetCell:Mlc):
   for target_biport in targetCell.rvs_portmap(targetCell.biports):
     outlines.append(f'inout {target_biport};')
 
-  ## power statement
-  for target_vport in targetCell.rvs_portmap(targetCell.vports):
-    outlines.append(f'inout {target_vport};')
-    #outlines.append(f'input {target_vport}; //use input instead of inout for Yosys.')
+  ## power statement（ISS-00187: USE_POWER_PINS で切替）
+  #   off 側は supply1/supply0 で宣言する。 どちらが supply1 かは config_lib.jsonc の
+  #   vdd_name / nwell_name（= supply1）、 vss_name / pwell_name（= supply0）で決める。
+  if pwr_ports:
+    supply1_set = {targetLib.vdd_name.upper(), targetLib.nwell_name.upper()}
+    outlines.append(f'`ifdef USE_POWER_PINS')
+    for target_vport in pwr_ports:
+      outlines.append(f'inout {target_vport};')
+      #outlines.append(f'input {target_vport}; //use input instead of inout for Yosys.')
+    outlines.append(f'`else')
+    for target_vport in pwr_ports:
+      lvl = "supply1" if target_vport.upper() in supply1_set else "supply0"
+      outlines.append(f'{lvl} {target_vport};')
+    outlines.append(f'`endif')
 
   #===================================================================
   outlines.append(f'`ifndef SYNTHESIS')
