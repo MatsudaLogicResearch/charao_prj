@@ -175,18 +175,36 @@ def _parse_existing_templates(text):
         r'\{\s*"kind"\s*:\s*"(?P<kind>[^"]+)"[^{}]*?\}',
         inner,
     ):
-        if m.group("kind") not in ("delay", "power"):
+        #--- ISS-00189: 再生成する kind は delay / power_tout / power_tin。
+        #    それ以外（leakage / passive / const / mpw / delay_disable）は既存を維持する。
+        if m.group("kind") not in ("delay", "power", "power_tout", "power_tin"):
             non_dp.append(m.group(0))
     return index_1, non_dp
 
 
 # ── 新 templates セクション生成 ───────────────────────────────────────────
 
+def _sig3(x, digits=3):
+    """有効 <digits> 桁へ丸める（ISS-00189。 util_make_templates_from_new.py と同じ規約）。
+
+    index は計算で作った値なので下位桁に意味がない。 3 桁で十分（ズレ 0.5% 以下）。
+    遅延は slew/load の滑らかな関数なので、 この程度のズレは結果に影響しない。
+    docs/SPEC_config_lib.md 3.3 節。
+    """
+    import math
+    x = float(x)
+    if x == 0:
+        return 0.0
+    d = digits - int(math.floor(math.log10(abs(x)))) - 1
+    v = round(x, d)
+    return int(v) if v == int(v) and abs(v) >= 1 else v
+
+
 def _format_floats(vals, fmt="{:g}"):
-    return ",".join(fmt.format(float(v)) if not isinstance(v, str) else v for v in vals)
+    return ",".join(fmt.format(_sig3(v)) if not isinstance(v, str) else v for v in vals)
 
 
-def _build_templates_section(clusters, index_1, non_dp_entries, indent="    "):
+def _build_templates_section(clusters, index_1, non_dp_entries, indent="    ", n1=10, n2=10):
     """新しい templates セクション本体（[...] の中身）を組み立てる。"""
     name_width = max(3, len(str(len(clusters) - 1)))
     fmt = f"d{{:0{name_width}d}}"
@@ -208,19 +226,30 @@ def _build_templates_section(clusters, index_1, non_dp_entries, indent="    "):
         prefix = "    " if idx == 0 and not non_dp_entries else "   ,"
         name = fmt.format(idx)
         lines.append(
-            f'{indent}{prefix}{{"kind":"delay","grid":"10x10","name":"{name}",'
+            f'{indent}{prefix}{{"kind":"delay","grid":"{n1}x{n2}","name":"{name}",'
             f'"index_1":[{i1_str}],"index_2":[{i2_str}]}}\n'
         )
 
     lines.append("\n")
     # power 群（同じ index_2 を使用）
-    lines.append(f"{indent}//---- power: same {len(clusters)} groups as delay\n")
+    #--- ISS-00189: kind は現行スキーマの power_tout / power_tin。
+    #    power_tout は delay と同じ 2D grid、 power_tin は load 非依存の 1D（index_2 空）。
+    lines.append(f"{indent}//---- power_tout: same {len(clusters)} groups as delay\n")
     for idx, (rep, members) in enumerate(clusters):
         i2_str = _format_floats(rep)
         name = fmt.format(idx)
         lines.append(
-            f'{indent}   ,{{"kind":"power","grid":"10x10","name":"{name}",'
+            f'{indent}   ,{{"kind":"power_tout","grid":"{n1}x{n2}","name":"{name}",'
             f'"index_1":[{i1_str}],"index_2":[{i2_str}]}}\n'
+        )
+
+    lines.append("\n")
+    lines.append(f"{indent}//---- power_tin: 入力 pin の internal_power（load 非依存＝slew のみ）\n")
+    for idx, (rep, members) in enumerate(clusters):
+        name = fmt.format(idx)
+        lines.append(
+            f'{indent}   ,{{"kind":"power_tin","grid":"{n1}x0","name":"{name}",'
+            f'"index_1":[{i1_str}],"index_2":[]}}\n'
         )
 
     lines.append(f"{indent}  ")
@@ -241,6 +270,9 @@ def main():
                     help="既存 config_lib.jsonc（書き換え対象 or 参照元）")
     ap.add_argument("--output", metavar="FILE",
                     help="出力先 jsonc（省略時は --config を in-place 書き換え）")
+    #--- ISS-00189: grid 点数を可変に（gf180=10、 SKY130=7）。 既定は従来どおり 10。
+    ap.add_argument("--grid_size", type=int, default=10,
+                    help="index の点数（gf180=10 / SKY130=7）。 既定 10")
     ap.add_argument("--tolerance", type=float, default=0.05,
                     help="クラスタ統合の許容（デフォルト 0.05 = 5%%）")
     ap.add_argument("--dry_run", action="store_true",
@@ -260,7 +292,7 @@ def main():
 
     # 2) クラスタリング
     all_grids = list(arc_grids.values())
-    clusters, skipped = cluster_grids(all_grids, args.tolerance, expected_len=10)
+    clusters, skipped = cluster_grids(all_grids, args.tolerance, expected_len=args.grid_size)
     unique_count = len(set(all_grids))
     print(f"unique grids    : {unique_count}")
     print(f"length mismatch : {len(set(skipped))} unique (e.g. 19-point cells, multi-grid)")
@@ -289,7 +321,8 @@ def main():
         print("WARN: index_1 not found in existing config; using empty")
 
     # 4) 新セクション組み立て
-    new_inner = _build_templates_section(clusters, index_1, non_dp)
+    new_inner = _build_templates_section(clusters, index_1, non_dp,
+                                    n1=args.grid_size, n2=args.grid_size)
 
     new_text = text[:s] + new_inner + text[e:]
 
