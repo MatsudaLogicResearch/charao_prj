@@ -75,9 +75,9 @@ gf180 の ISS-00150（出力 port 別 template）と同じ構造。
 
 | stage | 出力先 | 役割 |
 |---|---|---|
-| `1.probe` / `2.report` | `1.probe_target/<fab>/<vendor>/<rev>` | `in_cap` と transition を実測 |
-| `3.scan` / `4.analyze` | `3.scan_target/<fab>/<vendor>/<rev>` | `max_cap` を反復で収束 |
-| `5.build` | `5.build_target/<fab>/<vendor>/<rev>` | 最終 template |
+| `1.probe` / `2.report` | `tmp_1.probe_target/<fab>/<vendor>/<rev>` | `in_cap` と transition を実測 |
+| `3.scan` / `4.analyze` | `tmp_3.scan_target/<fab>/<vendor>/<rev>` | `max_cap` を反復で収束 |
+| `5.build` | `tmp_5.build_target/<fab>/<vendor>/<rev>` | 最終 template |
 
 **`--jsonc_in` は書き換えない。**更新は `--jsonc_out` に出し、それが次 stage の入力になる。
 
@@ -210,7 +210,7 @@ SKY130 で対象 arc が 154 → **173** になった（FF 19 セルぶん）。
 （例 `./sample_target/sky130`）が指すモデルが転送対象から漏れる。
 
 ```
---SOURCE sample_src sample_target 3.scan_target charao
+--SOURCE sample_src sample_target tmp_3.scan_target charao
 ```
 
 ---
@@ -234,27 +234,27 @@ SKY130 で対象 arc が 154 → **173** になった（FF 19 セルぶん）。
 # ── 1 フロー目 : index_1[min] と index_2[min] の判断材料 ──────────────
 python -m charao.script.util_make_templates --stage 1.probe \
     --jsonc_in sample_target/sky130/fd/sc_hd \
-    --jsonc_out 1.probe_target/sky130/fd/sc_hd \
+    --jsonc_out tmp_1.probe_target/sky130/fd/sc_hd \
     --cell sky130_fd_sc_hd__inv_1 --slew_in 0.001 --load_out 0.001
 
 python -u -m lrPymRPC --SERVER_IP 192.168.168.103 \
   --REPO_URL jsoncomment=jsoncomment,pydantic=pydantic,numpy=numpy,jinja2=jinja2 \
-  --SOURCE sample_src sample_target 1.probe_target charao \
+  --SOURCE sample_src sample_target tmp_1.probe_target charao \
   --SOURCE_INCLUDE .spice .spi .ngspice .sp .jsonc .py .jp2 std_primitives.v \
   --SOURCE_MATCH sky130 charao --RUN_NAME run_1.probe_target --RESULT rslt \
   --CMD "python3 -m charao.script.charao -f sky130 -v fd -r sc_hd -g std -u 1P80 \
-         -p TT -t 25.0 --vdd 1.8 --target 1.probe_target \
+         -p TT -t 25.0 --vdd 1.8 --target tmp_1.probe_target \
          --cells_only sky130_fd_sc_hd__inv_1"
 
 python -m charao.script.util_make_templates --stage 2.report \
     --lib run_1.probe_target/rslt/<lib> --cell sky130_fd_sc_hd__inv_1 \
-    --jsonc_out 1.probe_target/sky130/fd/sc_hd
+    --jsonc_out tmp_1.probe_target/sky130/fd/sc_hd
 
 # ── 2 フロー目 : index_1[max] の判断材料（fanout を振る）──────────────
 #    --slew_in <index_1[min]>  --load_out <in_cap x N のリスト>
 python -m charao.script.util_make_templates --stage 1.probe \
     --jsonc_in sample_target/sky130/fd/sc_hd \
-    --jsonc_out 1.probe_target/sky130/fd/sc_hd \
+    --jsonc_out tmp_1.probe_target/sky130/fd/sc_hd \
     --cell sky130_fd_sc_hd__inv_1 --slew_in 0.01 \
     --load_out 0.1505,0.172,0.1935,0.215
 #    → sim → 2.report（同上）
@@ -262,35 +262,37 @@ python -m charao.script.util_make_templates --stage 1.probe \
 # ── 3.scan : 全セルの max_cap 測定用 ─────────────────────────────────
 python -m charao.script.util_make_templates --stage 3.scan \
     --jsonc_in sample_target/sky130/fd/sc_hd \
-    --jsonc_out 3.scan_target/sky130/fd/sc_hd \
+    --jsonc_out tmp_3.scan_target/sky130/fd/sc_hd \
     --slew_in 1.5 --load_out 0.16 --load_limit 5.0
 
 # ── sim ←→ 4.analyze を収束するまで繰り返す（3.scan は再実行しない）──
 python -u -m lrPymRPC ... --RUN_NAME run_3.scan_target --RESULT rslt \
-  --CMD "python3 -m charao.script.charao ... --target 3.scan_target \
+  --CMD "python3 -m charao.script.charao ... --target tmp_3.scan_target \
          --measures_only delay rising_edge falling_edge"
 
 python -m charao.script.util_make_templates --stage 4.analyze \
     --lib run_3.scan_target/rslt/<lib> \
-    --jsonc_out 3.scan_target/sky130/fd/sc_hd --iter 1 --load_limit 5.0
+    --jsonc_out tmp_3.scan_target/sky130/fd/sc_hd --iter 1 --load_limit 5.0
 #    → 「target +-5% に入っている arc」が全数になるまで sim と交互に繰り返す
 
 # ── 5.build : 最終 template ──────────────────────────────────────────
 python -m charao.script.util_make_templates --stage 5.build \
     --lib run_3.scan_target/rslt/<lib> \
     --jsonc_in sample_target/sky130/fd/sc_hd \
-    --jsonc_out 5.build_target/sky130/fd/sc_hd \
+    --jsonc_out tmp_5.build_target/sky130/fd/sc_hd \
     --slew_min_max_num 0.01,1.5,7 --load_min_max_num 0.0005,5.0,7 --tolerance 0.05
 ```
 
 > `--jsonc_in` は常に**元の target**（書き換えない）。`--jsonc_out` が成果物。
-> `RUN_NAME` は `run_<target 名>` に揃えると `--lib` のパスが追いやすい。
+> `RUN_NAME` は stage 名に揃える（`run_3.scan_target` 等）と `--lib` のパスが追いやすい。
+> **中間の target ツリーは `tmp_` を前置**して（`tmp_1.probe_target` / `tmp_3.scan_target` /
+> `tmp_5.build_target`）まとめて管理する。`.gitignore` の `tmp_*` で除外される（2026-08-04）。
 
 ---
 
 ## 8. 運用手順（SKY130 以降の新規 PDK、2026-08-04 確定）
 
-**`sample_target` を正とし、template を更新するときだけ `5.build_target` を経由する。**
+**`sample_target` を正とし、template を更新するときだけ `tmp_5.build_target` を経由する。**
 
 ```
 ① sample_target の jsonc を編集      … セル追加・sim パラメータ変更など
@@ -301,7 +303,7 @@ python -m charao.script.util_make_templates --stage 5.build \
         ↓
 ③ 3.scan → sim → 4.analyze（収束するまで反復）→ 5.build
         ↓                                  ← いずれも --jsonc_in は最新の sample_target を起点にする
-④ cp 5.build_target/<fab>/<vendor>/<rev>/*.jsonc sample_target/<fab>/<vendor>/<rev>/
+④ cp tmp_5.build_target/<fab>/<vendor>/<rev>/*.jsonc sample_target/<fab>/<vendor>/<rev>/
         ↓
 ⑤ git diff sample_target/... で確認 → コミット
 ```
@@ -324,7 +326,7 @@ python -m charao.script.util_make_templates --stage 5.build \
 
 ### ⚠️ 順序を守ること
 
-**`3.scan` を回した後に `sample_target` を編集すると、その編集は `5.build_target` に入らない。**
+**`3.scan` を回した後に `sample_target` を編集すると、その編集は `tmp_5.build_target` に入らない。**
 その状態で ④ を実行すると**後から入れた編集が巻き戻る**。
 必ず「① sample_target を編集 → ③ template 生成 → ④ 反映」の順で行う。
 
