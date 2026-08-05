@@ -4,6 +4,57 @@
 
 ---
 
+## [2.0.0.a04] 2026-08-05
+
+実測から templates を決める `util_make_templates.py` を追加し、SKY130 をその出力へ移行した。
+あわせて `.tran` の TSTEP 下限に起因する sim 失敗（ISS-00188）を measure 別の分離で解決した。
+
+※ TAG `2.0.0.a03`（`変更：templates の index を有効 3 桁で生成する`）は
+   `pyproject.toml` / CHANGELOG の更新が漏れていたため、本エントリでまとめて記載する。
+
+### Added
+
+- **`charao/script/util_make_templates.py`**（ISS-00189）。実測から `config_lib.jsonc` の
+  `templates` を決める。**orig `.lib` が無い PDK でも使える**。
+  `1.probe` / `2.report` / `3.scan` / `4.analyze` / `5.build` の 5 stage 構成。
+  仕様は `docs/SPEC_make_templates.md`。
+- **`simulation_timestep_min_power_tin`**（ISS-00188）。`power_tin` だけ `.tran` の
+  TSTEP 下限を分ける。**未指定なら `simulation_timestep_min` にフォールバック**するため、
+  既存 target（gf180 / OSU035）の挙動は変わらない。
+
+### Changed
+
+- **`templates` の index を有効 3 桁で生成する**（TAG `2.0.0.a03` 相当）。
+  index は計算で作った値なので下位桁に意味がなく、丸めによるズレは 0.5% 以下。
+- **SKY130 の `templates` を実測ベースへ移行**。旧 67 グループ（orig の index 由来）から
+  **24 グループ**へ。`max_cap` はセル・出力ピンごとに反復で収束させた実測値
+  （0.0371〜3.81 pF）。
+- **`util_make_templates_from_origin.py`** の再生成対象 kind に `power_tout` / `power_tin`
+  を追加し、index を有効 3 桁へ丸める `_sig3()` を適用。グリッド点数を引数化。
+- 中間の target ツリーを **`tmp_` 前置**に改名（`tmp_1.probe_target` /
+  `tmp_3.scan_target` / `tmp_5.build_target`）。`.gitignore` の `tmp_*` で除外する。
+
+### Fixed
+
+- **`power_tout` の `energy2` が `Timestep too small ... vrel#branch` で落ちる**（ISS-00188）。
+  真因は `timestep_tstep = max(simulation_timestep_min, min(slope × 0.0099,
+  simulation_timestep_max))` の**下限に張り付いていた**こと。SKY130 の `index_1` 下 3 点
+  （0.01 / 0.0231 / 0.0531 ns）では slew エッジを 10 / 23 / 53 点しか刻めていなかった
+  （設計意図は約 100 点）。SKY130 の `simulation_timestep_min` を **0.001 → 0.0001** とし、
+  36 セル・84 格子点の欠損が全て解消した。
+- **上記を一律に適用すると `power_tin` が逆に落ちる**（ISS-00188）。最速 slew 0.01ns で
+  TSTEP が 0.1ps となり `Timestep too small ... vclk#branch` で **109 件失敗**（26 セル）。
+  **`power_tin` だけ下限を 0.001 に分離**して解消。下限は ISS-00087（ngspice の LTE 暴走
+  抑制）由来であり、**粗すぎても細かすぎても同じ `Timestep too small` になる**。
+  **measure ごとに最適な下限が違う**。
+
+### Verified
+
+- **露払い**＝SKY130 全 181 セル × 2x2 corner × 全 measure、**0 failures / traceback 0**。
+  `.lib` 181 セル・`.v` 181 module を生成。
+
+---
+
 ## [2.0.0.a02] 2026-07-30
 
 `2.0.0` に向けた開発版。他 PDK 対応（ISS-00141）を進め、UDP 契約を電源端子付きへ拡張した。
