@@ -799,7 +799,13 @@ def runSpicePowerTinSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_sl
   #-- timestep
   slope          = index1_slope
   tslew_min_s    = h.mls.simulation_slew_min
-  timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
+  #-- ISS-00188: power_tin だけ TSTEP の下限を分ける（未指定なら共通値）。
+  #   共通値を下げると power_tout の大負荷点は救えるが、 power_tin の最速 slew が
+  #   逆に `Timestep too small ... vclk#branch` で落ちるため（SKY130 実測 2026-08-05）。
+  _ts_min = h.mls.simulation_timestep_min_power_tin
+  if _ts_min is None:
+    _ts_min = h.mls.simulation_timestep_min
+  timestep_tstep = max(_ts_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
 
   #-- 計測対象（target pin pin_tr[0]）のスロット逆引き（優先順 c > r > i、 未検出は slot2=VREL）
   #   slope→tslew 割当と積分窓・cin 選択を「X を駆動するスロット」基準にする。

@@ -140,6 +140,13 @@ class MyLibrarySetting(BaseModel):
 
   simulation_timestep_max : float = 1.0     # .tran TSTEP の上限 (ns)。 timestep_tstep = max(_min, min(slope*0.0099, _max))
   simulation_timestep_min : float = 0.001   # .tran TSTEP の下限 (ns、 default 1 ps)。 ngspice LTE 暴走の間接抑制 (ISS-00087)
+  # ISS-00188: power_tin だけ下限を分ける。 下げすぎると LTE が逆方向に暴走するため。
+  #   粗すぎる → power_tout の大負荷点が `Timestep too small ... vrel#branch` で落ちる（下げて解消）
+  #   細かすぎる → power_tin の最速 slew が `Timestep too small ... vclk#branch` で落ちる（戻して解消）
+  #   SKY130 実測（2026-08-05）: 全 measure 0.0001 では power_tin が 109 件失敗。
+  #   power_tin だけ 0.001 に戻すと 0 件。 他 measure は 0.0001 で失敗なし。
+  #   未指定なら simulation_timestep_min と同じ値を使う（従来動作）。
+  simulation_timestep_min_power_tin : float | None = None
   simulation_slew_min : float = 0.001   # min_pulse_width / setup / hold 等の PWL slew 用（ns 単位、 default 1 ps）
   # ISS-00160: simulation_slew_for_pulse は廃止。min_pulse のパルス slew は templates の kind=mpw（index_1）で指定。
   sim_pulse_max       : float = 2.0
