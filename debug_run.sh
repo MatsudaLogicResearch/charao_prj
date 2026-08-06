@@ -288,10 +288,10 @@ _prepare_script() {
         git clone --depth 1 --branch "${CHARAO_TAG}" "${CHARAO_GIT#git+}" "${PIP_CLONE_DIR}"
         { set +x; } 2>/dev/null
       fi
-      [ "$EXEC_MACHINE_" = "local" ] && _pip_install_local "${PIP_CLONE_DIR}"
+      if [ "$EXEC_MACHINE_" = "local" ]; then _pip_install_local "${PIP_CLONE_DIR}"; fi
       ;;
     git+pip)
-      [ "$EXEC_MACHINE_" = "local" ] && _pip_install_local "${CHARAO_GIT}@${CHARAO_TAG}"
+      if [ "$EXEC_MACHINE_" = "local" ]; then _pip_install_local "${CHARAO_GIT}@${CHARAO_TAG}"; fi
       ;;
   esac
 }
@@ -318,7 +318,11 @@ _py_run() {
     set -x
     # ISS-00135: ローカル実行は最低優先度で（前面の対話・他作業へ CPU を譲る）
     # PY_ISOLATE=-I のとき、 カレントの ./charao/ ではなく pip 版が使われる
-    nice -n 19 python -u ${PY_ISOLATE} -m "$@"
+    if [ -n "${PY_LOG:-}" ]; then
+      nice -n 19 python -u ${PY_ISOLATE} -m "$@" 2>&1 | tee "$PY_LOG"
+    else
+      nice -n 19 python -u ${PY_ISOLATE} -m "$@"
+    fi
     { set +x; } 2>/dev/null
     return
   fi
@@ -353,6 +357,19 @@ _charao_run() {
     -t "${TEMP}" --vdd "${VDD}" ${VNW_OPT} ${VPW_OPT} --target "${TARGET_DIR}" \
     ${cells_opt} ${MYLOGIC_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} \
     ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}
+
+  #--- local 実行では --RUN_NAME（lrPymRPC のオプション）が効かず、 charao は
+  #    config の result_path（./rslt）へ直接出す。 server 実行と同じ配置にするため
+  #    ここで <RUN_NAME>/ 配下へ移す。 これで RUN_NAME を変えれば結果を個別に取れる。
+  if [ "$EXEC_MACHINE_" = "local" ] && [ -n "${RUN_NAME}" ]; then
+    mkdir -p "${RUN_NAME}"
+    for d in rslt work; do
+      if [ -d "$d" ]; then
+        rm -rf "${RUN_NAME}/$d"
+        mv "$d" "${RUN_NAME}/"
+      fi
+    done
+  fi
 }
 
 # _run_summary <表示名> <ログ> <.lib パス>
@@ -397,7 +414,7 @@ cmd_run_all() {
   echo ""
   echo "===== summary: run result ====="
   _run_summary "batch${RUN_NAME:+_$RUN_NAME}" "$LOG" "${RSLT_PATH}/${LIB_FILE}"
-  gzip -f "$LOG"
+  if [ -f "$LOG" ]; then gzip -f "$LOG"; fi
 }
 
 cmd_run_each() {
@@ -427,7 +444,7 @@ cmd_run_each() {
   for short in $CELLS; do
     local LOG="lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log"
     _run_summary "$short" "$LOG" "${RUN_NAME:+$RUN_NAME/}rslt_${short}/${LIB_FILE}"
-    gzip -f "$LOG"
+    if [ -f "$LOG" ]; then gzip -f "$LOG"; fi
   done
 }
 
@@ -448,8 +465,10 @@ _util_run() {
     esac
   done
   # local_repo のときだけ charao を送る（git+pip / git+clone はサーバ側で pip install）
-  [ "${EXEC_SCRIPT_}" = "local_repo" ] && src="$src charao"
-  [ "${EXEC_SCRIPT_}" = "git+clone" ] && src="$src ${PIP_CLONE_DIR%%/*}"
+  case "${EXEC_SCRIPT_}" in
+    local_repo) src="$src charao" ;;
+    git+clone)  src="$src ${PIP_CLONE_DIR%%/*}" ;;
+  esac
   PY_SRC="$src"
   PY_RSLT="$rslt"
   PY_INC=".lib .v .md .py .csv .toml"
