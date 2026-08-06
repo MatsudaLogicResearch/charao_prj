@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-util_make_templates.py — 実測から config_lib.jsonc の templates を決める（ISS-00189）
+util_make_template4json.py — 実測から config_lib.jsonc の templates を決める（ISS-00189）
 
 【考え方】
 
@@ -23,24 +23,24 @@ template の構造は次のとおりだった（経緯は ISS-00189、確定仕�
 【使い方（4 stage。 sim は charao 本体に通すので tb の作り方が本番と完全に一致する）】
 
   # ① 探索用の暫定 template を書く（幅広の 1 種）
-  python -m charao.script.util_make_templates --stage 1.probe \\
+  python -m charao.script.util_make_template4json --stage 1.probe \\
       --config sample_target/sky130/fd/sc_hd/config_lib.jsonc
 
   # → charao を inv_1 だけ実行（リモート）
   #   CELLS="inv_1" bash debug_run.sh run_all
 
   # ② 結果を見る（in_cap と、fanout ごとの cell_rise transition）
-  python -m charao.script.util_make_templates --stage 2.report \\
+  python -m charao.script.util_make_template4json --stage 2.report \\
       --lib run_x/rslt/xxx.lib --cell sky130_fd_sc_hd__inv_1 --fanout 80,100,200
 
   # ③ ユーザが決めた値で全セル測定用の暫定 template を書く
-  python -m charao.script.util_make_templates --stage 3.scan \\
+  python -m charao.script.util_make_template4json --stage 3.scan \\
       --jsonc_in <in> --jsonc_out <out> --slew_in 1.5 --load_out 0.16 --load_limit 5.0
 
   # → charao を全セル実行（リモート）
 
   # ④ 各セル/出力ピンの max_cap を求めてグループ化し、本番 template を書く
-  python -m charao.script.util_make_templates --stage 4.build \\
+  python -m charao.script.util_make_template4json --stage 4.build \\
       --lib run_y/rslt/xxx.lib --jsonc_in <in> --jsonc_out <out> \\
       --slew_min_max_num 0.01,1.5,7 --load_min_max_num 0.0005,5.0,7 --tolerance 0.05
 
@@ -63,7 +63,7 @@ import re
 import shutil
 from pathlib import Path
 
-from charao.script.util_extract_lib_csv import parse_lib_file
+from charao.script.util_liberty import parse_lib_file
 
 
 # ── 数値ユーティリティ ────────────────────────────────────────────────────
@@ -164,10 +164,20 @@ def cap_at_transition(rows, slew, target):
 
 # ── templates セクションの生成 ────────────────────────────────────────────
 
-def build_templates(index_1, groups, indent="    ", names=None):
-    """index_1（共通）と groups（index_2 のリスト）から templates 本体を組む。
+def build_templates(index_1, groups, indent="    ", names=None,
+                    index_1s=None, limits=None):
+    """index_1 と groups（index_2 のリスト）から templates 本体を組む。
 
     groups は index_2 リストの列。delay / power_tout が同数、他は 1 種。
+
+    ISS-00191: `--scan_spec` でセル別 `slew_in`（＝ max_transition）を指定できるため、
+    delay / power_tout の index_1 はグループごとに変わりうる。`index_1s` にグループ別の
+    index_1 を渡すとそれを使う（None なら全グループ共通の `index_1`）。
+    delay / power_tout **以外**の kind（leakage / passive / mpw / const / power_tin）は
+    従来どおりライブラリ共通で、既定側の `index_1` を使う。
+
+    `limits` を渡すとグループごとの load_limit を `//@limit` コメントで書き残す。
+    4.analyze が再指定なしで読めるようにするため（Y 案）。
     """
     i1 = _fmt(index_1)
     n1 = len(index_1)
@@ -175,7 +185,8 @@ def build_templates(index_1, groups, indent="    ", names=None):
     L = ["\n"]
     a = lambda s: L.append(indent + s + "\n")
 
-    a('//---- index_1 は全 kind 共通。 index_2 は delay / power_tout のみセル別（ISS-00189）')
+    a('//---- index_1 は delay / power_tout のみセル別になりうる（ISS-00191 の --scan_spec）。')
+    a('//     他の kind はライブラリ共通。 index_2 は delay / power_tout のみセル別（ISS-00189）')
     a('{"kind":"leakage"   ,"grid":"0x0","name":"d000","index_1":[], "index_2":[]}')
     a(',{"kind":"passive"   ,"grid":"%dx0","name":"d000","index_1":[%s], "index_2":[]}' % (n1, i1))
     mp = [index_1[0], index_1[len(index_1) // 2], index_1[-1]]
@@ -185,17 +196,101 @@ def build_templates(index_1, groups, indent="    ", names=None):
     L.append("\n")
 
     nm = names if names else [tname(g[-1]) for g in groups]
-    a('//---- delay : %d groups' % len(groups))
-    for g, t in zip(groups, nm):
-        a(',{"kind":"delay"     ,"grid":"%dx%d","name":"%s","index_1":[%s],"index_2":[%s]}'
-          % (n1, n2, t, i1, _fmt(g)))
+    g_i1 = index_1s if index_1s else [index_1] * len(groups)
+    g_lim = limits if limits else [None] * len(groups)
+
+    def _emit(kind, label):
+        a(label)
+        for g, t, gi1, lim in zip(groups, nm, g_i1, g_lim):
+            note = ""
+            if lim is not None:
+                #--- Y 案: load_limit を config に書き残す。 4.analyze が読む
+                note = '   //@limit=%s' % _fmt([lim])
+            a(',{"kind":"%s","grid":"%dx%d","name":"%s","index_1":[%s],"index_2":[%s]}%s'
+              % (kind, len(gi1), n2, t, _fmt(gi1), _fmt(g), note))
+
+    _emit("delay     ", '//---- delay : %d groups' % len(groups))
     L.append("\n")
-    a('//---- power_tout : delay と同一（kind を分けないと measure が走らないため別エントリ）')
-    for g, t in zip(groups, nm):
-        a(',{"kind":"power_tout","grid":"%dx%d","name":"%s","index_1":[%s],"index_2":[%s]}'
-          % (n1, n2, t, i1, _fmt(g)))
+    _emit("power_tout",
+          '//---- power_tout : delay と同一（kind を分けないと measure が走らないため別エントリ）')
     L.append(indent + "  ")
     return "".join(L)
+
+
+def parse_scan_spec(specs):
+    """--scan_spec のリストを解釈する（ISS-00191）。
+
+    書式 : slew_in/load_out/load_limit[/cell]
+
+      slew_in    … 目標 transition（＝ max_transition）。 index_1 の上端になる
+      load_out   … index_2 の初期 load
+      load_limit … 探索の上限（空文字なら無制限）
+      cell       … 適用するセル名（**1 つだけ**）。 省略するとデフォルト
+
+    セル名を省いたエントリが **デフォルト**で、必ず 1 つ必要。
+    セル名付きのエントリはそのセルだけに効く（同じセルの重複指定はエラー）。
+
+    戻り値 : (default_spec, {cell: spec})   spec = dict(slew_in, load_out, load_limit)
+    """
+    default = None
+    per_cell = {}
+    for s in specs:
+        f = [x.strip() for x in str(s).split("/")]
+        if len(f) < 3 or len(f) > 4:
+            raise SystemExit(
+                "--scan_spec は slew_in/load_out/load_limit[/cell] の形式"
+                "（指定: %s）" % s)
+        try:
+            d = dict(slew_in=float(f[0]), load_out=float(f[1]),
+                     load_limit=(float(f[2]) if f[2] else None))
+        except ValueError:
+            raise SystemExit("--scan_spec の数値が読めない（指定: %s）" % s)
+        if d["slew_in"] <= 0 or d["load_out"] <= 0:
+            raise SystemExit("--scan_spec の slew_in / load_out は正の数（指定: %s）" % s)
+        if len(f) == 3 or not f[3]:
+            if default is not None:
+                raise SystemExit("--scan_spec のデフォルト（セル名なし）が 2 つ以上ある")
+            default = d
+        else:
+            cell = f[3]
+            if "," in cell:
+                raise SystemExit(
+                    "--scan_spec のセル指定は 1 つだけ。 複数指定するときは "
+                    "--scan_spec を繰り返す（指定: %s）" % s)
+            if cell in per_cell:
+                raise SystemExit("--scan_spec で同じセルが 2 回指定されている: %s" % cell)
+            per_cell[cell] = d
+    if default is None:
+        raise SystemExit("--scan_spec にデフォルト（セル名なしのエントリ）が要る")
+    return default, per_cell
+
+
+def spec_of(cell, default, per_cell):
+    """セル名から spec を引く。 フル名・短縮名のどちらでも当たるようにする。"""
+    if cell in per_cell:
+        return per_cell[cell]
+    short = cell.split("__")[-1]
+    return per_cell.get(short, default)
+
+
+#--- config に書き残した load_limit を読む（Y 案。 4.analyze が再指定なしで使う）
+_LIMIT_RE = re.compile(r'"kind":"delay\s*"[^}]*?"name":"([^"]*)"[^}]*?\}\s*//@limit=([0-9.eE+-]+)')
+
+
+def read_limits(config_text):
+    """{template 名: load_limit} を config のコメントから読む。"""
+    return {m.group(1): float(m.group(2)) for m in _LIMIT_RE.finditer(config_text)}
+
+
+def read_index1(config_text):
+    """{template 名: index_1 の最大値} を delay エントリから読む。"""
+    out = {}
+    for m in re.finditer(r'"kind":"delay\s*"[^}]*?"name":"([^"]*)"[^}]*?"index_1":\[([^\]]*)\]',
+                         config_text):
+        vals = [float(x) for x in m.group(2).split(",") if x.strip()]
+        if vals:
+            out[m.group(1)] = max(vals)
+    return out
 
 
 def write_templates(config_path, body, backup=False):
@@ -336,7 +431,7 @@ def _log(a, lines, header=None, truncate=False):
     if p is None:
         return
     p.parent.mkdir(parents=True, exist_ok=True)
-    cmd = "python -m charao.script.util_make_templates " + " ".join(
+    cmd = "python -m charao.script.util_make_template4json " + " ".join(
         (x if x.startswith("-") else '"%s"' % x if " " in x else x) for x in sys.argv[1:])
     #--- 1 フロー（1.probe -> charao -> 2.report）ごとに作り直す。
     #    1.probe が上書きで開始し、 2.report が追記する。
