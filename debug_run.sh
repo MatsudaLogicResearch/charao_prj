@@ -352,23 +352,33 @@ _charao_run() {
   PY_RSLT="${RESULT_ARG#--RESULT }"
   PY_RUN_NAME_OPT=""
   [ -n "${RUN_NAME}" ] && PY_RUN_NAME_OPT="--RUN_NAME ${RUN_NAME}"
+  #--- ISS-00198: local 実行は lrPymRPC の作業 dir 分離が効かないため、 charao の
+  #    出力先を直接 <RUN_NAME>/ 配下へ向ける（これで local でも並列実行できる）。
+  #    server 実行では リモートの /tmp/lrpymrpc/<uuid>/ が分離しており、 回収は
+  #    --RUN_NAME が行うので指定しない（従来どおり ./rslt / work を使う）。
+  #    ※ work_dir は **work と同じ階層でなければならない**（ISS-00198 で判明）。
+  #      charao は work_dir へ chdir してから ngspice を起動するが、 モデルファイル内の
+  #      相対 include（../../../../sample_src/...）が「work_dir は 1 階層」を前提に
+  #      書かれており、 <RUN_NAME>/work にすると 1 階層ずれて model が見つからず全滅する。
+  #      そのため sim 中は work_<RUN_NAME>（同じ階層）を使い、 完了後に <RUN_NAME>/work へ移す。
+  #      result_path は chdir の対象ではないので <RUN_NAME>/rslt を直接指定できる。
+  local OUT_OPT="" WORK_TMP=""
+  if [ "$EXEC_MACHINE_" = "local" ] && [ -n "${RUN_NAME}" ]; then
+    WORK_TMP="work_${RUN_NAME}"
+    OUT_OPT="--result_path ${RUN_NAME}/rslt --work_dir ${WORK_TMP}"
+  fi
   _py_run charao.script.charao \
     -f "${FAB}" -v "${VENDOR}" -r "${REV}" -g "${GROUP}" -u "${UV}" -p "${CORNER}" \
     -t "${TEMP}" --vdd "${VDD}" ${VNW_OPT} ${VPW_OPT} --target "${TARGET_DIR}" \
     ${cells_opt} ${MYLOGIC_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} \
-    ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}
+    ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT} ${OUT_OPT}
 
-  #--- local 実行では --RUN_NAME（lrPymRPC のオプション）が効かず、 charao は
-  #    config の result_path（./rslt）へ直接出す。 server 実行と同じ配置にするため
-  #    ここで <RUN_NAME>/ 配下へ移す。 これで RUN_NAME を変えれば結果を個別に取れる。
-  if [ "$EXEC_MACHINE_" = "local" ] && [ -n "${RUN_NAME}" ]; then
+  #--- sim 中は同じ階層に置いた work を、 完了後に <RUN_NAME>/work へ移す
+  #    （server 実行時の配置と揃える。 移動なので並列実行でも衝突しない）
+  if [ -n "${WORK_TMP}" ] && [ -d "${WORK_TMP}" ]; then
     mkdir -p "${RUN_NAME}"
-    for d in rslt work; do
-      if [ -d "$d" ]; then
-        rm -rf "${RUN_NAME}/$d"
-        mv "$d" "${RUN_NAME}/"
-      fi
-    done
+    rm -rf "${RUN_NAME}/work"
+    mv "${WORK_TMP}" "${RUN_NAME}/work"
   fi
 }
 
@@ -474,7 +484,9 @@ _util_run() {
   PY_INC=".lib .v .md .py .csv .toml"
   PY_MATCH="${MATCH} charao rslt merged csv tmp ${PIP_CLONE_DIR%%/*}"
   PY_RUN_NAME_OPT=""
-  PY_LOG="lrpymrpc_${tag}.log"
+  # ISS-00198: ログ名も RUN_NAME で分ける（固定名だと同時実行で奪い合い、
+  #            先に gzip した側で消えて他が "No such file" で落ちる）
+  PY_LOG="lrpymrpc_${tag}${RUN_NAME:+_$RUN_NAME}.log"
   _py_run "${args[@]}"
   if [ "$EXEC_MACHINE_" = "server" ]; then
     echo ""

@@ -77,6 +77,10 @@ def main():
   parser.add_argument('-s','--significant_digits'   , type=int  , default=3     , help='significant digits.')
   parser.add_argument('-b','--build_stamp',type=str             , default="b00" , help='build-stamp for output files.')
   parser.add_argument('-w','--work_dir' ,type=str               , default="work", help='work directory.')
+  #--- ISS-00198: result_path は config_lib.jsonc の値（既定 ./rslt）しか使えず、
+  #    local 実行で並列に走らせると同じ ./rslt へ書いて衝突していた。
+  #    未指定（空文字）なら config の値をそのまま使う（--vnw/--vpw と同じ流儀）。
+  parser.add_argument('--result_path'   ,type=str               , default=""    , help='output directory for .lib/.v/.md (default: result_path in config_lib.jsonc).')
   parser.add_argument('--mylogic_user'  ,type=str               , default=""    , help='PATH to User-define Logic entries file(ex myloic_user.py).')
   parser.add_argument('--wave_raw'      , action='store_true'                  , help='Save ngspice transient result as sim.sp.raw (per-sim subdir). Saves DUT cell port via hierarchical reference V(XCELL.XDUT.<port>). ISS-00078.')
   parser.add_argument('--debug_stop'    , type=int              , default=0    , help='DEBUG: stop charao after N sp files generated (os._exit(0)). 0=disabled. Use for hang debug / sp inspection (ISS-00118).')
@@ -225,6 +229,9 @@ def main():
                     "work_dir"            :args.work_dir,
                     "wave_raw"            :args.wave_raw
                     }
+  #--- ISS-00198: --result_path は指定されたときだけ上書きする（未指定なら config の値）
+  if args.result_path:
+    config_from_args["result_path"] = args.result_path
   targetLib = targetLib.model_copy(update=config_from_args)
 
   #--- targetLib : update & display
