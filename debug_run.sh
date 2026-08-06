@@ -5,12 +5,26 @@
 #   bash debug_run.sh clean           # cleanup
 #   bash debug_run.sh run_all         # run as single batch (one charao invocation)
 #   bash debug_run.sh run_each        # run per-cell (loop over CELLS, archive each)
-#   bash debug_run.sh lib2csv_orig    # extract orig .lib -> CSV (overwrite existing)
-#   bash debug_run.sh lib2csv_charao  # extract charao .lib -> CSV (wipes tmp/charao_* first)
-#   bash debug_run.sh compare         # compare charao CSV vs orig CSV (wipes tmp/compare_* first)
+#   bash debug_run.sh merge           # rslt 群 -> 1 本の .lib/.v/.md
+#   bash debug_run.sh lib2csv         # .lib 1 本 -> CSV
+#   bash debug_run.sh compare         # charao CSV vs orig CSV -> compare_<RUN_NAME>.csv
 #
 # Env vars (all optional):
-#   MODE=pip|local            # default: pip
+#
+#   --- 実行の 2 軸（ISS-00196。旧 MODE / EXEC は廃止）---
+#   EXEC_MACHINE=local|server   # どのマシンで python を回すか（既定 local）
+#   EXEC_SCRIPT=local_repo|git+pip|git+clone
+#                               # どの charao を使うか（既定 git+pip）
+#   CHARAO_TAG=main             # git+pip / git+clone のリビジョン
+#
+#   --- merge / lib2csv / compare の入出力 ---
+#   MERGE_DIRS="a/rslt b/rslt"  # merge の入力（未指定なら <RUN_NAME>/rslt_*）
+#   MERGED_DIR="merged"         # merge の出力（既定 <RUN_NAME>/merged）
+#   LIB / CSV_OUT               # lib2csv の入力 .lib / 出力 CSV dir
+#   CSV_NEW                     # compare の charao 側 CSV dir（既定 tmp/charao_<RUN_NAME>）
+#   SKIP_IF_EXISTS=0|1          # lib2csv: 既存 CSV があれば作り直さない（既定 1）
+#   CONFIRM=yes                 # clean_all を実際に実行するために必要
+#
 #   CELLS="short1 short2..."  # unset -> no --cells_only (all cells)
 #   MYLOGIC="comb_base seq_lat"# unset -> no --mylogic_only (all modules). mylogic_<name>.py の <name> を指定（ISS-00169）
 #   INDEX1="0 9"              # unset -> no --template_index1_only (all idx1)
@@ -30,26 +44,26 @@
 #
 # Examples:
 #   # 2x2 corners, all cells, local charao, then extract + compare
-#   INDEX1="0 9" INDEX2="0 9" MODE=local bash debug_run.sh clean run_all lib2csv_charao compare
+#   INDEX1="0 9" INDEX2="0 9" EXEC_MACHINE=server EXEC_SCRIPT=local_repo bash debug_run.sh clean run_all merge lib2csv compare
 #
-#   # Full flow including orig lib extract (first time)
-#   bash debug_run.sh lib2csv_orig lib2csv_charao compare
+#   # orig CSV は一度作れば再利用（LIB / CSV_OUT で orig を指定）
+#   LIB="$ORIG_LIB" CSV_OUT="$ORIG_CSV_DIR" bash debug_run.sh lib2csv
 #
 #   # 旧 vs 新 sim 比較 (corner x1):
-#   #   新版: MODE=local + sample_target (default)
-#   INDEX1="9" INDEX2="9" CELLS="inv_1" MODE=local RUN_NAME=run_new bash debug_run.sh clean run_each
-#   #   旧版: MODE=pip + TARGET_DIR=old_target
-#   INDEX1="9" INDEX2="9" CELLS="inv_1" MODE=pip  TARGET_DIR=old_target RUN_NAME=run_old bash debug_run.sh run_each
+#   #   新版: EXEC_SCRIPT=local_repo + sample_target (default)
+#   INDEX1="9" INDEX2="9" CELLS="inv_1" EXEC_MACHINE=server EXEC_SCRIPT=local_repo RUN_NAME=run_new bash debug_run.sh clean run_each
+#   #   旧版: EXEC_SCRIPT=git+pip + TARGET_DIR=old_target
+#   INDEX1="9" INDEX2="9" CELLS="inv_1" EXEC_MACHINE=server EXEC_SCRIPT=git+pip TARGET_DIR=old_target RUN_NAME=run_old bash debug_run.sh run_each
 #
 #   # OSU035（他 PDK）2x2 corner を数セルで確認
 #   FAB=OSU035 VENDOR=VENDOR REV=CB_REV2 UV=3P30 VDD=3.3 MATCH=OSU035 CELL_PREFIX= \
 #   INDEX1="0 6" INDEX2="0 6" CELLS="INV_1X NAND2_1X DFFARAS_1X" \
-#   MODE=local RESULT_ITEMS="rslt" RUN_NAME=run_osu bash debug_run.sh run_all
+#   EXEC_MACHINE=server EXEC_SCRIPT=local_repo RESULT_ITEMS="rslt" RUN_NAME=run_osu bash debug_run.sh run_all
 #
 #   # SKY130（MATCH は既定の PDK 名でよい。 モデルが libs.ref/sky130_fd_pr にあるため絞れない）
 #   FAB=sky130 VENDOR=fd REV=sc_hd UV=1P80 VDD=1.8 MATCH=sky130 CELL_PREFIX=sky130_fd_sc_hd__ \
 #   INDEX1="0 6" INDEX2="0 6" CELLS="inv_1" \
-#   MODE=local RESULT_ITEMS="rslt" RUN_NAME=run_sky bash debug_run.sh run_all
+#   EXEC_MACHINE=server EXEC_SCRIPT=local_repo RESULT_ITEMS="rslt" RUN_NAME=run_sky bash debug_run.sh run_all
 
 # Activate venv if available (no-op when already activated or absent)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -121,7 +135,7 @@ ORIG_LIB="${ORIG_LIB:-${SRC_DIR}/gf180mcuC/libs.ref/gf180mcu_fd_sc_mcu7t5v0/lib/
 ORIG_CSV_DIR="${ORIG_CSV_DIR:-tmp/gf180_fd_mcuC7t20240817/tt_025C_5v00}"
 
 _setup_args() {
-  MODE_="${MODE:-pip}"
+  _resolve_exec
 
   INDEX1_OPT=""
   [ -n "${INDEX1}" ] && INDEX1_OPT="--template_index1_only ${INDEX1}"
@@ -146,34 +160,222 @@ _setup_args() {
     MYLOGIC_USER_MATCH="mylogic_user"
   fi
 
-  if [ "$MODE_" = "local" ]; then
-    CHARAO_CMD="python3 -m charao.script.charao"
-    REPO_ARG="--REPO_URL jsoncomment=jsoncomment,pydantic=pydantic,numpy=numpy,jinja2=jinja2"
-    SOURCE_ARG="--SOURCE ${SRC_DIR} ${TARGET_DIR} ${MYLOGIC_USER_SOURCE} charao"
-    # ISS-00172: std_primitives.v はファイル名で指定（--SOURCE_INCLUDE は後方一致）。
-    #            ".v" にすると PDK 同梱の *.v（約 2MB）まで巻き込むため。
-    SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE .spice .spi .ngspice .sp .jsonc .py .jp2 std_primitives.v"
-    SOURCE_MATCH_ARG="--SOURCE_MATCH ${MATCH} ${MYLOGIC_USER_MATCH} charao"
-  else
-    CHARAO_CMD="python3 -m charao"
-    REPO_ARG="--REPO_URL charao=git+https://github.com/MatsudaLogicResearch/charao_prj.git"
-    SOURCE_ARG="--SOURCE ${SRC_DIR} ${TARGET_DIR} ${MYLOGIC_USER_SOURCE}"
-    SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE .spice .spi .ngspice .sp .jsonc .py std_primitives.v"
-    SOURCE_MATCH_ARG="--SOURCE_MATCH ${MATCH} ${MYLOGIC_USER_MATCH}"
-  fi
+  #--- ISS-00196: EXEC_SCRIPT で「使う charao の出所」を決める（旧 MODE を廃止）。
+  #      local_repo … 手元の作業ツリー（未 push の修正を試すとき）
+  #      git+pip    … GitHub から pip install（既定。再現性のある実行）
+  #      git+clone  … ローカルへ clone してからその dir を pip install
+  #                   （非公開リポジトリ向け。lrPya_prj と同じ方式）
+  #    実行マシンは EXEC_MACHINE（local / server）で別途決める。
+  CHARAO_CMD="python3 -m charao.script.charao"
+  case "${EXEC_SCRIPT_}" in
+    local_repo)
+      # 手元のソースを丸ごと送る。 charao 自体は pip install しない
+      REPO_ARG="--REPO_URL jsoncomment=jsoncomment,pydantic=pydantic,numpy=numpy,jinja2=jinja2"
+      SOURCE_ARG="--SOURCE ${SRC_DIR} ${TARGET_DIR} ${MYLOGIC_USER_SOURCE} charao"
+      # ISS-00172: std_primitives.v はファイル名で指定（--SOURCE_INCLUDE は後方一致）。
+      #            ".v" にすると PDK 同梱の *.v（約 2MB）まで巻き込むため。
+      SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE .spice .spi .ngspice .sp .jsonc .py .jp2 std_primitives.v"
+      SOURCE_MATCH_ARG="--SOURCE_MATCH ${MATCH} ${MYLOGIC_USER_MATCH} charao"
+      ;;
+    git+pip)
+      REPO_ARG="--REPO_URL charao=${CHARAO_GIT}@${CHARAO_TAG}"
+      SOURCE_ARG="--SOURCE ${SRC_DIR} ${TARGET_DIR} ${MYLOGIC_USER_SOURCE}"
+      SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE .spice .spi .ngspice .sp .jsonc .py std_primitives.v"
+      SOURCE_MATCH_ARG="--SOURCE_MATCH ${MATCH} ${MYLOGIC_USER_MATCH}"
+      ;;
+    git+clone)
+      # clone 済みの dir を送り、 サーバ側でそれを pip install する（lrPya 方式）
+      REPO_ARG="--REPO_URL charao=${PIP_CLONE_DIR}"
+      SOURCE_ARG="--SOURCE ${SRC_DIR} ${TARGET_DIR} ${MYLOGIC_USER_SOURCE} ${PIP_CLONE_DIR%%/*}"
+      SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE .spice .spi .ngspice .sp .jsonc .py .jp2 .toml std_primitives.v"
+      SOURCE_MATCH_ARG="--SOURCE_MATCH ${MATCH} ${MYLOGIC_USER_MATCH} ${PIP_CLONE_DIR%%/*}"
+      ;;
+  esac
 
-  # env override: SOURCE_ITEMS で --SOURCE の対象一式を上書き（未指定時は上記 MODE 別デフォルト）
+  # env override: SOURCE_ITEMS で --SOURCE の対象一式を上書き（未指定時は EXEC_SCRIPT 別の既定）
   [ -n "${SOURCE_ITEMS}" ] && SOURCE_ARG="--SOURCE ${SOURCE_ITEMS}"
   # env override: RESULT_ITEMS で --RESULT の回収対象を上書き（未指定時は rslt work。例: RESULT_ITEMS="rslt" で work 除外）
   RESULT_ARG="--RESULT ${RESULT_ITEMS:-rslt work}"
 }
 
+#--- ISS-00196(a): clean は **RUN_NAME 単位**で消す。
+#    以前は `rm -rf run* *.log*` の全消しで、 2026-08-04 に 8/2 の 7h53m 回帰・
+#    旧 template 回帰・ログ 13 本を巻き添えで失った（git 管理外で復旧不可）。
+#    全消しが要るときは clean_all を CONFIRM=yes 付きで明示的に呼ぶ。
 cmd_clean() {
+  local targets=()
+  [ -d "${RUN_NAME}" ] && targets+=("${RUN_NAME}")
+  for f in "lrpymrpc_debug_batch_${RUN_NAME}.log" "lrpymrpc_debug_batch_${RUN_NAME}.log.gz"; do
+    [ -f "$f" ] && targets+=("$f")
+  done
+  if [ ${#targets[@]} -eq 0 ]; then
+    echo "clean: 削除対象なし（RUN_NAME=${RUN_NAME}）"
+    return
+  fi
+  echo "===== clean: RUN_NAME=${RUN_NAME} の成果物のみ削除 ====="
+  printf '  %s\n' "${targets[@]}"
   set -x
-  # run* / *.log* を一括削除（RUN_NAME 区別なし、 並列実行時の個別削除は手動で）
-  # *.log* は *.log と *.log.gz の両方をカバー（案 A の動的 gzip ログ含む）
+  rm -rf "${targets[@]}"
+  { set +x; } 2>/dev/null
+}
+
+#--- 全消し。 事故防止のため CONFIRM=yes を要求する（ISS-00196(a)）
+cmd_clean_all() {
+  local targets=( run* *.log* )
+  local n=0
+  for t in "${targets[@]}"; do [ -e "$t" ] && n=$((n+1)); done
+  if [ "$n" -eq 0 ]; then
+    echo "clean_all: 削除対象なし"
+    return
+  fi
+  echo "===== clean_all: 以下を **すべて** 削除します（${n} 件）====="
+  for t in "${targets[@]}"; do [ -e "$t" ] && echo "  $t"; done
+  if [ "${CONFIRM:-}" != "yes" ]; then
+    echo ""
+    echo "  中断しました。 実行するには CONFIRM=yes を付けてください:" >&2
+    echo "    CONFIRM=yes bash $0 clean_all" >&2
+    exit 2
+  fi
+  set -x
   rm -rf run* *.log*
   { set +x; } 2>/dev/null
+}
+
+#=====================================================================
+# ISS-00196: 実行の 2 軸を分離する（旧 MODE / EXEC を廃止）
+#   EXEC_MACHINE = local | server      … **どのマシンで python を回すか**
+#   EXEC_SCRIPT  = local_repo | git+pip | git+clone
+#                                      … **どの charao を使うか**
+#   CHARAO_TAG   = tag / branch        … git+pip / git+clone のリビジョン
+#
+# 既定は local + git+pip（一般ユーザ想定＝手元で、再現性のある版を使う）。
+# ダーマツ環境では EXEC_MACHINE=server を毎回明示する。
+# 開発中（未 push の修正を試す）は EXEC_SCRIPT=local_repo を明示する。
+#=====================================================================
+CHARAO_GIT="git+https://github.com/MatsudaLogicResearch/charao_prj.git"
+PIP_CLONE_DIR="pip_pkg/charao_prj"
+
+_resolve_exec() {
+  EXEC_MACHINE_="${EXEC_MACHINE:-local}"
+  EXEC_SCRIPT_="${EXEC_SCRIPT:-git+pip}"
+  CHARAO_TAG="${CHARAO_TAG:-main}"
+  case "$EXEC_MACHINE_" in
+    local|server) ;;
+    *) echo "EXEC_MACHINE は local / server のいずれか（指定: $EXEC_MACHINE_）" >&2; exit 2 ;;
+  esac
+  case "$EXEC_SCRIPT_" in
+    local_repo|git+pip|git+clone) ;;
+    *) echo "EXEC_SCRIPT は local_repo / git+pip / git+clone のいずれか（指定: $EXEC_SCRIPT_）" >&2; exit 2 ;;
+  esac
+
+  # local + git+* は **pip 版を使う**。 python -I でカレントを sys.path から外すことで
+  # 手元の ./charao/ が勝つのを防ぐ（3.10 でも -I は script's dir / カレントを除外する）。
+  PY_ISOLATE=""
+  if [ "$EXEC_MACHINE_" = "local" ] && [ "$EXEC_SCRIPT_" != "local_repo" ]; then
+    PY_ISOLATE="-I"
+  fi
+}
+
+# clone / pip install を用意する（冪等）。 EXEC_SCRIPT ごとに必要な準備だけ行う。
+_prepare_script() {
+  case "$EXEC_SCRIPT_" in
+    local_repo) ;;
+    git+clone)
+      if [ ! -d "${PIP_CLONE_DIR}/.git" ]; then
+        echo "===== clone: ${CHARAO_GIT#git+} @ ${CHARAO_TAG} -> ${PIP_CLONE_DIR} ====="
+        mkdir -p "$(dirname "${PIP_CLONE_DIR}")"
+        set -x
+        git clone --depth 1 --branch "${CHARAO_TAG}" "${CHARAO_GIT#git+}" "${PIP_CLONE_DIR}"
+        { set +x; } 2>/dev/null
+      fi
+      [ "$EXEC_MACHINE_" = "local" ] && _pip_install_local "${PIP_CLONE_DIR}"
+      ;;
+    git+pip)
+      [ "$EXEC_MACHINE_" = "local" ] && _pip_install_local "${CHARAO_GIT}@${CHARAO_TAG}"
+      ;;
+  esac
+}
+
+# local 実行用に charao を venv へ入れる（既に同じものが入っていれば何もしない）
+_pip_install_local() {
+  local src="$1"
+  if python -I -c "import charao" 2>/dev/null; then
+    return
+  fi
+  echo "===== pip install ${src}（local 実行用）====="
+  set -x
+  python -m pip install "$src"
+  { set +x; } 2>/dev/null
+}
+
+# ── python 実行はここ 1 箇所 ────────────────────────────────────────────
+# 呼び出し前に以下をセットする（server 実行時のみ使う）:
+#   PY_SRC / PY_RSLT / PY_INC / PY_MATCH / PY_LOG / PY_RUN_NAME_OPT
+# _py_run <module> <args...>
+_py_run() {
+  _prepare_script
+  if [ "$EXEC_MACHINE_" = "local" ]; then
+    set -x
+    # ISS-00135: ローカル実行は最低優先度で（前面の対話・他作業へ CPU を譲る）
+    # PY_ISOLATE=-I のとき、 カレントの ./charao/ ではなく pip 版が使われる
+    nice -n 19 python -u ${PY_ISOLATE} -m "$@"
+    { set +x; } 2>/dev/null
+    return
+  fi
+  # server 実行（lrPymRPC 経由）。 sim も util もここを通る
+  local log="${PY_LOG:-lrpymrpc_run.log}"
+  set -x
+  python -u -m lrPymRPC \
+    --SERVER_IP 192.168.168.103 \
+    $REPO_ARG \
+    --SOURCE $PY_SRC \
+    --SOURCE_INCLUDE $PY_INC \
+    --SOURCE_MATCH $PY_MATCH \
+    ${PY_RUN_NAME_OPT} \
+    --RESULT $PY_RSLT \
+    --CMD "python3 -m $*" 2>&1 | tee "$log"
+  { set +x; } 2>/dev/null
+}
+
+# _charao_run <ログ名> <cells_only の中身（空可）>
+#   sim 中は非圧縮 .log に逐次書き込み（tail -f で進捗確認可）、 取得完了後に gzip 圧縮。
+_charao_run() {
+  PY_LOG="$1"
+  local cells_opt="$2"
+  PY_SRC="${SOURCE_ARG#--SOURCE }"
+  PY_INC="${SOURCE_INCLUDE_ARG#--SOURCE_INCLUDE }"
+  PY_MATCH="${SOURCE_MATCH_ARG#--SOURCE_MATCH }"
+  PY_RSLT="${RESULT_ARG#--RESULT }"
+  PY_RUN_NAME_OPT=""
+  [ -n "${RUN_NAME}" ] && PY_RUN_NAME_OPT="--RUN_NAME ${RUN_NAME}"
+  _py_run charao.script.charao \
+    -f "${FAB}" -v "${VENDOR}" -r "${REV}" -g "${GROUP}" -u "${UV}" -p "${CORNER}" \
+    -t "${TEMP}" --vdd "${VDD}" ${VNW_OPT} ${VPW_OPT} --target "${TARGET_DIR}" \
+    ${cells_opt} ${MYLOGIC_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} \
+    ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}
+}
+
+# _run_summary <表示名> <ログ> <.lib パス>
+#   ISS-00196(c): ngspice の失敗だけでなく **生成物の実在**まで見る。
+#   2026-08-05 の真打ちで seq_lat が lrPymRPC の通信断（gRPC Connection reset by peer）で
+#   1h06m 走った末に成果物ゼロだったが、 集計は「0 failures」と表示された。
+_run_summary() {
+  local name="$1" log="$2" lib="$3"
+  local n t cells
+  n=$(grep -c "Failed to launch spice" "$log" 2>/dev/null || true)
+  t=$(grep -c "Traceback (most recent call last)" "$log" 2>/dev/null || true)
+  [ -z "$n" ] && n=0
+  [ -z "$t" ] && t=0
+  if [ -f "$lib" ]; then
+    cells=$(grep -c "^  cell (" "$lib" 2>/dev/null || echo 0)
+  else
+    cells="-"
+  fi
+  printf "  %-20s : %s failures / %s traceback / .lib %s cells\n" "$name" "$n" "$t" "$cells"
+  if [ ! -f "$lib" ]; then
+    echo "  [WARN] .lib が生成されていない: $lib" >&2
+    echo "         （通信断・charao の異常終了の可能性。 log の Traceback を確認すること）" >&2
+  fi
 }
 
 cmd_run_all() {
@@ -186,38 +388,15 @@ cmd_run_all() {
     done
     CELLS_OPT="--cells_only${CELLS_FULL}"
   fi
-
-  echo "===== run_all: MODE=${MODE_} CELLS='${CELLS:-<all>}' MYLOGIC='${MYLOGIC:-<all>}' INDEX1='${INDEX1:-<all>}' INDEX2='${INDEX2:-<all>}' RUN_NAME='${RUN_NAME:-}' (batch) ====="
+  echo "===== run_all: EXEC=${EXEC_MACHINE_}/${EXEC_SCRIPT_} CELLS='${CELLS:-<all>}' MYLOGIC='${MYLOGIC:-<all>}' INDEX1='${INDEX1:-<all>}' INDEX2='${INDEX2:-<all>}' RUN_NAME='${RUN_NAME:-}' (batch) ====="
   local RSLT_PATH="${RUN_NAME:+$RUN_NAME/}rslt"
   local WORK_PATH="${RUN_NAME:+$RUN_NAME/}work"
   rm -rf "$RSLT_PATH" "$WORK_PATH"
   local LOG="lrpymrpc_debug_batch${RUN_NAME:+_$RUN_NAME}.log"
-  local RUN_NAME_OPT=""
-  [ -n "${RUN_NAME}" ] && RUN_NAME_OPT="--RUN_NAME ${RUN_NAME}"
-  local CMD="${CHARAO_CMD} -f ${FAB} -v ${VENDOR} -r ${REV} -g ${GROUP} -u ${UV} -p ${CORNER} -t ${TEMP} --vdd ${VDD} ${VNW_OPT} ${VPW_OPT} --target ${TARGET_DIR} ${CELLS_OPT} ${MYLOGIC_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}"
-  set -x
-  # sim 中は非圧縮 .log に逐次書き込み（tail -f で進捗確認可）、 取得完了後に gzip 圧縮
-  python -u -m lrPymRPC \
-    --SERVER_IP 192.168.168.103 \
-    $REPO_ARG \
-    $SOURCE_ARG \
-    $SOURCE_INCLUDE_ARG \
-    $SOURCE_MATCH_ARG \
-    $RUN_NAME_OPT \
-    $RESULT_ARG \
-    --CMD "$CMD" 2>&1 | tee "$LOG"
-  { set +x; } 2>/dev/null
+  _charao_run "$LOG" "$CELLS_OPT"
   echo ""
-  #--- ISS-00187 で判明: この集計は ngspice の失敗しか数えず、 charao 自身の Python 例外は
-  #    「0 failures」と表示されてしまう（生成物が空でも気づけない）。 Traceback も数える。
-  echo "===== summary: failed-spice grep (batch log) ====="
-  local n t
-  n=$(grep -c "Failed to launch spice" "$LOG" 2>/dev/null || true)
-  t=$(grep -c "Traceback (most recent call last)" "$LOG" 2>/dev/null || true)
-  [ -z "$n" ] && n=0
-  [ -z "$t" ] && t=0
-  printf "  %-20s : %s failures / %s traceback\n" "batch${RUN_NAME:+_$RUN_NAME}" "$n" "$t"
-  # 取得完了後に gzip 圧縮（読み出しは zcat / zgrep / zless で透過アクセス可）
+  echo "===== summary: run result ====="
+  _run_summary "batch${RUN_NAME:+_$RUN_NAME}" "$LOG" "${RSLT_PATH}/${LIB_FILE}"
   gzip -f "$LOG"
 }
 
@@ -227,9 +406,7 @@ cmd_run_each() {
     echo "run_each requires CELLS to be set (per-cell loop)" >&2
     exit 2
   fi
-  echo "===== run_each: MODE=${MODE_} CELLS='${CELLS}' INDEX1='${INDEX1:-<all>}' INDEX2='${INDEX2:-<all>}' RUN_NAME='${RUN_NAME:-}' (per-cell) ====="
-  local RUN_NAME_OPT=""
-  [ -n "${RUN_NAME}" ] && RUN_NAME_OPT="--RUN_NAME ${RUN_NAME}"
+  echo "===== run_each: EXEC=${EXEC_MACHINE_}/${EXEC_SCRIPT_} CELLS='${CELLS}' INDEX1='${INDEX1:-<all>}' INDEX2='${INDEX2:-<all>}' RUN_NAME='${RUN_NAME:-}' (per-cell) ====="
   for short in $CELLS; do
     local full="${CELL_PREFIX}${short}"
     echo "=========================================="
@@ -241,190 +418,196 @@ cmd_run_each() {
     local WORK_DEST="${RUN_NAME:+$RUN_NAME/}work_${short}"
     rm -rf "$RSLT_PATH" "$WORK_PATH" "$RSLT_DEST" "$WORK_DEST"
     local LOG="lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log"
-    local CMD="${CHARAO_CMD} -f ${FAB} -v ${VENDOR} -r ${REV} -g ${GROUP} -u ${UV} -p ${CORNER} -t ${TEMP} --vdd ${VDD} ${VNW_OPT} ${VPW_OPT} --target ${TARGET_DIR} --cells_only ${full} ${MYLOGIC_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT}"
-    set -x
-    python -u -m lrPymRPC \
-      --SERVER_IP 192.168.168.103 \
-      $REPO_ARG \
-      $SOURCE_ARG \
-      $SOURCE_INCLUDE_ARG \
-      $SOURCE_MATCH_ARG \
-      $RUN_NAME_OPT \
-      $RESULT_ARG \
-      --CMD "$CMD" 2>&1 | tee "$LOG"
-    { set +x; } 2>/dev/null
+    _charao_run "$LOG" "--cells_only ${full}"
     [ -d "$WORK_PATH" ] && mv "$WORK_PATH" "$WORK_DEST"
     [ -d "$RSLT_PATH" ] && mv "$RSLT_PATH" "$RSLT_DEST"
   done
   echo ""
-  echo "===== summary: failed-spice grep across logs ====="
+  echo "===== summary: run result ====="
   for short in $CELLS; do
-    local n t
-    n=$(grep -c "Failed to launch spice" "lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log" 2>/dev/null || true)
-    t=$(grep -c "Traceback (most recent call last)" "lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log" 2>/dev/null || true)
-    [ -z "$t" ] && t=0
-    [ -z "$n" ] && n=0
-    printf "  %-20s : %s failures / %s traceback\n" "$short" "$n" "$t"
-  done
-  # 取得完了後に gzip 圧縮（読み出しは zcat / zgrep / zless で透過アクセス可）
-  for short in $CELLS; do
-    gzip -f "lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log"
+    local LOG="lrpymrpc_debug${RUN_NAME:+_$RUN_NAME}_${short}.log"
+    _run_summary "$short" "$LOG" "${RUN_NAME:+$RUN_NAME/}rslt_${short}/${LIB_FILE}"
+    gzip -f "$LOG"
   done
 }
 
-cmd_lib2csv_orig() {
-  echo "===== lib2csv_orig: extract orig .lib -> CSV (${ORIG_CSV_DIR}) ====="
-  [ -f "$ORIG_LIB" ] || { echo "lib2csv_orig: orig lib not found: $ORIG_LIB" >&2; exit 2; }
-  set -x
-  python -u -m charao.script.util_extract_lib_csv \
-    --lib "$ORIG_LIB" \
-    --out "$ORIG_CSV_DIR"
-  { set +x; } 2>/dev/null
+# _util_run <タグ> <SOURCE 群> -- <RESULT 群> -- <module> <args...>
+#   util（merge / lib2csv / compare）用のラッパ。 sim と同じ _py_run を通す。
+#   ※ lrPymRPC の --RESULT は **トップレベル名しか回収できない**（サブパスだと空 tar が
+#     返り、 エラーも警告も出ずに何も落ちてこない）。 呼び出し側でトップレベル名を渡すこと。
+_util_run() {
+  _resolve_exec
+  local tag="$1"; shift
+  local src="" rslt="" phase=0 args=()
+  for a in "$@"; do
+    if [ "$a" = "--" ]; then phase=$((phase+1)); continue; fi
+    case $phase in
+      0) src="$src $a" ;;
+      1) rslt="$rslt $a" ;;
+      2) args+=("$a") ;;
+    esac
+  done
+  # local_repo のときだけ charao を送る（git+pip / git+clone はサーバ側で pip install）
+  [ "${EXEC_SCRIPT_}" = "local_repo" ] && src="$src charao"
+  [ "${EXEC_SCRIPT_}" = "git+clone" ] && src="$src ${PIP_CLONE_DIR%%/*}"
+  PY_SRC="$src"
+  PY_RSLT="$rslt"
+  PY_INC=".lib .v .md .py .csv .toml"
+  PY_MATCH="${MATCH} charao rslt merged csv tmp ${PIP_CLONE_DIR%%/*}"
+  PY_RUN_NAME_OPT=""
+  PY_LOG="lrpymrpc_${tag}.log"
+  _py_run "${args[@]}"
+  if [ "$EXEC_MACHINE_" = "server" ]; then
+    echo ""
+    printf "  %-24s : %s traceback\n" "$tag" \
+           "$(grep -c 'Traceback (most recent call last)' "$PY_LOG" 2>/dev/null || echo 0)"
+    gzip -f "$PY_LOG"
+  fi
 }
 
-cmd_lib2csv_charao() {
-  echo "===== lib2csv_charao: extract charao .lib -> CSV ====="
-  set -x
-  if [ -n "${RUN_NAME}" ]; then
-    rm -rf "tmp/charao_${RUN_NAME}"
-  else
-    rm -rf tmp/charao_*
+cmd_lib2csv() {
+  local lib="${LIB:-${MERGED_DIR:-merged}/${LIB_FILE}}"
+  local out="${CSV_OUT:-tmp/charao_${RUN_NAME}}"
+  echo "===== lib2csv[${EXEC_MACHINE:-local}/${EXEC_SCRIPT:-git+pip}]: ${lib} -> ${out} ====="
+  [ -f "$lib" ] || { echo "lib2csv: .lib が無い: $lib（先に merge か、LIB= で指定）" >&2; exit 2; }
+  # orig .lib は不変なので、 既に CSV があれば作り直さない（作り直すなら rm -rf してから）
+  if [ "${SKIP_IF_EXISTS:-1}" = "1" ] && [ -f "${out}/timing.csv" ]; then
+    echo "  既存の CSV を再利用（作り直すには rm -rf ${out}）"
+    return
   fi
-  { set +x; } 2>/dev/null
-  local found=0
-  # RUN_NAME 指定時：${RUN_NAME}/rslt/ を tmp/charao_${RUN_NAME} に
-  if [ -n "${RUN_NAME}" ] && [ -f "${RUN_NAME}/rslt/${LIB_FILE}" ]; then
-    found=1
-    set -x
-    python -u -m charao.script.util_extract_lib_csv \
-      --lib "${RUN_NAME}/rslt/${LIB_FILE}" \
-      --out "tmp/charao_${RUN_NAME}"
-    { set +x; } 2>/dev/null
-  fi
-  # batch: rslt/
-  if [ -f "rslt/${LIB_FILE}" ]; then
-    found=1
-    set -x
-    python -u -m charao.script.util_extract_lib_csv \
-      --lib "rslt/${LIB_FILE}" \
-      --out tmp/charao_batch
-    { set +x; } 2>/dev/null
-  fi
-  # per-cell: rslt_<name>/ または ${RUN_NAME}/rslt_<name>/
-  local per_cell_glob
-  if [ -n "${RUN_NAME}" ]; then
-    per_cell_glob="${RUN_NAME}/rslt_*"
-  else
-    per_cell_glob="rslt_*"
-  fi
-  for d in $per_cell_glob; do
-    [ -d "$d" ] || continue
-    [ -f "${d}/${LIB_FILE}" ] || continue
-    found=1
-    local base="${d##*/}"
-    local name="${base#rslt_}"
-    local out_name="${RUN_NAME:+${RUN_NAME}_}${name}"
-    set -x
-    python -u -m charao.script.util_extract_lib_csv \
-      --lib "${d}/${LIB_FILE}" \
-      --out "tmp/charao_${out_name}"
-    { set +x; } 2>/dev/null
-  done
-  if [ $found -eq 0 ]; then
-    echo "lib2csv_charao: no rslt/, rslt_*/, or ${RUN_NAME:-<RUN_NAME>}/rslt/ with ${LIB_FILE} found" >&2
-    exit 2
-  fi
+  rm -rf "$out"
+  # lrPymRPC の --RESULT は **トップレベルのディレクトリ名**しか回収できない
+  #（"tmp/charao_x" のようなサブパスを渡すと空の tar が返り、 静かに何も落ちてこない）。
+  # そのため出力の先頭要素を --RESULT に渡す。
+  _util_run "lib2csv" \
+    "${lib%%/*}" charao -- "${out%%/*}" -- \
+    charao.script.util_extract_lib2csv --lib "$lib" --out "$out"
 }
 
 cmd_compare() {
-  echo "===== compare: charao CSV vs orig CSV (wipes tmp/compare_* first) ====="
-  set -x
-  rm -f tmp/compare_*.csv tmp/compare_*.txt
-  { set +x; } 2>/dev/null
-  [ -d "$ORIG_CSV_DIR" ] || { echo "compare: orig CSV dir not found: $ORIG_CSV_DIR (run lib2csv_orig first)" >&2; exit 2; }
-  local found=0
-  for d in tmp/charao_*; do
-    [ -d "$d" ] || continue
-    found=1
-    local name=$(basename "$d")
-    name="${name#charao_}"
-    local INTERP_OPT=""
-    [ "${COMPARE_INTERPOLATE:-1}" = "1" ] && INTERP_OPT="--interpolate"
-    # 全 index 実行（INDEX1/INDEX2 とも未設定）なら 0値も採用（drop_zero_new=False）
-    local KEEP_ZERO_OPT=""
-    [ -z "${INDEX1}" ] && [ -z "${INDEX2}" ] && KEEP_ZERO_OPT="--keep_zero_new"
-    set -x
-    python -u -m charao.script.util_compare_lib_csv \
-      --orig "$ORIG_CSV_DIR" \
-      --new "$d" \
-      $INTERP_OPT \
-      $KEEP_ZERO_OPT \
-      --out_csv "tmp/compare_${name}.csv"
-    { set +x; } 2>/dev/null
-  done
-  if [ $found -eq 0 ]; then
-    echo "compare: no tmp/charao_*/ found (run lib2csv_charao first)" >&2
-    exit 2
-  fi
+  local new="${CSV_NEW:-tmp/charao_${RUN_NAME}}"
+  local orig="${ORIG_CSV_DIR}"
+  local name="${RUN_NAME}"
+  echo "===== compare[${EXEC_MACHINE:-local}/${EXEC_SCRIPT:-git+pip}]: ${new} vs ${orig} ====="
+  [ -d "$orig" ] || { echo "compare: orig CSV が無い: $orig（先に lib2csv）" >&2; exit 2; }
+  [ -d "$new" ]  || { echo "compare: charao CSV が無い: $new（先に lib2csv）" >&2; exit 2; }
+  local INTERP_OPT=""
+  [ "${COMPARE_INTERPOLATE:-1}" = "1" ] && INTERP_OPT="--interpolate"
+  # 全 index 実行（INDEX1/INDEX2 とも未設定）なら 0 値も採用（drop_zero_new=False）
+  local KEEP_ZERO_OPT=""
+  [ -z "${INDEX1}" ] && [ -z "${INDEX2}" ] && KEEP_ZERO_OPT="--keep_zero_new"
+  # 出力はリポジトリ直下に置く（.gitignore の compare_* で除外済み）。
+  # lrPymRPC の --RESULT はトップレベル名しか回収できないため（サブパスだと空 tar）。
+  rm -f "compare_${name}.csv" "compare_${name}.summary.txt"
+  _util_run "compare" \
+    tmp charao -- "compare_${name}.csv" "compare_${name}.summary.txt" -- \
+    charao.script.util_compare_csv --orig "$orig" --new "$new" \
+      $INTERP_OPT $KEEP_ZERO_OPT --out_csv "compare_${name}.csv"
 }
 
 cmd_merge() {
-  echo "===== merge: per-cell rslt_*/{.lib,.v,.md} -> merged.{lib,v,md} ====="
-  local glob="${RUN_NAME:+$RUN_NAME/}rslt_*"
-  local dirs=( $glob )
-  if [ ! -d "${dirs[0]}" ]; then
-    echo "merge: no ${glob}/ found (run run_each first)" >&2
-    exit 2
+  # 入力は MERGE_DIRS で明示指定できる（mylogic 別バッチの rslt/ を統合する用途）。
+  # 未指定なら従来どおり run_each の <RUN_NAME>/rslt_* を拾う。
+  local dirs="${MERGE_DIRS:-}"
+  local out="${MERGED_DIR:-${RUN_NAME:+$RUN_NAME/}merged}"
+  if [ -z "$dirs" ]; then
+    local glob="${RUN_NAME:+$RUN_NAME/}rslt_*"
+    local d=( $glob )
+    if [ ! -d "${d[0]}" ]; then
+      echo "merge: no ${glob}/ found（run_each の出力が無い。MERGE_DIRS で明示指定も可）" >&2
+      exit 2
+    fi
+    dirs="$glob"
   fi
-  local out="${RUN_NAME:+$RUN_NAME/}merged"
-  set -x
+  echo "===== merge[${EXEC_MACHINE:-local}/${EXEC_SCRIPT:-git+pip}]: ${dirs} -> ${out} ====="
+  rm -rf "$out"
+  # SOURCE には入力 dir の親を渡す（rslt 単体だと階層が壊れる）
+  local srcs=""
+  for d in $dirs; do srcs="$srcs ${d%%/*}"; done
   # ISS-00171: util_merge は --out_dir + 入力ディレクトリ群（先頭がベース、以降が順次上書き更新）
-  python -u -m charao.script.util_merge \
-    --out_dir "$out" \
-    ${glob}
-  { set +x; } 2>/dev/null
+  _util_run "merge" \
+    $srcs charao -- "$out" -- \
+    charao.script.util_merge --out_dir "$out" $dirs
 }
 
 usage() {
   cat <<EOF
-Usage: $0 <clean|run_all|run_each|lib2csv_orig|lib2csv_charao|compare|merge> ...
-  clean          : rm -rf rslt* work* lrpymrpc*.log
+Usage: $0 <clean|clean_all|run_all|run_each|merge|lib2csv|compare> ...
+  clean          : **RUN_NAME 単位**で削除（<RUN_NAME>/ と そのログ）
+  clean_all      : run* / *.log* を全削除。 事故防止のため CONFIRM=yes が必要
   run_all        : lrPymRPC charao run (batch: single invocation, single log)
   run_each       : lrPymRPC charao run (per-cell: loop over CELLS, per-cell log/work archive)
-  lib2csv_orig   : extract orig .lib -> CSV (${ORIG_CSV_DIR})
-  lib2csv_charao : extract charao .lib -> CSV (rslt/ -> tmp/charao_batch, rslt_<cell>/ -> tmp/charao_<cell>; wipes tmp/charao_* first)
-  compare        : compare charao CSV vs orig CSV -> tmp/compare_<name>.csv (wipes tmp/compare_* first)
-  merge          : merge per-cell rslt_*/{.lib,.v,.md} -> merged.{lib,v,md} (run_each output)
+  merge          : rslt 群の .lib/.v/.md を 1 本へ統合（MERGE_DIRS で入力指定、既定 <RUN_NAME>/rslt_*）
+  lib2csv        : .lib 1 本 -> CSV（LIB / CSV_OUT で指定。既定 <MERGED_DIR>/<LIB_FILE> -> tmp/charao_<RUN_NAME>）
+  compare        : charao CSV vs orig CSV -> compare_<RUN_NAME>.csv（リポジトリ直下）
+
+  EXEC=local|remote  : merge / lib2csv / compare の実行先（既定 local）。
+                       remote は lrPymRPC 経由でサーバ上の python を使い、ローカル CPU を空ける。
+
+  典型フロー:
+    MERGE_DIRS="run_a/rslt run_b/rslt" MERGED_DIR=merged EXEC=remote bash $0 merge
+    LIB="\$ORIG_LIB" CSV_OUT="\$ORIG_CSV_DIR" EXEC=remote bash $0 lib2csv   # orig（初回のみ）
+    EXEC=remote bash $0 lib2csv compare                                      # charao 側 + 比較
 
 Env vars (all optional):
-  MODE=pip|local            (default: pip)
+  --- 実行の 2 軸（ISS-00196。旧 MODE / EXEC は廃止）---
+  EXEC_MACHINE=local|server            **どのマシンで python を回すか**（既定 local）
+                                       local  = 手元（nice -n 19）
+                                       server = lrPymRPC 経由（192.168.168.103）
+  EXEC_SCRIPT=local_repo|git+pip|git+clone
+                                       **どの charao を使うか**（既定 git+pip）
+                                       local_repo = 手元の作業ツリー（未 push の修正を試す）
+                                       git+pip    = GitHub から pip install（再現性のある実行）
+                                       git+clone  = clone してその dir を pip install（非公開 repo 向け）
+  CHARAO_TAG=main                      git+pip / git+clone のリビジョン（tag / branch）
+
+  ※ EXEC_MACHINE=local かつ EXEC_SCRIPT=git+* のときは python -I で起動し、
+    カレントの ./charao/ ではなく pip 版を使う（-I はカレントを sys.path から外す）。
+  ※ sim（run_all/run_each）も util（merge/lib2csv/compare）も同じ経路（_py_run）を通る。
+
+  --- sim の絞り込み ---
   CELLS="short1 short2..."  (unset = all cells; no --cells_only)
+  MYLOGIC="comb_base ..."   (unset = all modules; no --mylogic_only)
   INDEX1="0 9"              (unset = all idx1;   no --template_index1_only)
   INDEX2="0 9"              (unset = all idx2;   no --template_index2_only)
+  MEAS_ONLY="delay ..."     (unset = all measures)
+  WAVE_RAW=1                波形（.raw）を残す
+  RESULT_ITEMS="rslt work"  回収対象（既定 rslt work。"rslt" で work を除外＝転送削減）
+
+  --- merge / lib2csv / compare の入出力 ---
+  MERGE_DIRS="a/rslt b/rslt"  merge の入力（未指定なら <RUN_NAME>/rslt_*）
+  MERGED_DIR="merged"         merge の出力（既定 <RUN_NAME>/merged）
+  LIB / CSV_OUT               lib2csv の入力 .lib / 出力 CSV dir
+  CSV_NEW                     compare の charao 側 CSV dir（既定 tmp/charao_<RUN_NAME>）
+  SKIP_IF_EXISTS=0|1          lib2csv: 既存 CSV があれば作り直さない（既定 1）
+  CONFIRM=yes                 clean_all を実際に実行するために必要
 
 Examples:
   # all cells, 2x2 corners, local, batch + extract + compare
-  INDEX1="0 9" INDEX2="0 9" MODE=local bash $0 clean run_all lib2csv_charao compare
+  INDEX1="0 9" INDEX2="0 9" EXEC_MACHINE=server EXEC_SCRIPT=local_repo bash $0 clean run_all merge lib2csv compare
 
   # 6 cells per-cell, 2x2 corners, then extract + compare
-  CELLS="and4_2 and4_4 mux2_1 nand4_2 nor3_2 nor4_1" INDEX1="0 9" INDEX2="0 9" MODE=local bash $0 clean run_each lib2csv_charao compare
+  CELLS="and4_2 and4_4 mux2_1 nand4_2 nor3_2 nor4_1" INDEX1="0 9" INDEX2="0 9" EXEC_MACHINE=server EXEC_SCRIPT=local_repo bash $0 clean run_each merge lib2csv compare
 
   # first-time setup: generate orig CSV, then charao run + extract + compare
-  bash $0 lib2csv_orig
-  INDEX1="0 9" INDEX2="0 9" MODE=local bash $0 run_all lib2csv_charao compare
+  LIB="\$ORIG_LIB" CSV_OUT="\$ORIG_CSV_DIR" bash $0 lib2csv
+  INDEX1="0 9" INDEX2="0 9" EXEC_MACHINE=server EXEC_SCRIPT=local_repo bash $0 run_all merge lib2csv compare
 EOF
   exit 1
 }
 
 [ $# -eq 0 ] && usage
 
+#--- EXEC_MACHINE / EXEC_SCRIPT の妥当性を先に検証する（不正値で走り出さない）
+_resolve_exec
+
 for arg in "$@"; do
   case "$arg" in
     clean)          cmd_clean ;;
+    clean_all)      cmd_clean_all ;;
     run_all)        cmd_run_all ;;
     run_each)       cmd_run_each ;;
-    lib2csv_orig)   cmd_lib2csv_orig ;;
-    lib2csv_charao) cmd_lib2csv_charao ;;
+    lib2csv)        cmd_lib2csv ;;
     compare)        cmd_compare ;;
     merge)          cmd_merge ;;
     *) echo "unknown arg: $arg" >&2; usage ;;
