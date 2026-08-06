@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-util_compare_lib_csv.py — util_extract_lib_csv.py 生成 CSV 同士の per-point 比較
+util_compare_csv.py — util_util_extract_lib2csv.py 生成 CSV 同士の per-point 比較
 
 【使い方】
 
 # 基本：オリジナル vs 新 .lib（同一コーナー）の比較
-python -m charao.script.util_compare_lib_csv --orig <orig_dir> --new <new_dir>
+python -m charao.script.util_compare_csv --orig <orig_dir> --new <new_dir>
 
 # セル単位で絞る
-python -m charao.script.util_compare_lib_csv --orig <orig_dir> --new <new_dir> --cell gf180mcu_fd_sc_mcu7t5v0__inv_1
+python -m charao.script.util_compare_csv --orig <orig_dir> --new <new_dir> --cell gf180mcu_fd_sc_mcu7t5v0__inv_1
 
 # 出力先を指定
-python -m charao.script.util_compare_lib_csv --orig <orig_dir> --new <new_dir> --out_csv diff.csv
+python -m charao.script.util_compare_csv --orig <orig_dir> --new <new_dir> --out_csv diff.csv
 
 【入力】
   extract_lib_csv.py で生成された 2 ディレクトリ（timing.csv / power.csv を含む）
@@ -38,7 +38,7 @@ from pathlib import Path
 
 from bisect import bisect_right
 
-from charao.script.util_extract_lib_csv import (
+from charao.script.util_liberty import (
     COL_INDEX1, COL_INDEX2, COL_TIMING_VALUE, COL_POWER_VALUE,
 )
 
@@ -326,7 +326,7 @@ def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
 
 def main():
     ap = argparse.ArgumentParser(
-        description="extract_lib_csv.py 生成 CSV を比較してレポートする")
+        description="util_extract_lib2csv.py 生成 CSV を比較してレポートする")
     ap.add_argument("--orig", required=True, metavar="DIR",
                     help="オリジナル側 CSV ディレクトリ")
     ap.add_argument("--new", required=True, metavar="DIR",
