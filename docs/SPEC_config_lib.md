@@ -184,7 +184,7 @@ vendor の orig Liberty は、**SPICE simulation では再現できない一律�
 
 | 対象 | 方針 |
 |---|---|
-| **新規に作る PDK** | **有効 3 桁**。`util_make_templates_from_new.py` が `_sig3()` で自動的に丸める |
+| **新規に作る PDK** | **有効 3 桁**。`util_make_template4json.py` が `sig3()` で自動的に丸める |
 | orig `.lib` から index を写す場合 | **写した後に 3 桁へ丸める**（SKY130 で実施） |
 | **gf180** | **現状維持**（`0.04747` / `1.547` 等）。a33 全リグレッション（統合 orig 比較 661,020 点）の
   基準であり、index を変えると過去の比較結果と直接突合できなくなるため |

@@ -197,7 +197,7 @@ To show full lrPymRPC output (pip install logs etc.) on success, set `lrpymrpc_v
   `std_seq.jsonc` — `ports_dict` (pin order must match the subckt; power pins take the real pin
   name as the value), `template_kgn` and the valid template kinds, and the porting steps for a
   new PDK.
-- [Template generation specification](docs/SPEC_make_templates.md): how `util_make_templates.py`
+- [Template generation specification](docs/SPEC_make_templates.md): how `util_make_template4json.py`
   determines `templates` from measurement — the 5 stages (`1.probe` / `2.report` / `3.scan` /
   `4.analyze` / `5.build`), how `index_1[min/max]` and `index_2[min]` are decided, the per-cell
   `max_capacitance` convergence loop, and the `--measures_only` caveat for flip-flops

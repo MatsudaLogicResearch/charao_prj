@@ -214,7 +214,7 @@ jsonc 側で意識する必要はないが、`vdd` / `vss` / `vnw` / `vpw` は
 
    ```bash
    FAB=<pdk> VENDOR=<v> REV=<r> UV=<uv> VDD=<v> MATCH=<pdk> CELL_PREFIX=<prefix> \
-   INDEX1="0 6" INDEX2="0 6" CELLS="<1 セル>" MODE=local RESULT_ITEMS="rslt" \
+   INDEX1="0 6" INDEX2="0 6" CELLS="<1 セル>" EXEC_MACHINE=server EXEC_SCRIPT=local_repo RESULT_ITEMS="rslt" \
    RUN_NAME=run_smoke bash debug_run.sh run_all
    ```
 

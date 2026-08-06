@@ -256,7 +256,7 @@ PDK の std セル driver の on-resistance を見て、 `sim_pullres_std_enable
 ### Step 6: 動作確認
 
 ```bash
-CELLS="<cell_name>" INDEX1="0 9" INDEX2="0 9" MODE=local bash debug_run.sh clean run_all
+CELLS="<cell_name>" INDEX1="0 9" INDEX2="0 9" EXEC_MACHINE=server EXEC_SCRIPT=local_repo bash debug_run.sh clean run_all
 ```
 
 - `failed-spice grep: 0 failures` を確認
@@ -266,7 +266,7 @@ CELLS="<cell_name>" INDEX1="0 9" INDEX2="0 9" MODE=local bash debug_run.sh clean
 ### Step 7: フル INDEX + orig 比較
 
 ```bash
-CELLS="<cell_name>" MODE=local bash debug_run.sh clean run_all lib2csv_charao compare
+CELLS="<cell_name>" EXEC_MACHINE=server EXEC_SCRIPT=local_repo bash debug_run.sh clean run_all merge lib2csv compare
 ```
 
 `tmp/compare_*.summary.txt` で `matched points` / `diff avg` を確認。

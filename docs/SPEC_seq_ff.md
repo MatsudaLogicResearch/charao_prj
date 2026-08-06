@@ -215,7 +215,7 @@ orig Liberty / SPICE が異なる場合（例：D 反転なし、 Q-bar 出力�
 ### Step 6: 動作確認
 
 ```bash
-CELLS="<cell_name>" INDEX1="0 9" INDEX2="0 9" MODE=local bash debug_run.sh clean run_all
+CELLS="<cell_name>" INDEX1="0 9" INDEX2="0 9" EXEC_MACHINE=server EXEC_SCRIPT=local_repo bash debug_run.sh clean run_all
 ```
 
 確認：
@@ -226,7 +226,7 @@ CELLS="<cell_name>" INDEX1="0 9" INDEX2="0 9" MODE=local bash debug_run.sh clean
 ### Step 7: meas_types 個別確認（必要に応じて）
 
 ```bash
-CELLS="<cell_name>" INDEX1="0 9" INDEX2="0 9" MEAS_ONLY="rising_edge" MODE=local bash debug_run.sh clean run_all
+CELLS="<cell_name>" INDEX1="0 9" INDEX2="0 9" MEAS_ONLY="rising_edge" EXEC_MACHINE=server EXEC_SCRIPT=local_repo bash debug_run.sh clean run_all
 ```
 
 `MEAS_ONLY` で 1 meas_type ずつ動作確認、 デバッグ時に有用。
@@ -234,7 +234,7 @@ CELLS="<cell_name>" INDEX1="0 9" INDEX2="0 9" MEAS_ONLY="rising_edge" MODE=local
 ### Step 8: フル INDEX + orig 比較
 
 ```bash
-CELLS="<cell_name>" MODE=local bash debug_run.sh clean run_all lib2csv_charao compare
+CELLS="<cell_name>" EXEC_MACHINE=server EXEC_SCRIPT=local_repo bash debug_run.sh clean run_all merge lib2csv compare
 ```
 
 `tmp/compare_*.summary.txt` で matched groups / diff avg を確認。

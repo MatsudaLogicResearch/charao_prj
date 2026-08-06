@@ -1,4 +1,4 @@
-# SPEC : `util_make_templates.py` — 実測から templates を決める
+# SPEC : `util_make_template4json.py` — 実測から templates を決める
 
 `config_lib.jsonc` の `templates` を **実測から決める**ツール。orig `.lib` が無い PDK でも使える。
 
@@ -232,7 +232,7 @@ SKY130 で対象 arc が 154 → **173** になった（FF 19 セルぶん）。
 
 ```bash
 # ── 1 フロー目 : index_1[min] と index_2[min] の判断材料 ──────────────
-python -m charao.script.util_make_templates --stage 1.probe \
+python -m charao.script.util_make_template4json --stage 1.probe \
     --jsonc_in sample_target/sky130/fd/sc_hd \
     --jsonc_out tmp_1.probe_target/sky130/fd/sc_hd \
     --cell sky130_fd_sc_hd__inv_1 --slew_in 0.001 --load_out 0.001
@@ -246,13 +246,13 @@ python -u -m lrPymRPC --SERVER_IP 192.168.168.103 \
          -p TT -t 25.0 --vdd 1.8 --target tmp_1.probe_target \
          --cells_only sky130_fd_sc_hd__inv_1"
 
-python -m charao.script.util_make_templates --stage 2.report \
+python -m charao.script.util_make_template4json --stage 2.report \
     --lib run_1.probe_target/rslt/<lib> --cell sky130_fd_sc_hd__inv_1 \
     --jsonc_out tmp_1.probe_target/sky130/fd/sc_hd
 
 # ── 2 フロー目 : index_1[max] の判断材料（fanout を振る）──────────────
 #    --slew_in <index_1[min]>  --load_out <in_cap x N のリスト>
-python -m charao.script.util_make_templates --stage 1.probe \
+python -m charao.script.util_make_template4json --stage 1.probe \
     --jsonc_in sample_target/sky130/fd/sc_hd \
     --jsonc_out tmp_1.probe_target/sky130/fd/sc_hd \
     --cell sky130_fd_sc_hd__inv_1 --slew_in 0.01 \
@@ -260,7 +260,7 @@ python -m charao.script.util_make_templates --stage 1.probe \
 #    → sim → 2.report（同上）
 
 # ── 3.scan : 全セルの max_cap 測定用 ─────────────────────────────────
-python -m charao.script.util_make_templates --stage 3.scan \
+python -m charao.script.util_make_template4json --stage 3.scan \
     --jsonc_in sample_target/sky130/fd/sc_hd \
     --jsonc_out tmp_3.scan_target/sky130/fd/sc_hd \
     --slew_in 1.5 --load_out 0.16 --load_limit 5.0
@@ -270,13 +270,13 @@ python -u -m lrPymRPC ... --RUN_NAME run_3.scan_target --RESULT rslt \
   --CMD "python3 -m charao.script.charao ... --target tmp_3.scan_target \
          --measures_only delay rising_edge falling_edge"
 
-python -m charao.script.util_make_templates --stage 4.analyze \
+python -m charao.script.util_make_template4json --stage 4.analyze \
     --lib run_3.scan_target/rslt/<lib> \
     --jsonc_out tmp_3.scan_target/sky130/fd/sc_hd --iter 1 --load_limit 5.0
 #    → 「target +-5% に入っている arc」が全数になるまで sim と交互に繰り返す
 
 # ── 5.build : 最終 template ──────────────────────────────────────────
-python -m charao.script.util_make_templates --stage 5.build \
+python -m charao.script.util_make_template4json --stage 5.build \
     --lib run_3.scan_target/rslt/<lib> \
     --jsonc_in sample_target/sky130/fd/sc_hd \
     --jsonc_out tmp_5.build_target/sky130/fd/sc_hd \
@@ -332,7 +332,7 @@ python -m charao.script.util_make_templates --stage 5.build \
 
 ### gf180 は対象外
 
-gf180 の `config_lib.jsonc`（10x10 / 46 グループ）は `util_make_templates_from_origin.py` の出力で、
+gf180 の `config_lib.jsonc`（10x10 / 46 グループ）は **削除済みの旧ツール** `util_make_templates_from_origin.py`（2026-08-06 に削除）の出力で、
 **a33 全リグレッション（229 セル・635,806 点）の比較基準**になっている。
 template を変えると過去の数値と直接突合できなくなるため据え置く（ISS-00191 (4) ＝案 A、ISS-00192）。
 本手順は **SKY130 以降の新規 PDK に適用**する。
@@ -344,5 +344,4 @@ template を変えると過去の数値と直接突合できなくなるため�
 - **ISS-00189** — 本ツールの設計・検討経緯、template 構造の解析結果
 - **ISS-00190** — `index_2`（テーブル軸）と `max_capacitance`（制約属性）の分離（検討事案）
 - `docs/SPEC_config_lib.md` §3.3 — index の有効桁（3 桁）
-- `charao/script/util_make_templates_from_origin.py` — orig `.lib` から作る旧方式（gf180 で使用）
-- `charao/script/util_make_templates_from_new.py` — `Cin x fanout` で作る旧方式
+- **旧方式の 3 本は 2026-08-06 に削除した**（ISS-00192）。`util_make_templates_from_origin.py`（orig `.lib` から生成）/ `util_make_templates_from_new.py`（`Cin x fanout` から生成）/ `util_assign_templates.py`（`template_kgn` の再割り当て）。本ツールが実測ベースで上位互換のため。履歴は tag `2.0.0.a04` 以前を参照。

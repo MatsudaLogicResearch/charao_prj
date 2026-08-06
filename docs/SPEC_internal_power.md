@@ -246,7 +246,7 @@ load fixed at 0 pF). The result is stored in `dict_list2["eintl"][slope][0.0]`.
 
 ---
 
-## 6. CSV extraction (`util_extract_lib_csv.py`)
+## 6. CSV extraction (`util_extract_lib2csv.py`)
 
 `_emit_table` recognizes 1D tables (`index_2` empty): for power_tin, it emits
 one row per `index_1` value with `index_2 = 0.0` placeholder. The resulting
@@ -254,7 +254,7 @@ one row per `index_1` value with `index_2 = 0.0` placeholder. The resulting
 
 ---
 
-## 7. CSV comparison (`util_compare_lib_csv.py`)
+## 7. CSV comparison (`util_compare_csv.py`)
 
 `power.csv` is compared twice, separated by pin direction:
 
@@ -291,5 +291,5 @@ orig vendor library exactly:
   `genFileLogic_PowerTinTrial1x`, `runExpectation`)
 - `charao/script/temp_testbench.sp.jp2` (`meas_energy=5` branches)
 - `charao/script/myExportLib.py` (input pin internal_power emission)
-- `charao/script/util_extract_lib_csv.py` (1D table support)
-- `charao/script/util_compare_lib_csv.py` (direction-split power compare)
+- `charao/script/util_extract_lib2csv.py` (1D table support)
+- `charao/script/util_compare_csv.py` (direction-split power compare)
