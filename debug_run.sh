@@ -186,9 +186,9 @@ _setup_args() {
     git+clone)
       # clone 済みの dir を送り、 サーバ側でそれを pip install する（lrPya 方式）
       REPO_ARG="--REPO_URL charao=${PIP_CLONE_DIR}"
-      SOURCE_ARG="--SOURCE ${SRC_DIR} ${TARGET_DIR} ${MYLOGIC_USER_SOURCE} ${PIP_CLONE_DIR%%/*}"
+      SOURCE_ARG="--SOURCE ${SRC_DIR} ${TARGET_DIR} ${MYLOGIC_USER_SOURCE} ${PIP_CLONE_DIR}"
       SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE .spice .spi .ngspice .sp .jsonc .py .jp2 .toml std_primitives.v"
-      SOURCE_MATCH_ARG="--SOURCE_MATCH ${MATCH} ${MYLOGIC_USER_MATCH} ${PIP_CLONE_DIR%%/*}"
+      SOURCE_MATCH_ARG="--SOURCE_MATCH ${MATCH} ${MYLOGIC_USER_MATCH} ${PIP_CLONE_DIR#./}"
       ;;
   esac
 
@@ -252,8 +252,18 @@ cmd_clean_all() {
 # ダーマツ環境では EXEC_MACHINE=server を毎回明示する。
 # 開発中（未 push の修正を試す）は EXEC_SCRIPT=local_repo を明示する。
 #=====================================================================
-CHARAO_GIT="git+https://github.com/MatsudaLogicResearch/charao_prj.git"
-PIP_CLONE_DIR="pip_pkg/charao_prj"
+CHARAO_GIT="${CHARAO_GIT:-git+https://github.com/MatsudaLogicResearch/charao_prj.git}"
+# EXEC_SCRIPT=git+clone の clone 先（ISS-00198）。
+#   既定は **RUN_NAME 別**（pip_pkg_<RUN_NAME>）。 RUN_NAME を分ければ clone 先も
+#   自動的に分かれるので、 同時実行しても競合しない。 env で明示指定もできる
+#   （CHARAO_TAG 別に持ちたいとき等。 例 PIP_CLONE_DIR=pip_pkg_2.0.0.a04）。
+#   ※ 先頭の ./ は必須。 pip は「パスらしい引数」（./foo、/abs、foo/bar）だけを
+#     ローカルパスとして扱い、 単純な名前（foo）は **パッケージ名として PyPI を探す**。
+#     ./ が無いと `pip install pip_pkg_run` が "No matching distribution found" になる。
+#   ※ 逆に --SOURCE_MATCH へ渡すときは ./ を外す（${PIP_CLONE_DIR#./}）。
+#     tar 内のパスは "pip_pkg_run/..." で ./ を含まないため、 そのまま渡すと
+#     フィルタが一致せず pyproject.toml まで除外されてしまう。
+PIP_CLONE_DIR="${PIP_CLONE_DIR:-./pip_pkg_${RUN_NAME}}"
 
 _resolve_exec() {
   EXEC_MACHINE_="${EXEC_MACHINE:-local}"
@@ -281,9 +291,16 @@ _prepare_script() {
   case "$EXEC_SCRIPT_" in
     local_repo) ;;
     git+clone)
-      if [ ! -d "${PIP_CLONE_DIR}/.git" ]; then
-        echo "===== clone: ${CHARAO_GIT#git+} @ ${CHARAO_TAG} -> ${PIP_CLONE_DIR} ====="
-        mkdir -p "$(dirname "${PIP_CLONE_DIR}")"
+      #--- clone 先は RUN_NAME 別（pip_pkg_<RUN_NAME>）なので同時実行でも競合しない。
+      #    既存 clone が別の TAG なら作り直す（.git の有無だけだと古いものを使い続ける）。
+      _have=""
+      if [ -d "${PIP_CLONE_DIR}/.git" ]; then
+        _have=$(git -C "${PIP_CLONE_DIR}" describe --tags --exact-match 2>/dev/null \
+                || git -C "${PIP_CLONE_DIR}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+      fi
+      if [ "${_have}" != "${CHARAO_TAG}" ]; then
+        echo "===== clone: ${CHARAO_GIT#git+} @ ${CHARAO_TAG} -> ${PIP_CLONE_DIR}${_have:+（既存 ${_have} を作り直し）} ====="
+        rm -rf "${PIP_CLONE_DIR}"
         set -x
         git clone --depth 1 --branch "${CHARAO_TAG}" "${CHARAO_GIT#git+}" "${PIP_CLONE_DIR}"
         { set +x; } 2>/dev/null
@@ -299,13 +316,18 @@ _prepare_script() {
 # local 実行用に charao を venv へ入れる（既に同じものが入っていれば何もしない）
 _pip_install_local() {
   local src="$1"
-  if python -I -c "import charao" 2>/dev/null; then
-    return
-  fi
-  echo "===== pip install ${src}（local 実行用）====="
-  set -x
-  python -m pip install "$src"
-  { set +x; } 2>/dev/null
+  #--- ISS-00198: 同時実行では複数ジョブが同じ venv へ pip install して競合する。
+  #    flock で直列化し、 ロック取得後に改めて import 可否を確認する。
+  mkdir -p tmp
+  (
+    flock 9
+    if ! python -I -c "import charao" 2>/dev/null; then
+      echo "===== pip install ${src}（local 実行用）====="
+      set -x
+      python -m pip install "$src"
+      { set +x; } 2>/dev/null
+    fi
+  ) 9>tmp/.pip.lock
 }
 
 # ── python 実行はここ 1 箇所 ────────────────────────────────────────────
@@ -474,21 +496,46 @@ _util_run() {
       2) args+=("$a") ;;
     esac
   done
-  # local_repo のときだけ charao を送る（git+pip / git+clone はサーバ側で pip install）
+  #--- ISS-00198: EXEC_SCRIPT に応じて charao の入手方法（REPO_ARG）と --SOURCE を決める。
+  #    以前は REPO_ARG を設定しておらず、 util の git+pip / git+clone は --REPO_URL が
+  #    空のまま走っていた（＝サーバ側で charao が入らず、 検証になっていなかった）。
   case "${EXEC_SCRIPT_}" in
-    local_repo) src="$src charao" ;;
-    git+clone)  src="$src ${PIP_CLONE_DIR%%/*}" ;;
+    local_repo)
+      REPO_ARG="--REPO_URL jsoncomment=jsoncomment,pydantic=pydantic,numpy=numpy,jinja2=jinja2"
+      src="$src charao" ;;
+    git+pip)
+      REPO_ARG="--REPO_URL charao=${CHARAO_GIT}@${CHARAO_TAG}" ;;
+    git+clone)
+      REPO_ARG="--REPO_URL charao=${PIP_CLONE_DIR}"
+      src="$src ${PIP_CLONE_DIR}" ;;
   esac
   PY_SRC="$src"
   PY_RSLT="$rslt"
   PY_INC=".lib .v .md .py .csv .toml"
-  PY_MATCH="${MATCH} charao rslt merged csv tmp ${PIP_CLONE_DIR%%/*}"
+  PY_MATCH="${MATCH} charao rslt merged csv tmp ${PIP_CLONE_DIR#./}"
+  #--- ISS-00198: server 実行では --RUN_NAME を渡す。 渡さないと lrPymRPC の
+  #    _source.tar.gz / _result.tar.gz が **カレント固定**になり、 同時実行で奪い合って
+  #    `tarfile.ReadError: empty file` になる（ダーマツ指摘）。
+  #    ただし --RUN_NAME を渡すと結果も <RUN_NAME>/ 配下へ展開されるので、 回収後に戻す。
   PY_RUN_NAME_OPT=""
-  # ISS-00198: ログ名も RUN_NAME で分ける（固定名だと同時実行で奪い合い、
-  #            先に gzip した側で消えて他が "No such file" で落ちる）
+  if [ "$EXEC_MACHINE_" = "server" ] && [ -n "${RUN_NAME}" ]; then
+    PY_RUN_NAME_OPT="--RUN_NAME ${RUN_NAME}"
+  fi
+  # ログ名も RUN_NAME で分ける（固定名だと同時実行で奪い合い、
+  # 先に gzip した側で消えて他が "No such file" で落ちる）
   PY_LOG="lrpymrpc_${tag}${RUN_NAME:+_$RUN_NAME}.log"
   _py_run "${args[@]}"
   if [ "$EXEC_MACHINE_" = "server" ]; then
+    #--- --RUN_NAME 指定で <RUN_NAME>/<出力> に落ちたものを、 本来の場所へ戻す
+    if [ -n "${PY_RUN_NAME_OPT}" ]; then
+      for r in $rslt; do
+        if [ -e "${RUN_NAME}/${r}" ]; then
+          mkdir -p "$(dirname "$r")"
+          rm -rf "$r"
+          mv "${RUN_NAME}/${r}" "$r"
+        fi
+      done
+    fi
     echo ""
     printf "  %-24s : %s traceback\n" "$tag" \
            "$(grep -c 'Traceback (most recent call last)' "$PY_LOG" 2>/dev/null || echo 0)"
