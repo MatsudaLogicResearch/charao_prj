@@ -104,6 +104,12 @@ def load_measured(lib_path):
     返り値:
       caps  : {cell: {pin: capacitance(pF)}}
       trans : {(cell, pin): {(slew, load): rise_transition}}
+
+    同じ (cell, pin) には related_pin / when が違う複数 arc がぶら下がる。 max_cap は
+    「その出力ピンが max_transition に達する負荷」なので、 **最も遅い arc（transition
+    最大）で決める**（ISS-00199）。 arc を区別せず上書きしていた頃は .lib の記載順で
+    最後に来た arc が勝っており、 o31ai_1 では最速の B1 が採用されて max_cap が
+    0.154pF（orig 0.0476pF の 3.2 倍）になっていた。
     """
     _units, _scales, _leak, _power, timing_rows = parse_lib_file(Path(lib_path))
     trans = {}
@@ -115,9 +121,12 @@ def load_measured(lib_path):
             continue
         try:
             k = (r["cell_name"], r["pin"])
-            trans.setdefault(k, {})[(float(i1), float(i2))] = float(r["value (ns)"])
+            g = (float(i1), float(i2))
+            v = float(r["value (ns)"])
         except (TypeError, ValueError):
             continue
+        d = trans.setdefault(k, {})
+        d[g] = v if g not in d else max(d[g], v)
 
     # capacitance は .lib を直接読む（CSV 化の対象外のため）
     caps = {}
@@ -206,10 +215,13 @@ def build_templates(index_1, groups, indent="    ", names=None,
             if lim is not None:
                 #--- Y 案: load_limit を config に書き残す。 4.analyze が読む
                 note = '   //@limit=%s' % _fmt([lim])
-            a(',{"kind":"%s","grid":"%dx%d","name":"%s","index_1":[%s],"index_2":[%s]}%s'
-              % (kind, len(gi1), n2, t, _fmt(gi1), _fmt(g), note))
+            #--- 桁揃えの空白は **引用符の外**に置く（"delay"     , が正）。
+            #    引用符の内側に入れると kind が 'delay     ' になり、 charao の
+            #    pydantic Literal と stage_analyze の正規表現の両方が外れる。
+            a(',{"kind":%-12s,"grid":"%dx%d","name":"%s","index_1":[%s],"index_2":[%s]}%s'
+              % ('"%s"' % kind, len(gi1), n2, t, _fmt(gi1), _fmt(g), note))
 
-    _emit("delay     ", '//---- delay : %d groups' % len(groups))
+    _emit("delay", '//---- delay : %d groups' % len(groups))
     L.append("\n")
     _emit("power_tout",
           '//---- power_tout : delay と同一（kind を分けないと measure が走らないため別エントリ）')
