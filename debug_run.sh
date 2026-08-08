@@ -33,6 +33,9 @@
 #   (INDEX1/INDEX2 とも未設定で全 grid 実行時は --keep_zero_new 自動付与)
 #   SRC_DIR="sample_src"      # default: sample_src (PDK SPICE / lib 等の src 群)
 #   TARGET_DIR="sample_target"# default: sample_target。旧版 sim 比較時は old_target に切替
+#   SPICE_PATH=<dir>          # cell netlist のルート。未指定なら std_*.jsonc の "spice_path"。
+#                             #   **ファイル名は変えず**ルートだけ差し替える（ISS-00205）。
+#                             #   例: プリレイアウト <-> PEX 版の切り替え
 #
 #   --- PDK 切替（未指定なら gf180）---
 #   FAB / VENDOR / REV        # charao の -f / -v / -r（target dir の 3 階層）
@@ -147,6 +150,10 @@ _setup_args() {
   [ -n "${MYLOGIC}" ] && MYLOGIC_OPT="--mylogic_only ${MYLOGIC}"          # ISS-00169: module 単位でセルを絞る
   WAVE_RAW_OPT=""
   [ -n "${WAVE_RAW}" ] && WAVE_RAW_OPT="--wave_raw"
+  # ISS-00205: cell netlist のルートを差し替える（ファイル名は同じまま）。
+  #            未指定なら各 std_*.jsonc の "spice_path" を使う。
+  SPICE_PATH_OPT=""
+  [ -n "${SPICE_PATH}" ] && SPICE_PATH_OPT="--spice_path ${SPICE_PATH}"
   DEBUG_STOP_OPT=""
   [ -n "${DEBUG_STOP}" ] && DEBUG_STOP_OPT="--debug_stop ${DEBUG_STOP}"   # ISS-00118 debug: stop after N sp
 
@@ -194,6 +201,11 @@ _setup_args() {
 
   # env override: SOURCE_ITEMS で --SOURCE の対象一式を上書き（未指定時は EXEC_SCRIPT 別の既定）
   [ -n "${SOURCE_ITEMS}" ] && SOURCE_ARG="--SOURCE ${SOURCE_ITEMS}"
+  #--- ISS-00204: SOURCE_INCLUDE_ITEMS で --SOURCE_INCLUDE を上書きし、 転送量を絞る。
+  #    既定は拡張子だけで拾うため sky130A では 59.93MB / 1,215 ファイルを毎回運んでいた
+  #    （SRAM マクロ 5.17MB・IO セル 0.79MB・montecarlo 1.22MB・未使用コーナー多数）。
+  #    --SOURCE_INCLUDE は **後方一致**なので、 ファイル名をそのまま並べれば個別指定できる。
+  [ -n "${SOURCE_INCLUDE_ITEMS}" ] && SOURCE_INCLUDE_ARG="--SOURCE_INCLUDE ${SOURCE_INCLUDE_ITEMS}"
   # env override: RESULT_ITEMS で --RESULT の回収対象を上書き（未指定時は rslt work。例: RESULT_ITEMS="rslt" で work 除外）
   RESULT_ARG="--RESULT ${RESULT_ITEMS:-rslt work}"
 }
@@ -393,7 +405,7 @@ _charao_run() {
     -f "${FAB}" -v "${VENDOR}" -r "${REV}" -g "${GROUP}" -u "${UV}" -p "${CORNER}" \
     -t "${TEMP}" --vdd "${VDD}" ${VNW_OPT} ${VPW_OPT} --target "${TARGET_DIR}" \
     ${cells_opt} ${MYLOGIC_OPT} ${INDEX1_OPT} ${INDEX2_OPT} ${MEAS_ONLY_OPT} \
-    ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT} ${OUT_OPT}
+    ${WAVE_RAW_OPT} ${DEBUG_STOP_OPT} ${MYLOGIC_USER_OPT} ${SPICE_PATH_OPT} ${OUT_OPT}
 
   #--- sim 中は同じ階層に置いた work を、 完了後に <RUN_NAME>/work へ移す
   #    （server 実行時の配置と揃える。 移動なので並列実行でも衝突しない）

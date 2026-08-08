@@ -81,6 +81,14 @@ def main():
   #    local 実行で並列に走らせると同じ ./rslt へ書いて衝突していた。
   #    未指定（空文字）なら config の値をそのまま使う（--vnw/--vpw と同じ流儀）。
   parser.add_argument('--result_path'   ,type=str               , default=""    , help='output directory for .lib/.v/.md (default: result_path in config_lib.jsonc).')
+  #--- ISS-00205: cell netlist の置き場所を CLI から差し替える。
+  #    jsonc の "spice_path" は 1 ファイルに 1 つで、PEX 版へ切り替えるには
+  #    target ツリーを複製して sed する必要があった（事故りやすい）。
+  #    **ファイル名は同じまま**でルートだけ差し替える運用にする（ダーマツ判断）。
+  #      プリレイアウト : ./sample_src/sky130A/libs.ref/sky130_fd_sc_hd/spice/sky130_fd_sc_hd.spice
+  #      PEX 版         : <--spice_path>/sky130_fd_sc_hd.spice
+  #    未指定（空文字）なら jsonc の値をそのまま使う（--result_path と同じ流儀）。
+  parser.add_argument('--spice_path'    ,type=str               , default=""    , help='PATH to cell netlist directory (default: spice_path in each std_*.jsonc). File names are unchanged, so use this to switch e.g. prelayout <-> PEX netlists.')
   parser.add_argument('--mylogic_user'  ,type=str               , default=""    , help='PATH to User-define Logic entries file(ex myloic_user.py).')
   parser.add_argument('--wave_raw'      , action='store_true'                  , help='Save ngspice transient result as sim.sp.raw (per-sim subdir). Saves DUT cell port via hierarchical reference V(XCELL.XDUT.<port>). ISS-00078.')
   parser.add_argument('--debug_stop'    , type=int              , default=0    , help='DEBUG: stop charao after N sp files generated (os._exit(0)). 0=disabled. Use for hang debug / sp inspection (ISS-00118).')
@@ -285,7 +293,7 @@ def main():
 
       #
       targetCell = Mlc(mls=targetLib, **info)
-      targetCell.set_spice_path(path_cell["spice_path"]) 
+      targetCell.set_spice_path(args.spice_path or path_cell["spice_path"])   #-- ISS-00205 
       targetCell.set_supress_message() 
       targetCell.add_template()
       targetCell.chk_netlist() 
@@ -330,7 +338,7 @@ def main():
 
       #
       targetCell = Mlc(mls=targetLib, **info)
-      targetCell.set_spice_path(path_cell["spice_path"])
+      targetCell.set_spice_path(args.spice_path or path_cell["spice_path"])   #-- ISS-00205
       targetCell.set_supress_message()
       _ltype = targetLib.logic_dict[targetCell.logic]["logic_type"]
       if   _ltype == "seq":     targetCell.add_ff()
@@ -384,7 +392,7 @@ def main():
 
       #
       targetCell = Mlc(mls=targetLib, **info)
-      targetCell.set_spice_path(path_cell["spice_path"])
+      targetCell.set_spice_path(args.spice_path or path_cell["spice_path"])   #-- ISS-00205
       targetCell.set_supress_message()
       targetCell.add_template()
       targetCell.chk_netlist()
@@ -430,7 +438,7 @@ def main():
 
       #
       targetCell = Mlc(mls=targetLib, **info)
-      targetCell.set_spice_path(path_cell["spice_path"]) 
+      targetCell.set_spice_path(args.spice_path or path_cell["spice_path"])   #-- ISS-00205 
       targetCell.set_supress_message() 
       targetCell.add_io()
       targetCell.add_template()
