@@ -132,6 +132,7 @@ class Stats:
         self.merged_nodes = 0     # 統合で消えたノード数
         self.merged_selfloop = 0  # 統合の結果 両端が同じになって落とした素子
         self.no_mesh = []         # (net, 端子数) メッシュが無く再接続できなかったネット
+        self.approx = []          # (net, kind, 端子数, ノード数) 端子>ノードで近似割当した箇所
 
 
 def convert_device(line, args, stats):
@@ -431,10 +432,17 @@ def reconnect_devices(lines, args, stats):
         for kinds_here, layer, terms in groups:
             pool = list(pools[(net, layer)])
             kind = "+".join(kinds_here)
-            if len(pool) != len(terms):
+            #--- 端子数 > ノード数は正常：内部ネットでは複数の端子が同じ拡散ノードを
+            #    共有する（例 buf_1 の内部ネットは端子 2・ノード 1＝両方が同じ点）。
+            #    その場合はノードを使い回す。**どの端子がどのノードかは SPICE 側に
+            #    情報が無いので割り当ては近似**になるため、必ず警告を出す。
+            if len(pool) > len(terms):
                 raise ValueError(
-                    "端子数とメッシュノード数が一致しない（net=%s kind=%s 端子=%d ノード=%d）"
+                    "メッシュノードが端子より多い（net=%s kind=%s 端子=%d ノード=%d）"
                     % (net, kind, len(terms), len(pool)))
+            if len(pool) < len(terms):
+                stats.approx.append((net, kind, len(terms), len(pool)))
+                pool = [pool[i % len(pool)] for i in range(len(terms))]
             if args.reconnect_order == "reverse":
                 pool.reverse()
             for (i, pos), node in zip(terms, pool):
@@ -533,6 +541,12 @@ def main(argv=None):
               % (stats.reconnect_terms, args.reconnect_order))
         for net, layer, kind, n in stats.reconnect:
             print("[INF]   %-6s layer %-3s -> %-5s : %d terminal(s)" % (net, layer, kind, n))
+        if stats.approx:
+            print("[WARN] approximate map  : %d net(s) have more terminals than mesh nodes"
+                  % len(stats.approx))
+            for net, kind, nt, nn in stats.approx:
+                print("[WARN]   %-8s %-5s : %d terminal(s) -> %d node(s) (shared diffusion; "
+                      "assignment is a guess)" % (net, kind, nt, nn))
         if stats.no_mesh:
             total = sum(n for _net, n in stats.no_mesh)
             print("[WARN] no resistance mesh : %d net(s) / %d terminal(s) left on the plain net"

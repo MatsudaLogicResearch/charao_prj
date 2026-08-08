@@ -53,10 +53,37 @@ def load_cells(args):
     return out
 
 
+#--- ISS-00207: 内部ネット（無名ネット）の抵抗が抽出されない上流バグへの当て木。
+#    klayout_pex/klayout/lvsdb_extractor.py の shapes_of_net() は
+#      requested_net_name = net.name
+#    としてネット名の文字列一致で形状を拾うが、形状側のプロパティには
+#    build_all_nets(netname_prop="net") が **expanded_name**（無名なら "$2"）を書く。
+#    無名ネットは net.name が空文字なので 1 つも一致せず、regions が空 →
+#    抵抗網が生成されない（容量側は影響を受けない）。
+#    ここでは net.expanded_name() を渡すよう差し替えてから kpex の CLI を起動する。
+PATCH_CODE = r'''
+import sys, runpy
+import klayout_pex.klayout.lvsdb_extractor as _m
+
+_C = _m.KLayoutExtractionContext
+_orig = _C.shapes_of_net
+
+def _patched(self, gds_pair, net):
+    if not isinstance(net, str) and not net.name:
+        net = net.expanded_name()      # 無名ネットは "$<cluster_id>" で引く
+    return _orig(self, gds_pair, net)
+
+_C.shapes_of_net = _patched
+sys.argv[0] = "klayout_pex"
+runpy.run_module("klayout_pex", run_name="__main__")
+'''
+
+
 def run_one(cell, args):
     """1 セル分の kpex を実行し (ok, 経過秒, メッセージ) を返す。"""
     out_spice = os.path.join(args.out_dir, "%s_pex.spice" % cell[len(args.prefix):])
-    cmd = [sys.executable, "-m", "klayout_pex",
+    launcher = ["-c", PATCH_CODE] if args.patch_unnamed_nets else ["-m", "klayout_pex"]
+    cmd = [sys.executable] + launcher + [
            "--pdk", args.pdk,
            "--gds", args.gds,
            "--cell", cell,
@@ -99,6 +126,10 @@ def main(argv=None):
     ap.add_argument("--schematic", help="LVS 比較に使う回路図ネットリスト（cdl 等）。"
                                         "未指定なら kpex が dummy を自動生成する")
     ap.add_argument("--halo", help="kpex の --halo（未指定なら tech 既定）")
+    ap.add_argument("--patch_unnamed_nets", action="store_true",
+                    help="ISS-00207: 無名ネット（セル内部ネット）の抵抗が抽出されない上流バグを"
+                         "実行時に当て木する（shapes_of_net に expanded_name を渡す）。"
+                         "上流が直ったら不要になる")
     ap.add_argument("--keep_going", action="store_true",
                     help="失敗しても残りのセルを続ける（既定は最後まで走ってから集計）")
     args = ap.parse_args(argv)
