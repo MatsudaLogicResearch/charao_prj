@@ -105,16 +105,27 @@ def wrap_line(line, width=100):
     return out
 
 
-def read_ref_ports(ref_path):
-    """元の spice ネットリストから {subckt 名: [ポート順]} を読む。"""
-    ports = {}
+def read_ref_subckts(ref_path):
+    """元の spice ネットリストから {subckt 名: {"ports": [...], "lines": [...]}} を読む。
+
+    `lines` は `.subckt` 〜 `.ends` を含む定義そのもの（--fallback_ref で複製する用）。
+    """
+    defs = {}
+    cur = None
     with open(ref_path, encoding="utf-8", errors="replace") as fp:
         for line in join_continuations(fp.readlines()):
-            if line.lower().startswith(".subckt"):
+            low = line.lower().lstrip()
+            if low.startswith(".subckt"):
                 tok = line.split()
                 if len(tok) >= 2:
-                    ports[tok[1]] = tok[2:]
-    return ports
+                    cur = tok[1]
+                    defs[cur] = {"ports": tok[2:], "lines": [line]}
+                continue
+            if cur is not None:
+                defs[cur]["lines"].append(line)
+                if low.startswith(".ends"):
+                    cur = None
+    return defs
 
 
 class Stats:
@@ -133,6 +144,11 @@ class Stats:
         self.merged_selfloop = 0  # 統合の結果 両端が同じになって落とした素子
         self.no_mesh = []         # (net, 端子数) メッシュが無く再接続できなかったネット
         self.approx = []          # (net, kind, 端子数, ノード数) 端子>ノードで近似割当した箇所
+        self.lod = 0              # LOD（sa/sb/sd）を付けたデバイス数
+        self.port_filled = []     # (cell, ports) kpex がポートを出さず --ref から補ったセル
+        self.fallback = []        # --fallback_ref で元定義を複製したセル
+        self.cap_moved = []       # (nets, 本数) 容量をメッシュノードへ張り替えた
+        self.floating = []        # 容量にしか繋がらないノード（DC パス無し）
 
 
 def convert_device(line, args, stats):
@@ -169,6 +185,12 @@ def convert_device(line, args, stats):
     for key in DEV_PARAM_ORDER:
         if key in out_params:
             body += " %s=%s" % (key, out_params[key])
+    #--- ISS-00206: LOD（拡散長ストレス効果）。kpex は sa/sb/sd を出さないので、
+    #    必要なら cdl の値を足す。BSIM4 は SA/SB が 0 だとストレス計算をスキップする。
+    if args.lod_vals:
+        sa, sb, sd = args.lod_vals
+        body += " sa=%s sb=%s sd=%s" % (sa, sb, sd)
+        stats.lod += 1
     stats.dev += 1
     return body
 
@@ -266,7 +288,7 @@ def merge_zero_nodes(lines, stats):
     return kept
 
 
-def process_file(path, ref_ports, args, stats):
+def process_file(path, ref_ports, ref_defs, args, stats):
     with open(path, encoding="utf-8", errors="replace") as fp:
         lines = join_continuations(fp.readlines())
 
@@ -274,13 +296,21 @@ def process_file(path, ref_ports, args, stats):
     cell = None
     subs_nodes = set()   # 現 subckt 内で見た VSUBS 系ノード
     port_names = []
+    skip_until_ends = False   # --fallback_ref で元定義に差し替えた subckt の本体を読み飛ばす
 
     for line in lines:
         stripped = line.strip()
 
         # --- コメント・空行はそのまま ---
         if not stripped or stripped.startswith("*"):
-            out.append(line)
+            if not skip_until_ends:
+                out.append(line)
+            continue
+
+        #--- --fallback_ref で差し替えた subckt は .ends まで読み飛ばす
+        if skip_until_ends:
+            if stripped.lower().startswith(".ends"):
+                skip_until_ends = False
             continue
 
         # --- (1) 基板ポート名の置換（全行が対象） ---
@@ -300,7 +330,20 @@ def process_file(path, ref_ports, args, stats):
             reordered = False
             if cell in ref_ports:
                 want = ref_ports[cell]
-                if sorted(want) != sorted(port_names):
+                #--- kpex がポートを 1 つも出さないセルがある（fill / tap の 9 セル）。
+                #    元定義が空（.subckt 〜 .ends のみ＝トランジスタ 0 個）で、
+                #    ピン形状が無いため kpex が top_lvl_pins を立てられないもの。
+                #    既定は **--ref のポートを補って寄生を残す**。
+                #    --fallback_ref なら **元定義をそのまま複製**する。
+                if not port_names:
+                    if args.fallback_ref:
+                        stats.fallback.append(cell)
+                        out.extend(ref_defs[cell]["lines"])
+                        skip_until_ends = True
+                        continue
+                    stats.port_filled.append((cell, list(want)))
+                    port_names = list(want)
+                elif sorted(want) != sorted(port_names):
                     raise ValueError(
                         "ポート集合が元 spice と一致しない\n"
                         "  cell = %s\n  kpex = %s\n  ref  = %s" % (cell, port_names, want))
@@ -316,11 +359,19 @@ def process_file(path, ref_ports, args, stats):
         if stripped.lower().startswith(".ends"):
             # --- 浮いている基板ノードを結線する ---
             floating = sorted(n for n in subs_nodes if n not in port_names)
+            #--- 結線先は **そのセルが実際に持つポート**から選ぶ。
+            #    `--sub_port`（既定 VNB）を持たないセルがある（tap 系＝ポートが
+            #    VGND / VPWR だけ等）。そこへ畳むと結線先自体が浮きノードになる。
+            if args.sub_port in port_names:
+                tie = args.sub_port
+            else:
+                gnd = [p for p in port_names if p.upper() in ("VGND", "VSS", "GND")]
+                tie = gnd[0] if gnd else (port_names[0] if port_names else args.sub_port)
             for node in floating:
-                #--- merge モードでは値 0 で出し、union-find で基板ポートへ畳む
+                #--- merge モードでは値 0 で出し、union-find で結線先へ畳む
                 val = "0" if args.zero_mode == "merge" else args.rmin
-                out.append("R%s_fix %s %s %s" % (node.lower(), node, args.sub_port, val))
-                stats.subs_fix.append((cell, node))
+                out.append("R%s_fix %s %s %s" % (node.lower(), node, tie, val))
+                stats.subs_fix.append((cell, node, tie))
             out.append(stripped)
             cell = None
             continue
@@ -452,6 +503,62 @@ def reconnect_devices(lines, args, stats):
                 assigned += 1
             stats.reconnect.append((net, layer, kind, len(terms)))
     stats.reconnect_terms += assigned
+
+    #--- ⚠️ 容量も張り替える。kpex は容量を **元のネット名**へ貼り、抵抗だけが
+    #    ネットをサブノードへ分割する。デバイスだけ張り替えると、内部ネットの
+    #    素のネット名（例 `$7`）が **容量にしか繋がらない浮きノード**になり、
+    #    ngspice が `singular matrix: check node ...` で DC 動作点に失敗する
+    #    （xor3_4 で実際に発生）。ポートは外部接続があるので対象外。
+    #    どのメッシュノードに属するかの情報は無いので **1 点へ集約する近似**だが、
+    #    標準セル単体では τ が transition の 400〜600 分の 1 で影響しない（ISS-00202）。
+    anchor = {}
+    for (net, _layer), pool in pools.items():
+        if net in ports:
+            continue
+        if net not in anchor:
+            anchor[net] = pool[0]
+    moved = 0
+    for i, line in enumerate(lines):
+        tok = line.split()
+        if not tok or tok[0][0].upper() != "C" or len(tok) < 4:
+            continue
+        changed = False
+        for j in (1, 2):
+            if tok[j] in anchor:
+                tok[j] = anchor[tok[j]]
+                changed = True
+        if changed:
+            lines[i] = " ".join(tok)
+            moved += 1
+    if moved:
+        stats.cap_moved.append((sorted(anchor), moved))
+    return lines
+
+
+def check_floating(lines, stats):
+    """容量にしか繋がらないノード（＝DC パスが無い）を検出して報告する。
+
+    `singular matrix` は ngspice の警告としてしか出ず、charao 側では
+    `.meas` 失敗としてしか見えないため、ネットリスト段階で拾う。
+    """
+    ports = set()
+    inR = set(); inC = set(); inX = set()
+    for line in lines:
+        tok = line.split()
+        if not tok:
+            continue
+        head = tok[0][0].upper()
+        if tok[0].lower() == ".subckt":
+            ports.update(tok[2:])
+        elif head == "R" and len(tok) >= 3:
+            inR.update(tok[1:3])
+        elif head == "C" and len(tok) >= 3:
+            inC.update(tok[1:3])
+        elif head == "X":
+            inX.update(tok[1:5])
+    bad = sorted(n for n in inC if n not in inR and n not in inX and n not in ports)
+    if bad:
+        stats.floating.extend(bad)
     return lines
 
 
@@ -478,15 +585,42 @@ def main(argv=None):
                     help="config_lib.jsonc / all.spice の .option scale（既定 1e-6）")
     ap.add_argument("--allow_missing_ref", action="store_true",
                     help="--ref に無い subckt があってもエラーにしない（ポート順は kpex のまま）")
+    ap.add_argument("--fallback_ref", action="store_true",
+                    help="kpex がポートを 1 つも出さないセル（fill / tap 等）で、"
+                         "**元 spice の定義をそのまま複製**する。"
+                         "既定は --ref のポートを補って kpex の寄生を残す")
     ap.add_argument("--reconnect", action="store_true",
                     help="デバイス端子を抵抗メッシュの `<net>.P<n>.<layer>` ノードへ張り替える"
                          "（ISS-00205。既定 off ＝ kpex の出力どおり＝抵抗が電流経路に入らない）")
+    #--- ISS-00206: kpex も spice/ 版も sa/sb/sd を持たないため LOD が無効になっている。
+    #    cdl（SkyWater 純正）は全セル一律 sa=0.265 sb=0.265 sd=0.28 を持つ。
+    #    足すと pMOS が強く・nMOS が弱くなる（ku0 の符号が逆）ため、
+    #    orig .lib がどちらで作られたか未確定のうちは既定 off とする。
+    ap.add_argument("--lod", default="",
+                    help="LOD（拡散長ストレス）の sa,sb,sd をカンマ区切りで与える"
+                         "（例 --lod 0.265,0.265,0.28。sky130 の cdl 値）。"
+                         "未指定なら付けない＝BSIM4 はストレス計算をスキップする（ISS-00206）")
     ap.add_argument("--reconnect_order", choices=["index", "reverse"], default="index",
                     help="--reconnect で端子へノードを割り当てる順序。並び順の任意性が"
                          "結果に効くかを見るために reverse を用意している（既定 index）")
     args = ap.parse_args(argv)
 
-    ref_ports = read_ref_ports(args.ref) if args.ref else {}
+    args.lod_vals = None
+    if args.lod:
+        parts = [x.strip() for x in args.lod.split(",")]
+        if len(parts) != 3:
+            print("[ERR] --lod は sa,sb,sd の 3 値をカンマ区切りで指定する: %r" % args.lod,
+                  file=sys.stderr)
+            return 1
+        try:
+            [float(x) for x in parts]
+        except ValueError:
+            print("[ERR] --lod の値が数値でない: %r" % args.lod, file=sys.stderr)
+            return 1
+        args.lod_vals = parts
+
+    ref_defs = read_ref_subckts(args.ref) if args.ref else {}
+    ref_ports = {k: v["ports"] for k, v in ref_defs.items()}
     if args.ref and not ref_ports:
         print("[ERR] --ref から .subckt を 1 つも読めなかった: %s" % args.ref, file=sys.stderr)
         return 1
@@ -502,13 +636,14 @@ def main(argv=None):
             print("[ERR] 入力が無い: %s" % path, file=sys.stderr)
             return 1
         try:
-            lines = process_file(path, ref_ports, args, stats)
+            lines = process_file(path, ref_ports, ref_defs, args, stats)
             #--- 順序が重要：先に統合すると短絡された `.P*` ノードが畳まれ、
             #    端子とメッシュノードの対応が取れなくなる。再接続してから統合する。
             if args.reconnect:
                 lines = reconnect_devices(lines, args, stats)
             if args.zero_mode == "merge":
                 lines = merge_zero_nodes(lines, stats)
+            check_floating(lines, stats)
             body.extend(lines)
         except ValueError as exc:
             print("[ERR] %s: %s" % (path, exc), file=sys.stderr)
@@ -523,9 +658,9 @@ def main(argv=None):
     # --- 整形サマリ ---
     print("[INF] output          : %s" % args.out)
     print("[INF] scale           : %g (len /scale, area /scale^2)" % args.scale)
-    for cell, reordered in stats.subckt:
-        print("[INF] subckt          : %s (port order %s)"
-              % (cell, "reordered to ref" if reordered else "unchanged"))
+    n_re = sum(1 for _c, r in stats.subckt if r)
+    print("[INF] subckt          : %d cell(s)  (port order reordered : %d)"
+          % (len(stats.subckt), n_re))
     print("[INF] device M -> X   : %d" % stats.dev)
     if args.zero_mode == "merge":
         print("[INF] resistor        : %d (zero-ohm merged : %d -> %d node(s) collapsed, "
@@ -535,12 +670,38 @@ def main(argv=None):
         print("[INF] resistor        : %d (zero-ohm replaced by %s : %d)"
               % (stats.res, args.rmin, stats.res_zero))
     print("[INF] capacitor       : %d" % stats.cap)
+    if stats.port_filled:
+        print("[WARN] no port from kpex : %d cell(s) -> ports taken from --ref (parasitics kept)"
+              % len(stats.port_filled))
+        print("[WARN]   %s" % " ".join(c for c, _p in stats.port_filled))
+    if stats.fallback:
+        print("[WARN] fallback to ref   : %d cell(s) -> original definition copied verbatim"
+              % len(stats.fallback))
+        print("[WARN]   %s" % " ".join(stats.fallback))
+    if stats.cap_moved:
+        nets = sorted({n for ns, _c in stats.cap_moved for n in ns})
+        total = sum(c for _ns, c in stats.cap_moved)
+        print("[INF] cap re-anchored : %d line(s) on %d internal net(s)" % (total, len(nets)))
+    if stats.floating:
+        print("[WARN] floating node    : %d node(s) reachable only through capacitors"
+              % len(stats.floating))
+        print("[WARN]   %s" % " ".join(stats.floating[:12]))
+        print("[WARN]   ngspice は `singular matrix` で DC 動作点に失敗する")
+    if args.lod_vals:
+        print("[INF] LOD             : sa=%s sb=%s sd=%s applied to %d device(s)"
+              % (args.lod_vals[0], args.lod_vals[1], args.lod_vals[2], stats.lod))
     print("[INF] %-6s -> %-6s: %d node(s) renamed" % (args.sub_alias, args.sub_port, stats.renamed))
     if args.reconnect:
         print("[INF] reconnect      : %d terminals (order=%s)"
               % (stats.reconnect_terms, args.reconnect_order))
-        for net, layer, kind, n in stats.reconnect:
-            print("[INF]   %-6s layer %-3s -> %-5s : %d terminal(s)" % (net, layer, kind, n))
+        #--- セル数が多いと 1 行/ネットでは埋まるので層×種別で集約する
+        agg = defaultdict(lambda: [0, 0])
+        for _net, layer, kind, n in stats.reconnect:
+            agg[(layer, kind)][0] += 1
+            agg[(layer, kind)][1] += n
+        for (layer, kind), (nets, terms) in sorted(agg.items()):
+            print("[INF]   layer %-3s -> %-10s : %5d net(s) / %6d terminal(s)"
+                  % (layer, kind, nets, terms))
         if stats.approx:
             print("[WARN] approximate map  : %d net(s) have more terminals than mesh nodes"
                   % len(stats.approx))
@@ -554,11 +715,14 @@ def main(argv=None):
             print("[WARN]   %s" % " ".join("%s(%d)" % (net, n) for net, n in stats.no_mesh))
             print("[WARN]   kpex はポート以外のネットの抵抗を抽出しない（内部ネットは寄生 R 無し）")
     if stats.subs_fix:
-        for cell, node in stats.subs_fix:
-            print("[INF] floating node   : %s.%s tied to %s via %s"
-                  % (cell, node, args.sub_port, args.rmin))
+        #--- セル数が多いと 1 行/セルでは埋まるので集約する
+        by_tie = defaultdict(list)
+        for cell, node, tie in stats.subs_fix:
+            by_tie[(node, tie)].append(cell)
+        for (node, tie), cells in sorted(by_tie.items()):
+            print("[INF] substrate tie   : %s -> %s  (%d cell(s))" % (node, tie, len(cells)))
     else:
-        print("[INF] floating node   : none")
+        print("[INF] substrate tie   : none")
     return 0
 
 
