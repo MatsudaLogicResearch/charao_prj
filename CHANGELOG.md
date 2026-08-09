@@ -4,6 +4,29 @@
 
 ---
 
+## [2.0.0.a06] 2026-08-09
+
+SKY130 の template を `util_make_template4json.py` で作り直した。
+
+### 変更
+
+- `sample_target/sky130/fd/sc_hd/` : `3.scan` -> sim/`4.analyze` -> `5.build` を通して
+  template を更新した。プリレイアウト netlist で 181 セル・全巡回 0 failures、
+  **3 巡（43 -> 153 -> 173/173）で収束**。グループ数 24（許容 5.0%）、
+  `config_lib.jsonc` の template は 53 で従来と同数だが、**`template_kgn` は
+  std_comb 62 セル・std_seq 8 セルで割り当てが変わった**。
+  `5.build` を最後に通したのが 2026-08-02 で、ISS-00199（`max_cap` を最悪 arc で決める）の
+  修正が `4.analyze` までしか反映されていなかったため。本版で初めて完全に行き渡る。
+
+### 確認
+
+- 露払い（181 セル × 2x2 corner × **全 measure**）で **0 failures / 0 traceback /
+  .lib 181 セル**。`cell_rise` 1215・`rise_power` 3314・`rise_constraint` 120・
+  `cell_leakage_power` 182 等、全 measure の出力を確認した。
+  ISS-00188 の副作用（`power_tin` が `index_1[0]` で落ちる）の再発も無し。
+
+---
+
 ## [2.0.0.a05] 2026-08-09
 
 kpex（KLayout-PEX）による寄生抽出を charao へ取り込む一連のフローを追加した。
