@@ -4,6 +4,34 @@
 
 ---
 
+## [2.0.0.a05] 2026-08-09
+
+kpex（KLayout-PEX）による寄生抽出を charao へ取り込む一連のフローを追加した。
+ISS-00201（駆動サイズ依存の系統差）の主因が **セル内配線抵抗が sim に入っていなかったこと**
+であると特定し、`inv_16` の cell_rise 比が 0.825 → 0.929 まで改善することを確認した。
+
+### 追加
+
+- `tools/gds2pex.py` : GDS から複数セルを一括で PEX 抽出する（1 セルずつ lrPymRPC を呼ぶと
+  38 秒/セルのところ 10 セル 23 秒）。`--patch_unnamed_nets` で上流 pip 版（0.3.12）の
+  「内部ネットの抵抗が出ない」バグを実行時に回避する（ISS-00207。上流 main では 50a0549b で修正済み）
+- `tools/pex2spice.py` : kpex 出力を charao が読める SPICE へ変換する。ポート名・順序の是正、
+  M→X 変換、W/L/AS/AD/PS/PD の scale 換算、0Ω の扱い（`--zero_mode`）、デバイス端子の
+  メッシュ再接続（`--reconnect`＝ISS-00205）、容量の再接続（ISS-00214）、LOD の付与
+  （`--lod`＝ISS-00206）、浮きノード検査
+- `charao` : `--spice_path` を追加。cell netlist のルートを CLI で差し替える。**ファイル名は
+  変えない**ため target ツリーの複製と sed が不要になる（ISS-00205）
+- `debug_run.sh` : `SPICE_PATH` env
+- `docs/HOWTO_kpex.md` : 抽出から受け渡しまでの手順、上流の制限、踏んだ落とし穴
+
+### 注意
+
+kpex 側に未解決の制約がある（ISS-00208 の LVS 等価性、ISS-00210 のメッシュ粒度、
+ISS-00212 の `xor3_4`、ISS-00213 の `dfxtp_4` に 128GΩ）。**単段セルでは実用できるが、
+多段・順序セルは要検証**。
+
+---
+
 ## [2.0.0.a04] 2026-08-05
 
 実測から templates を決める `util_make_templates.py` を追加し、SKY130 をその出力へ移行した。
