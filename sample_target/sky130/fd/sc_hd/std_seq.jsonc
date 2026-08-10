@@ -81,13 +81,13 @@
     "spice":"sky130_fd_sc_hd.spice", "cell":"sky130_fd_sc_hd__sdfxtp_4","logic":"SDFF_PC","area":1.0,
     "ports_dict":{"CLK": "c0", "D": "i0", "SCD": "i1", "SCE": "i2", "VGND": "VGND", "VNB": "VNB", "VPB": "VPB", "VPWR": "VPWR", "Q": "o0"}},
   {"template_kgn":[["leakage","0x0","d000"],["const","7x7","d000"],["delay","7x7","d0p154"],["power_tout","7x7","d0p154"],["power_tin","7x0","d000"],["passive","7x0","d000"],["mpw","3x0","d000"]],
-    "spice":"sky130_fd_sc_hd.spice", "cell":"sky130_fd_sc_hd__sdlclkp_1","logic":"ICG_PC","area":1.0,
+    "spice":"sky130_fd_sc_hd.spice", "cell":"sky130_fd_sc_hd__sdlclkp_1","vout_infos":{"o0":{"node":"a_464_315#"}},"logic":"ICG_PC","area":1.0,
     "ports_dict":{"CLK": "c0", "GATE": "i0", "SCE": "i1", "VGND": "VGND", "VNB": "VNB", "VPB": "VPB", "VPWR": "VPWR", "GCLK": "o0"}},
   {"template_kgn":[["leakage","0x0","d000"],["const","7x7","d000"],["delay","7x7","d0p31"],["power_tout","7x7","d0p31"],["power_tin","7x0","d000"],["passive","7x0","d000"],["mpw","3x0","d000"]],
-    "spice":"sky130_fd_sc_hd.spice", "cell":"sky130_fd_sc_hd__sdlclkp_2","logic":"ICG_PC","area":1.0,
+    "spice":"sky130_fd_sc_hd.spice", "cell":"sky130_fd_sc_hd__sdlclkp_2","vout_infos":{"o0":{"node":"a_465_315#"}},"logic":"ICG_PC","area":1.0,
     "ports_dict":{"CLK": "c0", "GATE": "i0", "SCE": "i1", "VGND": "VGND", "VNB": "VNB", "VPB": "VPB", "VPWR": "VPWR", "GCLK": "o0"}},
   {"template_kgn":[["leakage","0x0","d000"],["const","7x7","d000"],["delay","7x7","d0p621"],["power_tout","7x7","d0p621"],["power_tin","7x0","d000"],["passive","7x0","d000"],["mpw","3x0","d000"]],
-    "spice":"sky130_fd_sc_hd.spice", "cell":"sky130_fd_sc_hd__sdlclkp_4","logic":"ICG_PC","area":1.0,
+    "spice":"sky130_fd_sc_hd.spice", "cell":"sky130_fd_sc_hd__sdlclkp_4","vout_infos":{"o0":{"node":"a_465_315#"}},"logic":"ICG_PC","area":1.0,
     "ports_dict":{"CLK": "c0", "GATE": "i0", "SCE": "i1", "VGND": "VGND", "VNB": "VNB", "VPB": "VPB", "VPWR": "VPWR", "GCLK": "o0"}},
 ]
 }
