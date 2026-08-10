@@ -273,26 +273,26 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
 {%- if   param.arc_oirc[0] in ["r","f"] %}
 *** output change time（ISS-00138: hold は Q 遷移が CLK edge=_t_clk4 で起きるため _t_clk4 も min に含める）
 .MEASURE TRAN chg_out
-+ WHEN v(VOUT)={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_clk4,_t_rel0,_t_in0) - 2*_tslew_min}
++ WHEN v({{param.vout_path}})={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_clk4,_t_rel0,_t_in0) - 2*_tslew_min}
 {%- endif %}
 
 {%- if   (param.arc_oirc[0] in ["r","f"]) and (param.arc_oirc[3] in ["r","f","p","n"]) %}
 .MEASURE TRAN prop_clk_out
 + TRIG v(VCLK) VAL={{param.prop_vth_oirc[3]}} {{param.arc_oirc4measure[3]}}=1 TD={min(_t_clk3, _t_in0) - 2*_tslew_min}
-+ TARG v({{param.vout_node if (param.vout_node and param.setup_kind) else "VOUT"}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_clk3, _t_in0) - 2*_tslew_min}
++ TARG v({{param.vout_judge_path}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_clk3, _t_in0) - 2*_tslew_min}
 {%- endif %}
 
 {%- if   (param.arc_oirc[0] in ["r","f"]) and (param.arc_oirc[2] in ["r","f","p","n"]) %}
 .MEASURE TRAN prop_rel_out
 + TRIG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc4measure[2]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
-+ TARG v(VOUT) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
++ TARG v({{param.vout_path}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
 {%- endif %}
 
 {%- if   (param.arc_oirc[0] in ["r","f"]) and (param.arc_oirc[1] in ["r","f"]) and (param.pin_oirc[1] != "") and (param.pin_oirc[2] != "") and (param.pin_oirc[1] != param.pin_oirc[2]) %}
 *** Prop delay (in->out) -- LAT setup/hold 用（input pin と rel pin が別 pin の場合のみ）。 combinational では prop_rel_out を使用
 .MEASURE TRAN prop_in_out
 + TRIG v(VIN)  VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc4measure[1]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
-+ TARG v({{param.vout_node if (param.vout_node and param.setup_kind) else "VOUT"}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
++ TARG v({{param.vout_judge_path}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_rel0, _t_in0) - 2*_tslew_min}
 {%- endif %}
 
 
@@ -300,8 +300,8 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
 {%- if  param.arc_oirc[0] in ["r","f"] %}
 *** Trans delay（ISS-00138: Q 遷移は CLK edge=_t_clk4 で起きるため _t_clk4 も min に含める）
 .MEASURE TRAN trans_out
-+ TRIG v(VOUT) VAL={{param.tran_v0_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_clk4,_t_rel0,_t_in0) - 2*_tslew_min}
-+ TARG v(VOUT) VAL={{param.tran_v1_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_clk4,_t_rel0,_t_in0) - 2*_tslew_min}
++ TRIG v({{param.vout_path}}) VAL={{param.tran_v0_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_clk4,_t_rel0,_t_in0) - 2*_tslew_min}
++ TARG v({{param.vout_path}}) VAL={{param.tran_v1_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_clk4,_t_rel0,_t_in0) - 2*_tslew_min}
 {%- endif %}
 
 {#-- ISS-00133: min_pulse 保存値 = パルス源(VCLK/VREL)の能動相幅を 0.5*VDD で実測 (p=rise->fall, n=fall->rise) --#}
@@ -345,12 +345,12 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
 *** ISS-00133 judge_dly setup LAT: TRIG VIN(D) -> TARG VOUT(Q)
 .MEASURE TRAN judge_dly
 + TRIG v(VIN)  VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc4measure[1]}}=1 TD={_t_clk3 - 2*_tslew_min}
-+ TARG v({{param.vout_node if (param.vout_node and param.setup_kind) else "VOUT"}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={_t_clk3 - 2*_tslew_min}
++ TARG v({{param.vout_judge_path}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={_t_clk3 - 2*_tslew_min}
   {%- else %}
 *** ISS-00133 judge_dly setup FF: TRIG VCLK(CLK) -> TARG VOUT(Q)
 .MEASURE TRAN judge_dly
 + TRIG v(VCLK) VAL={{param.prop_vth_oirc[3]}} {{param.arc_oirc4measure[3]}}=1 TD={_t_clk3 - 2*_tslew_min}
-+ TARG v({{param.vout_node if (param.vout_node and param.setup_kind) else "VOUT"}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={_t_clk3 - 2*_tslew_min}
++ TARG v({{param.vout_judge_path}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={_t_clk3 - 2*_tslew_min}
   {%- endif %}
 
 {%- elif param.setup_kind == "hold" %}
@@ -361,8 +361,8 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
   {%- if param.is_lat %}
 *** ISS-00153 hold LAT/ICG: 保持型（closure 後 Q 無遷移が成功）は degradation 不可 → removal と同方式の
 ***            電圧判定。 judge_vlt_max/min（closure 後窓 _t_clk4.._tsim_end、 vout_infos で観測ノード置換可）。
-.MEASURE TRAN judge_vlt_max MAX V({{param.vout_node if (param.vout_node and param.setup_kind) else "VOUT"}}) FROM={_t_clk4} TO={_tsim_end}
-.MEASURE TRAN judge_vlt_min MIN V({{param.vout_node if (param.vout_node and param.setup_kind) else "VOUT"}}) FROM={_t_clk4} TO={_tsim_end}
+.MEASURE TRAN judge_vlt_max MAX V({{param.vout_judge_path}}) FROM={_t_clk4} TO={_tsim_end}
+.MEASURE TRAN judge_vlt_min MIN V({{param.vout_judge_path}}) FROM={_t_clk4} TO={_tsim_end}
   {%- else %}
 *** ISS-00138: FF hold は prop_clk_out の degradation で判定するため judge_vlt_max/min は不要。
 ***            MAX/MIN measure は autostop を無効化するため出さない（autostop 維持で高速化）。
@@ -377,12 +377,12 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
 *** ISS-00133 judge_dly recovery LAT: TRIG VREL(async) -> TARG VOUT(Q)
 .MEASURE TRAN judge_dly
 + TRIG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc4measure[2]}}=1 TD={_t_clk3 - 2*_tslew_min}
-+ TARG v({{param.vout_node if (param.vout_node and param.setup_kind) else "VOUT"}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={_t_clk3 - 2*_tslew_min}
++ TARG v({{param.vout_judge_path}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={_t_clk3 - 2*_tslew_min}
   {%- else %}
 *** ISS-00133 judge_dly recovery FF: TRIG VCLK(CLK) -> TARG VOUT(Q)
 .MEASURE TRAN judge_dly
 + TRIG v(VCLK) VAL={{param.prop_vth_oirc[3]}} {{param.arc_oirc4measure[3]}}=1 TD={_t_clk3 - 2*_tslew_min}
-+ TARG v({{param.vout_node if (param.vout_node and param.setup_kind) else "VOUT"}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={_t_clk3 - 2*_tslew_min}
++ TARG v({{param.vout_judge_path}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={_t_clk3 - 2*_tslew_min}
   {%- endif %}
 
 {%- elif param.setup_kind == "removal" %}
@@ -391,8 +391,8 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
 + TRIG v(VCLK) VAL={{param.prop_vth_oirc[3]}} {{param.arc_oirc4measure[3]}}=1 TD={_t_clk3 - 2*_tslew_min}
 + TARG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc4measure[2]}}=1 TD={_t_clk3 - 2*_tslew_min}
 *** ISS-00133 judge_vlt_max/min (V(VOUT) MAX/MIN @ _t_clk4..+10ns)
-.MEASURE TRAN judge_vlt_max MAX V({{param.vout_node if (param.vout_node and param.setup_kind) else "VOUT"}}) FROM={_t_clk4} TO={_t_clk5+10e-9}
-.MEASURE TRAN judge_vlt_min MIN V({{param.vout_node if (param.vout_node and param.setup_kind) else "VOUT"}}) FROM={_t_clk4} TO={_t_clk5+10e-9}
+.MEASURE TRAN judge_vlt_max MAX V({{param.vout_judge_path}}) FROM={_t_clk4} TO={_t_clk5+10e-9}
+.MEASURE TRAN judge_vlt_min MIN V({{param.vout_judge_path}}) FROM={_t_clk4} TO={_t_clk5+10e-9}
 {%- endif %}
 
 {%- if   param.meas_energy in [1,2] %}
@@ -401,7 +401,7 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
 + WHEN V({{param.energy_trig_node}})={{param.ener_v0_oirc[param.energy_trig_slot]}} {{param.arc_oirc4measure[param.energy_trig_slot]}}=1 TD={_t_rel0 - 2*_tslew_min}
 
 .MEASURE TRAN energy_end
-+ WHEN V(VOUT)={{param.ener_v1_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={_t_rel0 - 2*_tslew_min}
++ WHEN V({{param.vout_path}})={{param.ener_v1_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={_t_rel0 - 2*_tslew_min}
 {%- endif %}
 
 {%- if   param.meas_energy in [2,4,5] %}
@@ -453,8 +453,8 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
 
 {%- if   param.meas_o_max_min ==  1 %}
 *** output min/max
-.MEASURE TRAN o_max_v MAX V(VOUT) FROM={_t_rel0} TO={_t_rel1+10e-9}
-.MEASURE TRAN o_min_v MIN V(VOUT) FROM={_t_rel0} TO={_t_rel1+10e-9}
+.MEASURE TRAN o_max_v MAX V({{param.vout_path}}) FROM={_t_rel0} TO={_t_rel1+10e-9}
+.MEASURE TRAN o_min_v MIN V({{param.vout_path}}) FROM={_t_rel0} TO={_t_rel1+10e-9}
 {%- endif %}
 
 

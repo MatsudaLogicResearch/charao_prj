@@ -639,6 +639,7 @@ def get_logic_dict():
     #   負エッジ側 const は「Q 遷移なしが成功」= arc[0] stable（LAT hold と同じ流儀）。
     "ICG_PC":{
            "logic_type":"seq_lat",
+           "is_gated":True,
            "functions":{"o0":"(c0&Io0)"},
            "latch":{"out":"Io0,IQB",
                     "enable":"(!c0)",
@@ -737,6 +738,7 @@ def get_logic_dict():
     #   有効時（latched=1）: Q は CLKN に追従。 無効時: Q=1 固定（negedge FF は発火しない）。
     "ICG_NC":{
            "logic_type":"seq_lat",
+           "is_gated":True,
            "functions":{"o0":"(c0|(!Io0))"},
            "latch":{"out":"Io0,IQB",
                     "enable":"c0",

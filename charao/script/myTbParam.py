@@ -47,13 +47,15 @@ class MyTbParam:
   pin_oirc     :list[str]=Field(default_factory=list);  # ISS-00101: pin name (o0/i0/r0/s0/c0 等) を testbench に渡す
   pin_tr       :list[str]=Field(default_factory=list);  # ISS-00133: Liberty 出力用 pin 識別 [target, related]
   is_lat       :bool      =False;  # ISS-00133: LATCH cell かどうか (level-sensitive)。 jp2 の judge_dly の TRIG/TARG 切替に使用
+  is_gated     :bool      =False;  # ISS-00218: EN 制御セル（ICG 等、mylogic の "is_gated"）かどうか。 保持型判定の観測点選択に使用
   energy_trig_node :str    ="VREL"; # ISS-00133: energy_start のトリガノード（related pin pin_tr[1] のスロットで決定：VIN/VREL/VCLK）
   energy_trig_slot :int    =2;      # ISS-00133: 同スロット index（ener_v0_oirc/arc_oirc4measure 参照用。 VIN=1/VREL=2/VCLK=3）
   ener_estart  :float     =0.0;    # ISS-00151: power_tout energy2 用。 energy1 で確定した estart/eend を保持し、
   ener_eend    :float     =0.0;    #   energy2 の WHEN 不成立（大 slew で out of interval）時のフォールバックに使う
   energy_tgt_node :str     ="VREL"; # power_tin: 計測対象ノード（target pin pin_tr[0] のスロットで決定：VIN/VREL/VCLK）
   energy_tgt_slot :int     =2;      # 同スロット index（VIN=1/VREL=2/VCLK=3、 未検出は 2=従来動作の保持）
-  vout_node    :str       ="";     # ISS-00152: vout_infos による const 観測点（xcell.xdut.<net>）。 空なら VOUT
+  vout_path       :str    ="VOUT"; # ISS-00218: 判定に使わない measure（chg_out/prop_rel_out/energy/o_max_v）の観測点。 常に VOUT
+  vout_judge_path :str    ="VOUT"; # ISS-00218: const 判定チェーン（judge_dly/judge_vlt/prop_clk_out/prop_in_out）の観測点。 is_gated は xcell.xdut.<net>
   setup_kind   :str       ="";     # ISS-00133: const 系の種別 "setup"/"hold"/"recovery"/"removal"、 jp2 の MEASURE 切替に使用
   measure_type :str       ="";     # ISS-00135: harness.measure_type を保持（compute_timing で leakage 判定用）
   val_oirc    :list[str]=Field(default_factory=list);
@@ -213,6 +215,9 @@ class MyTbParam:
     # ISS-00153: logic_type は Mlc の属性ではなく mls.logic_dict[mlc.logic] の辞書引き。
     #   旧 getattr(h.mlc,...) は常に "" → is_lat が全セル False（jp2 の LAT 分岐が不達）だった。
     self.is_lat       = (getattr(h.mls, "logic_dict", {}).get(h.mlc.logic, {}).get("logic_type", "") == "seq_lat")
+    # ISS-00218: EN 制御セル（ICG）は mylogic 定義の "is_gated" で識別する。 logic_type は LATCH と同じ
+    #   "seq_lat" のため is_lat では区別できない。 保持型判定の観測点選択（下記 vout_judge_path）に使う。
+    self.is_gated     = bool(getattr(h.mls, "logic_dict", {}).get(h.mlc.logic, {}).get("is_gated", False))
     # ISS-00133: energy_start のトリガノードを related pin(pin_tr[1]) のスロットで選択。
     #   related が pin_oirc の VIN(1)/VREL(2)/VCLK(3) のどこに居るかでノード決定する。
     #   comb は入力を VREL に置くため slot2->VREL、 seq(CLK駆動)は pin_tr[1]=c0->slot3->VCLK。
@@ -239,18 +244,8 @@ class MyTbParam:
           self.energy_tgt_slot = _s
           self.energy_tgt_node = _nd
           break
-    # ISS-00152: vout_infos（const 計測の観測点差し替え、 oe_infos と同じ xcell.xdut 階層参照）。
-    #   セル固有の内部 net（例 ICG の QD＝内部ラッチ出力）を const 系 MEASURE で VOUT の代わりに観測する。
-    #   jp2 側は setup_kind が非空（const 系）のときのみ置換するため、 ここでは無条件に解決してよい。
-    self.vout_node = ""
-    _vi = getattr(h.mlc, "vout_infos", {}) or {}
-    _o = h.mec.pin_oirc[0]
-    if _o and _o in _vi and _vi[_o].get("node"):
-      self.vout_node = "xcell.xdut." + str(_vi[_o]["node"])
-      # ISS-00153: wave_raw 時は判定対象ノード（vout_infos）も raw に保存（ngspice write は小文字要求）
-      if self.wave_raw and self.wave_save_list:
-        self.wave_save_list += f" v({self.vout_node.lower()})"
     # ISS-00133: measure_type から setup_kind を判定（setup/hold/recovery/removal の文字列）
+    #   setup_kind の用途は jp2 の const MEASURE ブロック選択のみ（観測点の選択には使わない）。
     _mt = getattr(h, "measure_type", "")
     self.measure_type = _mt   # ISS-00135: compute_timing で leakage 判定用
     if   _mt.startswith("setup_"):    self.setup_kind = "setup"
@@ -258,6 +253,28 @@ class MyTbParam:
     elif _mt.startswith("recovery_"): self.setup_kind = "recovery"
     elif _mt.startswith("removal_"):  self.setup_kind = "removal"
     else:                              self.setup_kind = ""
+    # ISS-00152/00218: MEASURE の観測点パスを Python 側で解決し、 jp2 は変数を書き出すだけにする。
+    #   vout_path       : 判定に使わない measure（chg_out / prop_rel_out / energy / o_max_v）＝常に VOUT。
+    #   vout_judge_path : const 系の判定チェーン（judge_dly / judge_vlt_max/min / prop_clk_out / prop_in_out）
+    #     の観測点。 is_gated セル（ICG）は捕捉の成否が確定する内部ラッチ出力と外部出力の間に enable
+    #     ゲートが挟まる（GCLK = CLK AND QD）ため、 出力 Q で見ると setup は「E と CLK の幾何的な時間差」
+    #     になり劣化を測れない。 vout_infos のセル内部 net（gf180 icgtp の QD）を観測する。 他は VOUT。
+    #     判定値と基準値（prop_*）で観測点を揃えるため、 prop_clk_out / prop_in_out も対象に含める。
+    #   ISS-00218: 一時 judge_dly を VOUT に戻したが、 gf180 icgtp_1 setup_rising が orig -0.183 に対し
+    #     -5.07（内部 net 版は +0.92）と大幅悪化したため差し戻した。 全 sweep 点で judge_dly が一定なのは
+    #     透過ラッチの正常挙動（フラット→崖で FAIL）であり、 故障ではない。
+    self.vout_path       = "VOUT"
+    self.vout_judge_path = "VOUT"
+    _vi = getattr(h.mlc, "vout_infos", {}) or {}
+    _o  = h.mec.pin_oirc[0]
+    _internal = "xcell.xdut." + str(_vi[_o]["node"]) if (_o and _o in _vi and _vi[_o].get("node")) else ""
+    if _internal:
+      # ISS-00153: wave_raw 時は内部観測ノードも raw に保存（ngspice write は小文字要求）。
+      #   判定に使わない measure でも波形確認できるよう、 保存は無条件に行う。
+      if self.wave_raw and self.wave_save_list:
+        self.wave_save_list += f" v({_internal.lower()})"
+      if self.is_gated and self.setup_kind:
+        self.vout_judge_path = _internal
 
     # ISS-00133: min_pulse の prop TRIG は「パルス先頭エッジ(arc_oirc4measure)」でなく
     #   「パルス対象ピン pin_tr[0] の能動エッジ」を使う（posedge DFF の low パルスは末尾立上りで捕捉）。
