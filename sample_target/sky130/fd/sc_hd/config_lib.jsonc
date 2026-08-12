@@ -56,6 +56,10 @@
   ,"leakage_offset"              : 0.0
 //--- leakage の DC op 前段 tran の静定時間 [ns]（ISS-00166）
   ,"leakage_stable_time"         : 1.0
+// ISS-00219: const / delay / mpw で出力遷移 trans_out に何点のサンプルを乗せるか（点数）。
+//   maxstep = min(maxstep, trans_out / この値)。 掃引位置を固定したまま反復収束させる。
+//   0.0 で無効＝従来動作。 2.0 は実測（sky130 dfxtp_1 setup 最悪点で差 5.0064 → 0.0474 ns）。
+  ,"simulation_points_per_transition" : 2.0
   ,"simulation_slew_min"         : 0.001
 
 //--- templates（2026-07-30、 orig .lib の index を有効 3 桁に丸めて採用）

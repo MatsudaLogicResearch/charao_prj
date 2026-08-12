@@ -236,7 +236,11 @@
   ,"num_thread" : 4
   ,"sim_nice"   : 19
   ,"tmax_high"              : 20
-  ,"tmax_low"               : 0.02
+  ,"tmax_low"               : 0.002
+// ISS-00219: const / delay / mpw で出力遷移 trans_out に何点のサンプルを乗せるか（点数）。
+//   maxstep = min(maxstep, trans_out / この値)。 掃引位置を固定したまま反復収束させる。
+//   0.0 で無効＝従来動作。 2.0 は実測（sky130 dfxtp_1 setup 最悪点で差 5.0064 → 0.0474 ns）。
+  ,"simulation_points_per_transition" : 2.0
   ,"simulation_slew_min"        : 0.001
   // ISS-00160: min_pulse のパルス slew は templates の kind=mpw（index_1）で指定するため simulation_slew_for_pulse は廃止（2026-07-17）
   ,"sim_pulse_max"              : 5.0
