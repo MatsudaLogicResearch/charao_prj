@@ -140,6 +140,8 @@
   ,"num_thread" : 4
   ,"sim_nice"   : 19
   ,"tmax_high"                 : 20
+// ISS-00219/00223: 出力遷移 trans_out に対し 4 点以上を目安に決める（trans_out / tmax_low）。
+//   sky130 は遷移 17〜25ps で 0.02 だと約 1 点＝不足のため 0.002。gf180 は 70〜96ps で 0.02（約 4 点）で十分。
 //--- ISS-00188: 既定 0.001ns では index_1 下 3 点（0.01/0.0231/0.0531ns）で
 //    tstep = slope*0.0099 がフロアに張り付き、 エッジを 10〜53 点しか刻めない。
 //    energy2 の大負荷点が `Timestep too small ... vrel#branch` で落ちるため 0.0001 とする。

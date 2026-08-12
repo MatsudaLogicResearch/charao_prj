@@ -4,6 +4,166 @@
 
 ---
 
+## [2.0.0.a10] 2026-08-12
+
+`tmax_low` の決め方を「プロセスの出力遷移幅に対して十分細かいか」という判定基準に改め、
+a09 で 4 PDK 一律 `0.002` にしたうちの gf180 / OSU035 / TRIP62 を **`0.02` へ戻した**。
+
+※ TAG `2.0.0.a07` / `a08` / `a09` は CHANGELOG の更新が漏れていた（`pyproject.toml` は
+   追随済み）。本版の作業時に気付いたため、**下記に各版のエントリを追記**した。
+
+### 変更
+
+- **`tmax_low` を gf180 / OSU035 / TRIP62 で `0.002` → `0.02`**（ISS-00223）。
+  a09 の一律 `0.002` は SKY130 の実測を根拠にしたものだったが、gf180 で検証した結果
+  **逆効果**と判明した（`run_gf_low002` 827 秒 vs `0.02` の 524 秒＝ +58%、
+  transition 84 点中 **78 点が「減る」方向**へ動き、元から orig より鋭い charao の
+  transition が **orig からさらに離れた**。例：`dffrnq_1` rise_transition (0.02, 0.001) は
+  0.0704 → 0.0646 に対し orig 0.1158 ＝ 差 −0.0454 → −0.0512）。
+  **sky130 は `0.002` のまま**（`tmax_low_power_tin` 0.02 も維持）。
+- **判定基準を 4 PDK の `config_lib.jsonc` にコメントで明記**した。
+
+  ```
+               出力遷移    tmax_low=0.02 での点数   0.002 の効果        コスト
+  sky130       17〜25 ps    約 1 点（測れていない）   誤差 18% 除去→必要  +64%
+  gf180        70〜96 ps    約 4 点（足りている）     orig から遠ざかる→不要 +58%
+  ```
+
+  **遷移あたり 4 点以上**を目安とする。遷移幅は露払いを 1 回回せば `.lib` から読めるため、
+  新 PDK でも同じ手順で判定できる。速度が要るときは `tmax_low` を粗くするのではなく
+  ISS-00220（const の初期化やり直しを `nodeset` ＋時間軸シフトで約 2.1 倍速）で稼ぐ。
+
+### 注意
+
+- OSU035 / TRIP62 の `0.02` は**実測ではなく推論**（a07 以前の値＝`simulation_timestep_min`
+  0.001 × 20 と等価で、OSU035 はこの値で ISS-00141 が 0 failures 完走している実績値。
+  0.35um は gf180 より遅いプロセスのため遷移幅は広い側に倒れる）。実測での裏取りは
+  ISS-00223 の露払いで行う。
+- TRIP62 の `config_lib.jsonc` は `.gitignore` 対象（非公開セル）のためコミットに含まれない。
+  同ファイルには旧スキーマの `"kind":"power"` が 9 件残っており、**そのままでは pydantic で
+  弾かれる**（ISS-00224。ISS-00223 の TRIP62 露払いの前提条件）。
+
+---
+
+## [2.0.0.a09] 2026-08-12
+
+透過ラッチの setup 判定を `judge_dly` へ切り替え、両 PDK で「張り付き」を解消した。
+
+※ CHANGELOG の記載が漏れていたため a10 の作業時に追記した。
+
+### 修正
+
+- **LAT の setup を `judge_dly` 判定へ切替**（ISS-00221）。透過ラッチは enable が開いている間
+  D→Q が素通りするため、`prop_clk_out`（enable→Q）は**掃引量そのもの＝幾何量**で判定に
+  使えなかった。`is_lat` のとき `judge_dly` を見るよう `charao_run.py`（1299 / 1559 行）を
+  修正し、`genFileLogic_Const1x` の `res_list` に `judge_dly` / `trans_out` を追加。
+  `dlxtp_1` で **1.1700 → 0.3570** となり、探索が「平坦 → 劣化 → 収束」の正しい形に戻った。
+  `prop_clk_out` 固定は 2026-06-26（`7e15e90`、ISS-00135 再編）に入り以降未変更で、
+  ISS-00143 で LAT を統一パスへ移した際も **jp2 側だけが吸収され Python の判定側は
+  そのまま**だった（`judge_dly` は measure として存在したが誰も読んでいなかった）。
+
+### 変更
+
+- **`simulation_points_per_transition = 2.0` を 4 PDK すべてに設定**（ISS-00223）。
+- **`tmax_low` を 4 PDK すべて `0.002` に統一**（→ a10 で gf180 / OSU035 / TRIP62 は差し戻し）。
+- **dead code を削除**。`runSpiceSetupMultiThread` / `runSpiceSetupSingle` は dispatch から
+  呼ばれず参照は自分自身とコメントのみで、**ここに実装されていた probe は一度も実行されて
+  いなかった**。`charao_run.py` の 1106〜1333 行 **228 行を削除**（2803 → 2575 行）。
+
+### 確認
+
+- 露払い（5 セル × 全 measure × index1/2 先頭 2 点）＝ gf180 `run_a08_gf3` **524 秒 /
+  0 failures**、sky130 `run_a08_sky2` **1254 秒 / 0 failures**。
+- orig 突合は **index / when ごとに 1 点ずつ**（orig 側 NLDM 補間、集約値は使わない）。
+  const 各 112 点・delay/transition 各 168 点、orig 未対応 0 点。
+  **`1.1700` / `0.9210` への張り付き 0 件・`0.0000` 0 件・orig と符号が逆の点 0 件**。
+  `dlxtp_1` setup fall は **1.1700 → 0.0317**（orig 0.0374、差 −0.0057）。
+- **ISS-00075(b) に退行なし**。旧 `run_seq_full` と `run_a08_gf3` を全 36 点比較して
+  **差 ≤ 0.001 ns**＝本版の変更は delay に影響していない。
+
+---
+
+## [2.0.0.a08] 2026-08-11
+
+`.tran` の刻みを `maxstep` へ一本化し、出力遷移にサンプルが乗らない問題を解消した。
+
+※ CHANGELOG の記載が漏れていたため a10 の作業時に追記した。
+
+### 修正
+
+- **出力遷移にサンプルが 1 点も乗っていなかった**（ISS-00219）。`trans_out` 18 ps に対し
+  `maxstep` 297 ps で、波形上 Q の立ち下がりが `1.80V → 0.30V` と 2 サンプルで終わっていた。
+  その結果 `prop_clk_out` が ±70 ps ばらつき、**閾値 50 ps を誤って超えて探索が 2 点目で
+  打ち切られる**（`dfxtp_1` setup で orig 0.4036 に対し **5.4100**）。recovery の 7×7 行列が
+  16 表中 88% で非単調になっていたのも同一原因。
+
+### 変更
+
+- **`tstep` を廃し `maxstep` に一本化**。ngspice の `.tran tstep tstop <tstart <tmax>>` は
+  **`tstep` が printing increment で解析に一切関与しない**（`tmax` 明示時）ことをマニュアルで
+  確認したため。`maxstep = max(tmax_low, min(slew × 0.198, tmax_high))` へ書き換え、
+  jsonc のキーも `simulation_timestep_max` / `_min` → **`tmax_high` / `tmax_low`** に改名した
+  （旧値の 20 倍が等価）。**設定値が実際の値と一致**するようになった。
+- **`simulation_points_per_transition` を追加**。出力遷移 `trans_out` に何点のサンプルを
+  乗せるかを指定し、**掃引位置を固定したまま** `maxstep` を反復収束させる（位置と同時に
+  動かすと変化の由来が分離できない）。297 → 49.5 → 8.3 → 5.1 → 3.89 ps と単調に収束する。
+  `0.0`（既定）で完全に従来動作。適用は `trans_out` を読める **delay / mpw / const / setup**
+  の 4 measure。
+
+### 確認
+
+- `dfxtp_1` setup fall (1.5, 1.5) が **5.0064 → 0.0474 ns（1/106）**。
+  `buf_16` rise_transition (5, 0.0005) が **+0.1787 → +0.0013（1/137）**、
+  fall_transition が +0.0774 → −0.0020（1/39）。
+  **十分細かい点は 1 ビットも変わらない**（`buf_16` 294 点中 176 点が無変化）。
+- コストは **const 1.13 倍 / delay 1.05 倍**。
+
+---
+
+## [2.0.0.a07] 2026-08-10
+
+ICG（クロックゲート）の const 判定で、観測点の決定を Python 側へ一本化した。
+
+※ CHANGELOG の記載が漏れていたため a10 の作業時に追記した。
+
+### 修正
+
+- **ICG の setup / hold は内部ラッチ出力で測る**（ISS-00218）。`GCLK = CLK AND QD` のため、
+  **捕捉の成否が確定する場所（内部ラッチ出力）と出力の間に enable ゲートが挟まる**。
+  出力で見ると `VIN→VOUT` は「E と CLK の幾何的な時間差」になり劣化を測れない
+  （gf180 `icgtp_1` setup_rising は内部ノード版 +0.92 に対し VOUT 版 −5.07、orig −0.183）。
+- **sky130 `sdlclkp_1/2/4` に `vout_infos` を追加**（gf180 だけが持っていた）。
+  **内部ノード名はサイズごとに違う**（`_1` = `a_464_315#`、`_2`/`_4` = `a_465_315#`）ため
+  netlist で実物を確認して記述した。
+
+### 変更
+
+- **観測点の決定を Python 側へ一本化**（リファクタ、計測結果は不変）。`myTbParam` に
+  **`vout_path`**（判定に使わない measure ＝常に VOUT）と **`vout_judge_path`**
+  （const 判定チェーン＝`judge_dly` / `judge_vlt_max`・`min` / `prop_clk_out` /
+  `prop_in_out`）を新設し、jp2 は変数を書き出すだけにした（**jinja から条件式を全廃**、
+  ベタ書きの `VOUT` も一掃）。旧実装は `setup_kind`（本来は MEASURE ブロック選択用）を
+  置換ガードに流用しており、**各ブロック内では常に真＝ガードとして無効**だった。
+- **EN 制御セルの識別子 `is_gated` を mylogic に新設**。`logic_type` は LATCH も ICG も
+  `seq_lat` で区別できないため、`ICG_PC` / `ICG_NC` に `"is_gated":True` を追加し、
+  置換条件を「`vout_infos` があれば無条件」→「**`is_gated` かつ const 系**」に明確化した。
+
+### 確認
+
+- sky130 `sdlclkp` 3 セル・full grid・orig の index グリッド上で NLDM 補間した共通 108 点
+  （単位 ns、判定は絶対差）：**setup fall の最大 \|差\| が 4.10 → 1.14**、
+  **hold fall は旧「全点 0.0000（判定不成立）」→ 新 −0.284 で orig −0.265 とほぼ一致**。
+  setup rise は最大 2.38 → 0.82。hold rise は完全に不変（この arc は内部ノードと出力で
+  同じ判定になる）。サイズ依存なし。
+- **他セルへの無影響を .sp 差分で実証**（フル回帰は不要と判断）。`icgtp_1` の生成 .sp が
+  **132 点すべて完全一致**（差分はリモート実行の一時ディレクトリ UUID のみ）。
+  `vout_infos` を持つのは ICG だけなので、他セルは変数が `"VOUT"` に解決され文字列同一。
+- **修正が要る ICG は残っていない**。mylogic を機械走査した結果、出力がゲートで隠れる
+  logic は `ICG_PC` / `ICG_NC` の 2 つだけで、これを使う登録済みセルは全 PDK で 9 セル
+  （gf180 `icgtp`/`icgtn` 各 3、sky130 `sdlclkp` 3）＝すべて設定済み。
+
+---
+
 ## [2.0.0.a06] 2026-08-09
 
 SKY130 の template を `util_make_template4json.py` で作り直した。

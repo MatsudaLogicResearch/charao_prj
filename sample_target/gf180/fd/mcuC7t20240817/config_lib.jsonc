@@ -236,7 +236,9 @@
   ,"num_thread" : 4
   ,"sim_nice"   : 19
   ,"tmax_high"              : 20
-  ,"tmax_low"               : 0.002
+// ISS-00219/00223: 出力遷移 trans_out に対し 4 点以上を目安に決める（trans_out / tmax_low）。
+//   sky130 は遷移 17〜25ps で 0.02 だと約 1 点＝不足のため 0.002。gf180 は 70〜96ps で 0.02（約 4 点）で十分。
+  ,"tmax_low"               : 0.02
 // ISS-00219: const / delay / mpw で出力遷移 trans_out に何点のサンプルを乗せるか（点数）。
 //   maxstep = min(maxstep, trans_out / この値)。 掃引位置を固定したまま反復収束させる。
 //   0.0 で無効＝従来動作。 2.0 は実測（sky130 dfxtp_1 setup 最悪点で差 5.0064 → 0.0474 ns）。

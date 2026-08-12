@@ -93,7 +93,9 @@
   ,"simulation_points_per_transition" : 2.0
   ,"simulation_slew_min"         : 0.001
   ,"tmax_high"              : 20
-  ,"tmax_low"               : 0.002
+// ISS-00219/00223: 出力遷移 trans_out に対し 4 点以上を目安に決める（trans_out / tmax_low）。
+//   sky130 は遷移 17〜25ps で 0.02 だと約 1 点＝不足のため 0.002。gf180 は 70〜96ps で 0.02（約 4 点）で十分。
+  ,"tmax_low"               : 0.02
   ,"sim_pulse_max"              : 3.0
   ,"sim_prop_max"               : 20.0
   ,"sim_prop_tri_max"           : 20.0
