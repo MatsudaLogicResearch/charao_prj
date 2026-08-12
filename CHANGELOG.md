@@ -4,6 +4,62 @@
 
 ---
 
+## [2.0.0.a11] 2026-08-13
+
+jsonc の未知キーを黙って無視せず、起動時にエラーとして検出するようにした。
+
+### 修正
+
+- **pydantic の未知キー黙殺を止める**（ISS-00225）。既定（`extra="ignore"`）では
+  `config_lib.jsonc` / `std_*.jsonc` のキーを打ち間違えても**無警告で既定値のまま走り、
+  変更が効いていないことに気付けない**。ISS-00219 の作業中に
+  `simulation_points_per_transition` をリファクタで巻き添え削除し、**55 分の検証が丸ごと
+  無効**になった実績がある。`MyLibrarySetting` / `MyLogicCell` / `MyItemTemplate` の
+  3 モデルに **`model_config = ConfigDict(extra="forbid")`** を追加した。
+
+### 変更
+
+導入にあたり、**既に黙殺されていた 17 件**（モデル定義との全数突合で検出）を解消した。
+
+- **`config_lib.jsonc` の 4 キーが実装のフィールド名と食い違っていた**（全 4 PDK）。
+  jsonc 側を実装名へ合わせた。
+
+  ```
+  jsonc（旧）                実装のフィールド名（新しい jsonc のキー）
+  run_sim                 -> runsim
+  supress_message         -> supress_msg
+  supress_sim_message     -> supress_sim_msg
+  supress_debug_message   -> supress_debug_msg
+  ```
+
+  前 2 者は jsonc の値と既定値が偶然一致していたため実害は無かった。
+  `supress_debug_message:"true"` だけ既定 `"false"` と食い違っていたが、
+  対応する `print_msg_dbg` の呼び出しが 0 箇所のため出力は変わらない（→ ISS-00226）。
+- **gf180 `std_seq.jsonc` の `"primitive"` 54 行を削除**。`MyLogicCell` に該当フィールドは
+  無く（`git log -S` で過去にも無し）、sky130 の `std_seq` には 1 件も無い。
+  **UDP 名と引数は `mylogic_*.py` の `vcode` 側が固定で持つ**ため jsonc から差し替える
+  余地がなく、ISS-00172（primitive を `std_primitives.v` へ移設）の残骸だった。
+  4 種（`udp_iq_ff_n` / `_ff_hn` / `_latch_n` / `_latch_hn`）とも `std_primitives.v` に
+  定義済みのため、削除だけで重複が解消する。
+
+### 確認
+
+- **gf180 `dffq_1` × 2x2 corner × 全 measure の実 sim**（`run_forbid_gf1`、
+  `EXEC_SCRIPT=local_repo`）＝ **0 failures / 0 traceback / .lib 1 cells**。
+  `.lib` に値 0 の格子点は 0 個。本体 `.v` の primitive 定義は 0 件で、UDP 参照
+  `udp_iq_ff_n` は `_primitives.v` の定義 4 件に含まれ**未定義参照ゼロ**。
+- 4 PDK の jsonc を実構築するドライランで、gf180 229 / sky130 181 / OSU035 16 セルが通過。
+
+### 注意
+
+- **TRIP62 は本版では起動しない**。`templates` に旧スキーマの `"kind":"power"` が 9 件
+  残っており（ISS-00224）、本機構が `9 validation errors` として検出する。
+  **元から不正だった定義の可視化であり退行ではない**（従来は黙って無視され `templates`
+  から欠落していた）。修正は TRIP62 の jsonc 全体見直しと併せて行う。
+  なお `sample_target/TRIP62/` は `.gitignore` 対象のため本リポジトリには含まれない。
+
+---
+
 ## [2.0.0.a10] 2026-08-12
 
 `tmax_low` の決め方を「プロセスの出力遷移幅に対して十分細かいか」という判定基準に改め、
