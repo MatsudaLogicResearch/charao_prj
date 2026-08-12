@@ -18,7 +18,7 @@
 # GNU General Public License for more details.
 ###############################################################################
 import argparse, re, os, shutil, subprocess, threading
-from pydantic import BaseModel, model_validator, Field
+from pydantic import BaseModel, model_validator, Field, ConfigDict
 from typing import Any
 from itertools import groupby
 import datetime, locale, time
@@ -29,9 +29,14 @@ from .myFunc import my_exit
 import time
 
 class MyLibrarySetting(BaseModel):
+  #--- ISS-00225: jsonc の未知キーを黙って無視せずエラーにする。
+  #    pydantic の既定（extra="ignore"）では config_lib.jsonc のキーを打ち間違えても
+  #    無警告で既定値のまま走るため、 変更が効いていないことに気付けない。
+  model_config = ConfigDict(extra="forbid")
+
   #=====================================
   # class variable
-  
+
   #=====================================
   # instance variable by BaseModel
   

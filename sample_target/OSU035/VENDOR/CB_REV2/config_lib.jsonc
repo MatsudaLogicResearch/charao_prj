@@ -74,7 +74,7 @@
   ,"simulator" :"ngspice"
 //,"simulator" :/"usr/local/bin/ngspice"
 //,"simulator" :"/eda/synopsys/hspice/T-2022.06/hspice/linux64/hspice"
-  ,"run_sim"    :"true"
+  ,"runsim"     :"true"
 //--- num_thread : ISS-00079 の sweet spot（8 以上は ngspice 内部の直列ボトルネックで逆に遅い）
   ,"num_thread" : 4
   ,"sim_nice"   : 19
@@ -113,12 +113,12 @@
 //  ,"sim_time_end_extent"        : 3
   
   ,"compress_result" :"False"
-//,"supress_message" :"true"
+//,"supress_msg"     :"true"
 //,"supress_sim_message:"true"
 //,"supress_debug_message:"true"
-  ,"supress_message"     :"false"
-  ,"supress_sim_message" :"false"
-  ,"supress_debug_message":"true"
+  ,"supress_msg"         :"false"
+  ,"supress_sim_msg"     :"false"
+  ,"supress_debug_msg"    :"true"
 
 }
 

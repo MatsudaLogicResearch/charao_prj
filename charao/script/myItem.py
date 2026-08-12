@@ -16,10 +16,13 @@
 # GNU General Public License for more details.
 ###############################################################################
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Any, Literal
 
 class MyItemTemplate(BaseModel):
+  #--- ISS-00225: templates の未知キーを黙って無視せずエラーにする。
+  model_config = ConfigDict(extra="forbid")
+
   kind   : Literal["leakage","const","delay","delay_disable","delay_c2c","delay_i2c","delay_c2i","delay_i2i","mpw","passive","power_tout","power_tin","power_c2c","power_i2c","power_c2i","power_i2i"]="delay";
   grid   : str ="";         #"7x7"
   name   : str ="";         #"x1" 

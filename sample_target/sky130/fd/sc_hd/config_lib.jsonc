@@ -135,7 +135,7 @@
   ,"simulator" :"ngspice"
 //--- sky130 のセル netlist は .option scale=1.0u 前提（all.spice 側で設定される）
   ,"spiceinit" : ["set ngbehavior=hs"]
-  ,"run_sim"    :"true"
+  ,"runsim"     :"true"
 //--- ISS-00079 の sweet spot
   ,"num_thread" : 4
   ,"sim_nice"   : 19
@@ -167,7 +167,7 @@
   ,"sim_tsim_end4hold"          : 20.0
 
   ,"compress_result" :"False"
-  ,"supress_message"     :"false"
-  ,"supress_sim_message" :"false"
-  ,"supress_debug_message":"true"
+  ,"supress_msg"         :"false"
+  ,"supress_sim_msg"     :"false"
+  ,"supress_debug_msg"    :"true"
 }

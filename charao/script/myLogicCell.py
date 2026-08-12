@@ -19,7 +19,7 @@
 ###############################################################################
 import argparse, re, os, shutil, subprocess, inspect
 import copy
-from pydantic import BaseModel, model_validator, Field
+from pydantic import BaseModel, model_validator, Field, ConfigDict
 from typing import Any, Dict, TYPE_CHECKING, List, Optional
 import statistics as st
 from itertools import groupby
@@ -34,9 +34,12 @@ if TYPE_CHECKING:
   from .myConditionsAndResults import MyConditionsAndResults  as Mcar
 
 class MyLogicCell(BaseModel):
+  #--- ISS-00225: std_*.jsonc の cell_info の未知キーを黙って無視せずエラーにする。
+  model_config = ConfigDict(extra="forbid")
+
   #=====================================
   # class variable
-  
+
   #=====================================
   # instance variable by BaseModel
 

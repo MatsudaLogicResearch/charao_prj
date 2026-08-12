@@ -232,7 +232,7 @@
 
 //--- simulator settings
   ,"simulator"  : "ngspice"
-  ,"run_sim"    : "true"
+  ,"runsim"     : "true"
   ,"num_thread" : 4
   ,"sim_nice"   : 19
   ,"tmax_high"              : 20
@@ -263,8 +263,8 @@
   ,"sim_pullres_std_disable"    : 100000
 
   ,"compress_result"      : "False"
-  ,"supress_message"      : "false"
-  ,"supress_sim_message"  : "false"
-  ,"supress_debug_message": "true"
+  ,"supress_msg"          : "false"
+  ,"supress_sim_msg"      : "false"
+  ,"supress_debug_msg"    : "true"
 
 }
