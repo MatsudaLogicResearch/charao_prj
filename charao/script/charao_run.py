@@ -507,8 +507,7 @@ def runSpiceDelaySingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
   #-- timestep
   slope          = index1_slope
   tslew_min_s    = h.mls.simulation_slew_min
-  timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
-  timestep_tmax  = 20 * timestep_tstep
+  maxstep  = max(h.mls.tmax_low, min(slope * 0.198, h.mls.tmax_high))
 
   #-- pullres_role / pullres_gate（three_state arc 依存）
   pullres_role="nouse"
@@ -560,8 +559,7 @@ def runSpiceDelaySingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
     ,time_energy  = [0,0]
     ,meas_o_max_min=0
     ,tslew_min    = float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
-    ,timestep     = float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
-    ,timestep_tmax= float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
+    ,maxstep      = float("{:.5g}".format(maxstep  * h.mls.time_mag))
     ,tsim_end     = tsim_end
     ,tdelay_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
@@ -579,7 +577,19 @@ def runSpiceDelaySingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
   with poolg_sema:
     spicefo  = _make_sim_path(f"{spicef}_{index2_load}_{index1_slope}")
 
-    rslt=genFileLogic_DelayTrial1x(targetHarness=h, spicef=spicefo, param=param)
+    #-- ISS-00219: maxstep 確定（同一条件で反復）。 trans_out は maxstep に依存する測定値で、
+    #   刻みが粗いと過大に出る。 delay は 1 点 1 sim なので、 分解能が足りない点だけが
+    #   追加 sim を払う（大半は 1 回で収束＝コスト増なし）。 絞る方向にしか動かさない。
+    #   trans が取れない／sentinel（1.0）の場合はクランプせず従来動作。
+    _pts = getattr(h.mls, "simulation_points_per_transition", 0.0)
+    for _it in range(4):
+      rslt=genFileLogic_DelayTrial1x(targetHarness=h, spicef=spicefo, param=param)
+      if _pts <= 0.0: break
+      _tr = rslt.get("trans", 0.0)
+      if not (0.0 < _tr < 1.0e-6): break        # 未取得 or sentinel
+      _lim = _tr / _pts
+      if _lim >= param.maxstep * 0.8: break     # 改善 20% 未満で収束
+      param.maxstep = float("{:.5g}".format(min(_lim, param.maxstep)))
 
     with h._lock:
       h.dict_list2["prop" ][index1_slope][index2_load] = rslt["prop"]
@@ -668,7 +678,7 @@ def runSpicePowerToutSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_s
   #-- timestep
   slope          = index1_slope
   tslew_min_s    = h.mls.simulation_slew_min
-  timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
+  maxstep  = max(h.mls.tmax_low, min(slope * 0.198, h.mls.tmax_high))
   #-- is_dtp: 短い init で OK な系。 power_tout は元 arc (rising_edge 等) と同じ sim で計測するため measure_type は元 arc 名 → "power" は判定不要
   is_dtp = h.measure_type.startswith(("delay","three"))
 
@@ -699,8 +709,7 @@ def runSpicePowerToutSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_s
     ,time_energy  = [0,0]      # 各 sim で更新
     ,meas_o_max_min=0
     ,tslew_min    = float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
-    ,timestep     = float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
-    ,timestep_tmax= float("{:.5g}".format(20*timestep_tstep * h.mls.time_mag))  # 各 sim で更新
+    ,maxstep      = float("{:.5g}".format(maxstep * h.mls.time_mag))  # 各 sim で更新
     ,tsim_end     = 1e-6        # 各 sim で更新
     ,tdelay_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
@@ -718,14 +727,14 @@ def runSpicePowerToutSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_s
     spicefoe1 = _make_sim_path(f"{spicef}_{index2_load}_{index1_slope}_energy1")
     spicefoe2 = _make_sim_path(f"{spicef}_{index2_load}_{index1_slope}_energy2")
 
-    ## 1st trial: extract energy_start/end (meas_energy=1, timestep_tmax ratio=20)
+    ## 1st trial: extract energy_start/end (meas_energy=1, maxstep ratio=20)
     tsim_end1 = max(1e-6, 2*sim_c2d_max * h.mls.time_mag)
     param.meas_energy   = 1
     param.update_ener_thresholds_for_e1(arc_oirc=arc_oirc, mls=h.mls)  # ISS-00117: energy1 用ワイド閾値で eend 取得
     param.time_energy   = [0, 0]
     param.tsim_end      = tsim_end1
     param.tpulse_rel    = tsim_end1
-    param.timestep_tmax = float("{:.5g}".format(20*timestep_tstep * h.mls.time_mag))
+    param.maxstep = float("{:.5g}".format(maxstep * h.mls.time_mag))
     param.compute_timing()
     rslt1 = genFileLogic_PowerToutTrial1x(targetHarness=h, spicef=spicefoe1, param=param)
 
@@ -735,9 +744,9 @@ def runSpicePowerToutSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_s
     param.meas_energy   = 2
     ## ISS-00094/00095: i_*_leak の AVG 区間（_t_in0 直前の 100*tslew_min 幅）に複数ステップが
     ##   入るよう _tmax を tslew_min*20（区間/5、 約 5 点）以下に抑える。 ただし基本ステップ
-    ##   timestep_tstep を下限とする（_tmax < timestep_tstep だと ngspice .tran が
+    ##   maxstep/20（旧 timestep_tstep 相当）を下限とする（ISS-00094/00095 の名残）。
     ##   「Timestep too small」 で収束破綻するため）。
-    param.timestep_tmax = float("{:.5g}".format(max(timestep_tstep * h.mls.time_mag, min(4*timestep_tstep * h.mls.time_mag, param.tslew_min * 20))))
+    param.maxstep = float("{:.5g}".format(max(maxstep/20 * h.mls.time_mag, min(maxstep/5 * h.mls.time_mag, param.tslew_min * 20))))
     param.compute_timing()                       # t_in0/t_in1/t_rel0/t_rel1 確定（tsim_end 非依存）
     ## tsim_end は compute_timing 結果（t_rel1）を参照して算出（出力遷移 eend も考慮）
     ## ISS-00117: energy2 の sim_end は energy1 の autostop 時刻（=実証済の安全停止点）を使う。
@@ -802,10 +811,10 @@ def runSpicePowerTinSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_sl
   #-- ISS-00188: power_tin だけ TSTEP の下限を分ける（未指定なら共通値）。
   #   共通値を下げると power_tout の大負荷点は救えるが、 power_tin の最速 slew が
   #   逆に `Timestep too small ... vclk#branch` で落ちるため（SKY130 実測 2026-08-05）。
-  _ts_min = h.mls.simulation_timestep_min_power_tin
+  _ts_min = h.mls.tmax_low_power_tin
   if _ts_min is None:
-    _ts_min = h.mls.simulation_timestep_min
-  timestep_tstep = max(_ts_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
+    _ts_min = h.mls.tmax_low
+  maxstep  = max(_ts_min, min(slope * 0.198, h.mls.tmax_high))
 
   #-- 計測対象（target pin pin_tr[0]）のスロット逆引き（優先順 c > r > i、 未検出は slot2=VREL）
   #   slope→tslew 割当と積分窓・cin 選択を「X を駆動するスロット」基準にする。
@@ -831,10 +840,9 @@ def runSpicePowerTinSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_sl
     ,time_energy  = [0,0]    # compute_timing 後に target スロットの遷移窓 [t_X0, t_X1 + 1e-9] で更新
     ,meas_o_max_min=0
     ,tslew_min    = float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
-    ,timestep     = float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
     ## ISS-00094/00095: i_*_leak の AVG 区間（100*tslew_min）に複数ステップが入るよう
-    ##   _tmax を tslew_min*20 以下に抑える（基本ステップ timestep_tstep を下限）。
-    ,timestep_tmax= float("{:.5g}".format(max(timestep_tstep * h.mls.time_mag, min(4*timestep_tstep * h.mls.time_mag, tslew_min_s * h.mls.time_mag * 20))))
+    ##   maxstep を tslew_min*20 以下に抑える（下限は maxstep/20）。
+    ,maxstep      = float("{:.5g}".format(max(maxstep/20 * h.mls.time_mag, min(maxstep/5 * h.mls.time_mag, tslew_min_s * h.mls.time_mag * 20))))
     ,tsim_end     = 1e-6      # compute_timing 後に確定
     ,tdelay_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
@@ -893,7 +901,7 @@ def runSpicePowerTinSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_sl
 #--------------------------------------------------------------------------------------------------
 def genFileLogic_PowerToutTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
   """ISS-00080 Step 3：param は呼び出し側 (runSpicePowerToutSingle) で early instantiate +
-  meas_energy/time_energy/tsim_end/tpulse_rel/timestep_tmax 更新 + compute_timing() 済。
+  meas_energy/time_energy/tsim_end/tpulse_rel/maxstep 更新 + compute_timing() 済。
   """
   h=targetHarness
 
@@ -1183,8 +1191,7 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
 
   #-- timestep （CLK slew 由来）
   slope          = index2_slope_rel
-  timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
-  timestep_tmax  = 20 * timestep_tstep
+  maxstep  = max(h.mls.tmax_low, min(slope * 0.198, h.mls.tmax_high))
 
   tdelay_in_rel = float("{:.5g}".format(_tslew_from_template(index2_slope_rel, h.mls) + sim_c2d_max * h.mls.time_mag))
   tslew_in_rel  = _tslew_from_template(index1_slope_const, h.mls)
@@ -1198,8 +1205,7 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
     ,time_energy  =[0,0]
     ,meas_o_max_min=0
     ,tslew_min    =float("{:.5g}".format(h.mls.simulation_slew_min * h.mls.time_mag))
-    ,timestep     =float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
-    ,timestep_tmax=float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
+    ,maxstep      = float("{:.5g}".format(maxstep  * h.mls.time_mag))
     ,tsim_end     =1.0E-6
     ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))   # setup には delay 系 measure_type は来ないため固定
     ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
@@ -1237,6 +1243,34 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
     setup_pass =0
 
     tsim_end=1.0E-6
+    #-- ISS-00219: maxstep 確定フェーズ（掃引位置を固定したまま反復）。
+    #   trans_out は maxstep に依存する測定値（刻みが粗いと過大に出る）。 一方 setup/hold の
+    #   掃引位置を動かすと trans_out も変わるため、 両者を同時に動かすと変化がどちらに由来
+    #   するか分離できない（実測：s100→s101 で trans_out 99→29 ps）。 そこで掃引位置を
+    #   固定して maxstep だけを収束させ、 確定後に探索を開始する。
+    #   絞る方向にしか動かないので発散しない。 収束＝改善 20% 未満、 上限 4 回。
+    _pts_per_trans = getattr(h.mls, "simulation_points_per_transition", 0.0)
+    if _pts_per_trans > 0.0:
+      for _it in range(4):
+        _sfp = _make_sim_path(f"{spicef}_c{index1_slope_const}_r{index2_slope_rel}_p{_it}")
+        param.tsweep_clk = seg_start * -1.0
+        param.tsim_end   = tsim_end
+        param.tpulse_clk = tsim_end
+        param.compute_timing()
+        param.tsim_end   = max(param.t_clk5, param.t_in1, param.t_rel1) + 3e-9
+        param.tpulse_clk = param.tsim_end
+        param.compute_timing()
+        _rp = genFileLogic_Const1x(targetHarness=h, spicef=_sfp, param=param)
+        _tr = _rp.get("trans_out", 0.0)
+        if _tr <= 0.0:
+          #-- trans_out が取れないと maxstep を確定できない。 元の刻みのまま続けても
+          #   「分解能不明の値」が出るだけなので、 この measure はここで打ち切る。
+          raise RuntimeError(
+            f"[ERROR] ISS-00219: trans_out 未取得のため maxstep を確定できません: {_sfp}")
+        _lim = _tr / _pts_per_trans
+        if _lim >= param.maxstep * 0.8:
+          break
+        param.maxstep = float("{:.5g}".format(min(_lim, param.maxstep)))
     prop_min=1.0
 
     segstep = h.mls.sim_segment_timestep_start * h.mls.time_mag
@@ -1259,6 +1293,7 @@ def runSpiceSetupSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
         param.compute_timing()
 
         rslt=genFileLogic_Const1x(targetHarness=h, spicef=spicefo, param=param)
+
 
         #- check prop_clk_out（CLK→Q、 FF/LAT 共通の pass/fail 判定）
         prop_last=abs(rslt["prop_clk_out"])
@@ -1377,8 +1412,7 @@ def runSpiceConstSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
 
   #-- timestep （CLK slew 由来）
   slope          = index2_slope_rel
-  timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
-  timestep_tmax  = 20 * timestep_tstep
+  maxstep  = max(h.mls.tmax_low, min(slope * 0.198, h.mls.tmax_high))
 
   tdelay_in_rel = float("{:.5g}".format(_tslew_from_template(index2_slope_rel, h.mls) + sim_c2d_max * h.mls.time_mag))
   tslew_in_rel  = _tslew_from_template(index1_slope_const, h.mls)
@@ -1391,8 +1425,7 @@ def runSpiceConstSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
     ,time_energy  =[0,0]
     ,meas_o_max_min=0
     ,tslew_min    =float("{:.5g}".format(h.mls.simulation_slew_min * h.mls.time_mag))
-    ,timestep     =float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
-    ,timestep_tmax=float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
+    ,maxstep      = float("{:.5g}".format(maxstep  * h.mls.time_mag))
     ,tsim_end     =1.0E-6
     ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
@@ -1450,6 +1483,34 @@ def runSpiceConstSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
     const_pass =0
 
     tsim_end=1.0E-6
+    #-- ISS-00219: maxstep 確定フェーズ（掃引位置を固定したまま反復）。
+    #   trans_out は maxstep に依存する測定値（刻みが粗いと過大に出る）。 一方 setup/hold の
+    #   掃引位置を動かすと trans_out も変わるため、 両者を同時に動かすと変化がどちらに由来
+    #   するか分離できない（実測：s100→s101 で trans_out 99→29 ps）。 そこで掃引位置を
+    #   固定して maxstep だけを収束させ、 確定後に探索を開始する。
+    #   絞る方向にしか動かないので発散しない。 収束＝改善 20% 未満、 上限 4 回。
+    _pts_per_trans = getattr(h.mls, "simulation_points_per_transition", 0.0)
+    if _pts_per_trans > 0.0 and not (is_hold and is_lat):
+      for _it in range(4):
+        _sfp = _make_sim_path(f"{spicef}_c{index1_slope_const}_r{index2_slope_rel}_p{_it}")
+        param.tsweep_clk = seg_start
+        param.tsim_end   = tsim_end
+        param.tpulse_clk = tsim_end
+        param.compute_timing()
+        param.tsim_end   = max(param.t_clk5, param.t_in1, param.t_rel1) + 3e-9
+        param.tpulse_clk = param.tsim_end
+        param.compute_timing()
+        _rp = genFileLogic_Const1x(targetHarness=h, spicef=_sfp, param=param)
+        _tr = _rp.get("trans_out", 0.0)
+        if _tr <= 0.0:
+          #-- trans_out が取れないと maxstep を確定できない。 元の刻みのまま続けても
+          #   「分解能不明の値」が出るだけなので、 この measure はここで打ち切る。
+          raise RuntimeError(
+            f"[ERROR] ISS-00219: trans_out 未取得のため maxstep を確定できません: {_sfp}")
+        _lim = _tr / _pts_per_trans
+        if _lim >= param.maxstep * 0.8:
+          break
+        param.maxstep = float("{:.5g}".format(min(_lim, param.maxstep)))
     prop_min=1.0
 
     segstep = h.mls.sim_segment_timestep_start * h.mls.time_mag
@@ -1478,6 +1539,7 @@ def runSpiceConstSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
         param.compute_timing()
 
         rslt=genFileLogic_Const1x(targetHarness=h, spicef=spicefo, param=param)
+
 
         const_last=rslt["setup"]   # = dly（_dly_key 経由で setup/hold/recovery を切替済）
 
@@ -1545,8 +1607,10 @@ def genFileLogic_Const1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
   elif h.measure_type.startswith("hold"):     _dly_key = "dly_clk_in"
   elif h.measure_type.startswith("recovery"): _dly_key = "dly_rel_clk"
   else:                                        _dly_key = "dly_rel_clk"
-  res_list=["chg_out", _dly_key, "prop_clk_out"]
-  res={"chg_out":1, _dly_key:1, "prop_clk_out":1}
+  # ISS-00219: trans_out（出力遷移時間）は maxstep の上限決定に使う。 measure が無い場合に
+  #   備えて既定 0（0 なら上限クランプは働かず従来動作）。
+  res_list=["chg_out", _dly_key, "prop_clk_out", "trans_out"]
+  res={"chg_out":1, _dly_key:1, "prop_clk_out":1, "trans_out":0}
 
   # ISS-00153: LAT/ICG(seq_lat) の hold は電圧判定（removal と同方式）→ judge_vlt_max/min も読む
   if h.measure_type.startswith("hold") and param.is_lat:
@@ -1575,7 +1639,8 @@ def genFileLogic_Const1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
     "setup"       :float(res[_dly_key]),
     "prop_clk_out":float(res["prop_clk_out"]),
     "vlt_max"     :float(res.get("judge_vlt_max", 1)),   # ISS-00153: seq_lat hold のみ実値
-    "vlt_min"     :float(res.get("judge_vlt_min", 1))}
+    "vlt_min"     :float(res.get("judge_vlt_min", 1)),
+    "trans_out"   :float(res.get("trans_out", 0))}   # ISS-00219: maxstep 上限決定用
 
   return (rslt)
 
@@ -1669,8 +1734,7 @@ def runSpiceRemovalSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slo
   #-- timestep
   slope          = index2_slope_rel
   tslew_min_s    = h.mls.simulation_slew_min   # ns 単位（後で time_mag 倍）
-  timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
-  timestep_tmax  = 20 * timestep_tstep
+  maxstep  = max(h.mls.tmax_low, min(slope * 0.198, h.mls.tmax_high))
 
   tdelay_in_rel = float("{:.5g}".format(_tslew_from_template(index2_slope_rel, h.mls) + sim_c2d_max * h.mls.time_mag))
   tslew_in_rel  = _tslew_from_template(index1_slope_const, h.mls)
@@ -1684,8 +1748,7 @@ def runSpiceRemovalSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slo
     ,time_energy  =[0,0]
     ,meas_o_max_min=1
     ,tslew_min    =float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
-    ,timestep     =float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
-    ,timestep_tmax=float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
+    ,maxstep      = float("{:.5g}".format(maxstep  * h.mls.time_mag))
     ,tsim_end     =1e-6   # 暫定値。 compute_timing 後に param.t_rel1 + 1ns で再設定
     ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
@@ -1933,8 +1996,7 @@ def runSpiceLatHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slo
   #-- timestep
   slope          = index2_slope_rel
   tslew_min_s    = h.mls.simulation_slew_min
-  timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
-  timestep_tmax  = 20 * timestep_tstep
+  maxstep  = max(h.mls.tmax_low, min(slope * 0.198, h.mls.tmax_high))
 
   #-- param 早期 instantiate（hold: meas_o_max_min=1）
   param = Mtp(
@@ -1945,8 +2007,7 @@ def runSpiceLatHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slo
     ,time_energy  =[0,0]
     ,meas_o_max_min=1
     ,tslew_min    =float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
-    ,timestep     =float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
-    ,timestep_tmax=float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
+    ,maxstep      = float("{:.5g}".format(maxstep  * h.mls.time_mag))
     ,tsim_end     =1e-6
     ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
@@ -2115,10 +2176,10 @@ def runSpicePassiveSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slo
   #-- timestep
   slope          = index1_slope_in
   tslew_min_s    = h.mls.simulation_slew_min
-  timestep_tstep = max(h.mls.simulation_timestep_min, min(slope * 0.0099, h.mls.simulation_timestep_max))
+  maxstep  = max(h.mls.tmax_low, min(slope * 0.198, h.mls.tmax_high))
   ## ISS-00094/00095: i_*_leak の AVG 区間（100*tslew_min）に複数ステップが入るよう
-  ##   _tmax を tslew_min*20 以下に抑える（基本ステップ timestep_tstep を下限）。
-  timestep_tmax  = max(timestep_tstep, min(20 * timestep_tstep, tslew_min_s * 20))
+  ##   maxstep を tslew_min*20 以下に抑える（下限は maxstep/20）。
+  maxstep  = max(maxstep/20, min(maxstep, tslew_min_s * 20))
 
   #-- param 早期 instantiate（passive: meas_energy=4、 tsim_end/time_energy は compute_timing 後に確定）
   param = Mtp(
@@ -2129,8 +2190,7 @@ def runSpicePassiveSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slo
     ,time_energy  =[0, 0]     # compute_timing 後に [t_rel0, t_rel1 + 2ns] で確定
     ,meas_o_max_min=0
     ,tslew_min    =float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
-    ,timestep     =float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
-    ,timestep_tmax=float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
+    ,maxstep      = float("{:.5g}".format(maxstep  * h.mls.time_mag))
     ,tsim_end     =1e-6       # 暫定値、 compute_timing 後に eend+1ns で再設定
     ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
@@ -2327,8 +2387,7 @@ def runSpiceMinPulseSingle(poolg_sema, targetHarness:Mcar, spicef:str):
 
   #-- timestep
   tslew_min_s    = h.mls.simulation_slew_min
-  timestep_tstep = max(h.mls.simulation_timestep_min, h.mls.simulation_timestep_max)
-  timestep_tmax  = max(100 * h.mls.simulation_timestep_max, timestep_tstep)
+  maxstep  = 5 * h.mls.tmax_high        # 旧 max(100*_max, max(_min,_max)) と等価（5*high が常に支配）
 
   #-- ISS-00160: パルス slew は mpw template の index_1 を汎用ループ（要素数は PDK 依存、gf180=3）。
   #   simulation_slew_for_pulse（スカラー固定）は廃止。cell の template_kgn に ["mpw","3x0","d000"] が必要。
@@ -2353,8 +2412,7 @@ def runSpiceMinPulseSingle(poolg_sema, targetHarness:Mcar, spicef:str):
     ,time_energy  =[0,0]
     ,meas_o_max_min=0
     ,tslew_min    = float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
-    ,timestep     =float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
-    ,timestep_tmax=float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
+    ,maxstep      = float("{:.5g}".format(maxstep  * h.mls.time_mag))
     ,tsim_end     =1.0E-6
     ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))   # min_pulse には delay 系 measure_type は来ないため固定
     ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
@@ -2390,6 +2448,25 @@ def runSpiceMinPulseSingle(poolg_sema, targetHarness:Mcar, spicef:str):
       prop_min   =1.0
       trans_min  =1.0
       tsim_end_dyn=1.0E-6
+
+      #-- ISS-00219: maxstep 確定フェーズ（掃引位置を seg_start に固定したまま反復）。
+      #   const と同型。 掃引位置と maxstep を同時に動かすと trans_out の変化がどちらに
+      #   由来するか分離できないため、 位置を固定して maxstep だけを収束させてから探索する。
+      _pts_per_trans = getattr(h.mls, "simulation_points_per_transition", 0.0)
+      if _pts_per_trans > 0.0:
+        _pt0 = h.mec.pin_tr[0] if h.mec.pin_tr else ""
+        for _it in range(4):
+          _sfp = _make_sim_path(f"{spicef}_sl{si}_p{_it}")
+          param.tpulse_clk = seg_start if _pt0.startswith("c") else 1.0e-6
+          param.tpulse_rel = 1.0e-9    if _pt0.startswith("c") else seg_start
+          param.tsim_end   = tsim_end_dyn
+          param.compute_timing()
+          _rp = genFileLogic_MinPulse1x(targetHarness=h, spicef=_sfp, param=param)
+          _tr = _rp.get("trans", 0.0)
+          if not (0.0 < _tr < 1.0e-6): break     # 未取得 or sentinel
+          _lim = _tr / _pts_per_trans
+          if _lim >= param.maxstep * 0.8: break  # 改善 20% 未満で収束
+          param.maxstep = float("{:.5g}".format(min(_lim, param.maxstep)))
 
       tstep = h.mls.sim_segment_timestep_start * h.mls.time_mag
       cnt=0
@@ -2565,8 +2642,7 @@ def runSpiceLeakageSingle(poolg_sema, targetHarness:Mcar, spicef:str):
 
   #-- timestep（leakage は slope/load 依存なし、 短 TSTEP で AVG window 内のサンプル数を確保）
   tslew_min_s    = h.mls.simulation_slew_min
-  timestep_tstep = h.mls.simulation_timestep_min
-  timestep_tmax  = 20 * timestep_tstep
+  maxstep  = h.mls.tmax_low             # 旧 20 * _min と等価
 
   #-- is_dtp: FF でない (= not isflop) → 短い init で OK
   is_dtp = (not h.mlc.isflop)
@@ -2580,8 +2656,7 @@ def runSpiceLeakageSingle(poolg_sema, targetHarness:Mcar, spicef:str):
     ,time_energy  = [0, 0]    # compute_timing 後に [t_in0, t_in1] で確定
     ,meas_o_max_min=0
     ,tslew_min    = float("{:.5g}".format(tslew_min_s * h.mls.time_mag))
-    ,timestep     = float("{:.5g}".format(timestep_tstep * h.mls.time_mag))
-    ,timestep_tmax= float("{:.5g}".format(timestep_tmax  * h.mls.time_mag))
+    ,maxstep      = float("{:.5g}".format(maxstep  * h.mls.time_mag))
     ,tsim_end     = 1e-6      # 暫定値、 compute_timing 後に t_rel3 で再設定
     ,tdelay_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  = 1e-9 if is_dtp else float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
@@ -2610,7 +2685,7 @@ def runSpiceLeakageSingle(poolg_sema, targetHarness:Mcar, spicef:str):
   #   tslew_in=leakage_stable_time まで tran を延ばして内部ノードを静定させれば nodeset が安定し、
   #   op が正しい安定解に収束する（過渡途中を拾うと metastable=貫通）。 内部ノード名は netlist 自動列挙。
   param.internal_nodes = h.mlc.get_internal_nodes()
-  param.leak_meas_at   = param.tsim_end - param.timestep_tmax
+  param.leak_meas_at   = param.tsim_end - param.maxstep
 
   with poolg_sema:
     spicefoe1 = _make_sim_path(f"{spicef}_leakage")

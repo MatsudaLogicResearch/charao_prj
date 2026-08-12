@@ -138,15 +138,26 @@ class MyLibrarySetting(BaseModel):
   sim_nice :int = 19
   wave_raw : bool = False   # ISS-00078: True で ngspice の sim 結果を sim 個別 dir の sim.sp.raw に保存（DUT cell port を階層参照で .save）
 
-  simulation_timestep_max : float = 1.0     # .tran TSTEP の上限 (ns)。 timestep_tstep = max(_min, min(slope*0.0099, _max))
-  simulation_timestep_min : float = 0.001   # .tran TSTEP の下限 (ns、 default 1 ps)。 ngspice LTE 暴走の間接抑制 (ISS-00087)
+  # ISS-00219: maxstep（.tran の内部積分ステップ上限＝第 4 引数）の算出パラメータ。 単位 ns。
+  #   maxstep = max(tmax_low, min(slew * 0.198, tmax_high))
+  #   .tran の第 1 引数（TSTEP＝印字刻み）は解像度にも収束にも効かないため maxstep と同値を渡す。
+  #   旧 simulation_timestep_min/max（= maxstep/20 を挟んでいた）の 20 倍が等価値。
+  tmax_high : float = 20.0     # maxstep の上限 (ns)
+  tmax_low  : float = 0.02     # maxstep の下限 (ns、 旧既定 1ps x 20 = 20ps)
   # ISS-00188: power_tin だけ下限を分ける。 下げすぎると LTE が逆方向に暴走するため。
   #   粗すぎる → power_tout の大負荷点が `Timestep too small ... vrel#branch` で落ちる（下げて解消）
   #   細かすぎる → power_tin の最速 slew が `Timestep too small ... vclk#branch` で落ちる（戻して解消）
-  #   SKY130 実測（2026-08-05）: 全 measure 0.0001 では power_tin が 109 件失敗。
-  #   power_tin だけ 0.001 に戻すと 0 件。 他 measure は 0.0001 で失敗なし。
-  #   未指定なら simulation_timestep_min と同じ値を使う（従来動作）。
-  simulation_timestep_min_power_tin : float | None = None
+  #   SKY130 実測（2026-08-05）: 全 measure 0.002 では power_tin が 109 件失敗。
+  #   power_tin だけ 0.02 に戻すと 0 件。 他 measure は 0.002 で失敗なし。
+  #   未指定なら tmax_low と同じ値を使う（従来動作）。
+  tmax_low_power_tin : float | None = None
+  # ISS-00219: const / delay / mpw で、 出力遷移 trans_out に何点のサンプルを乗せるか（単位＝点数）。
+  #   maxstep = min(maxstep, trans_out / この値) で上限を被せる（絞る方向のみ）。
+  #   trans_out は maxstep に依存する測定値（粗いと過大に出る）ため、 掃引位置を固定したまま
+  #   反復して収束させる（改善 20% 未満で打ち切り、 上限 4 回）。
+  #   0.0 で無効＝従来動作。 実測（sky130 dfxtp_1 setup 最悪点）では 2.0 で orig との差が
+  #   5.0064 → 0.0474 ns（1/106）に改善、 コストは const 1.13 倍 / delay 1.05 倍。
+  simulation_points_per_transition : float = 0.0
   simulation_slew_min : float = 0.001   # min_pulse_width / setup / hold 等の PWL slew 用（ns 単位、 default 1 ps）
   # ISS-00160: simulation_slew_for_pulse は廃止。min_pulse のパルス slew は templates の kind=mpw（index_1）で指定。
   sim_pulse_max       : float = 2.0

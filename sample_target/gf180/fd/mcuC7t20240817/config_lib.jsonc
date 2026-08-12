@@ -235,8 +235,8 @@
   ,"run_sim"    : "true"
   ,"num_thread" : 4
   ,"sim_nice"   : 19
-  ,"simulation_timestep_max"    : 1.0
-  ,"simulation_timestep_min"    : 0.001
+  ,"tmax_high"              : 20
+  ,"tmax_low"               : 0.02
   ,"simulation_slew_min"        : 0.001
   // ISS-00160: min_pulse のパルス slew は templates の kind=mpw（index_1）で指定するため simulation_slew_for_pulse は廃止（2026-07-17）
   ,"sim_pulse_max"              : 5.0

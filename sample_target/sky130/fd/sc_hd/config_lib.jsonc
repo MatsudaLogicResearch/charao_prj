@@ -135,16 +135,16 @@
 //--- ISS-00079 の sweet spot
   ,"num_thread" : 4
   ,"sim_nice"   : 19
-  ,"simulation_timestep_max"    : 1.000
+  ,"tmax_high"                 : 20
 //--- ISS-00188: 既定 0.001ns では index_1 下 3 点（0.01/0.0231/0.0531ns）で
 //    tstep = slope*0.0099 がフロアに張り付き、 エッジを 10〜53 点しか刻めない。
 //    energy2 の大負荷点が `Timestep too small ... vrel#branch` で落ちるため 0.0001 とする。
-  ,"simulation_timestep_min"    : 0.0001
+  ,"tmax_low"                  : 0.002
 //--- ISS-00188: ただし power_tin だけは 0.0001 にすると逆に落ちる（2026-08-05 実測）。
 //    最速 slew 0.01ns で tstep 0.1ps となり `Timestep too small ... vclk#branch` で
 //    全 181 セル中 26 セル・109 件が失敗。 0.001 に戻すと 0 件。
 //    フロアは ISS-00087（ngspice LTE 暴走の抑制）由来で、 下げすぎると逆方向に破綻する。
-  ,"simulation_timestep_min_power_tin" : 0.001
+  ,"tmax_low_power_tin"        : 0.02
   ,"sim_pulse_max"              : 3.0
   ,"sim_prop_max"               : 10.0
   ,"sim_prop_tri_max"           : 10.0

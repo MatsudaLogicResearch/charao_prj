@@ -71,8 +71,7 @@
 .param pullres  = {{param.pullres}}
 
 .param _tslew_min  = {{param.tslew_min}}
-.param _timestep   = {{param.timestep}}
-.param _tmax       = {{param.timestep_tmax}}
+.param _maxstep    = {{param.maxstep}}
 .param _tsim_end   = {{param.tsim_end}}
 
 ** timing (ISS-00080: Python 側 Mtp.compute_timing() で算出した絶対時刻を直接埋め込み。
@@ -124,9 +123,8 @@ VLOW_IO  VLOW_IO  0 PWL (0           {_vssio})
 VOCAP VOUT WOUT DC 0
 
 ** tran
-*.tran {_timestep} {_tsim_end} UIC maxstep=1e-10
-*.tran {_timestep} {_tsim_end} 0 1e-11
-.tran {_timestep} {_tsim_end} 0 {_tmax}
+*.tran {_maxstep} {_tsim_end} UIC
+.tran {_maxstep} {_tsim_end} 0 {_maxstep}
 
 
 ** DRIVE
@@ -299,9 +297,12 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
 
 {%- if  param.arc_oirc[0] in ["r","f"] %}
 *** Trans delay（ISS-00138: Q 遷移は CLK edge=_t_clk4 で起きるため _t_clk4 も min に含める）
+*** ISS-00219: 観測点は vout_judge_path（＝判定に使うノード）。 ICG は出力 GCLK が CLK AND ラッチ
+***            出力で遷移しない場合があり、 VOUT で測ると maxstep の根拠が取れない。
+***            非 is_gated / 非 const では "VOUT" なので delay 系（.lib の transition）に影響しない。
 .MEASURE TRAN trans_out
-+ TRIG v({{param.vout_path}}) VAL={{param.tran_v0_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_clk4,_t_rel0,_t_in0) - 2*_tslew_min}
-+ TARG v({{param.vout_path}}) VAL={{param.tran_v1_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_clk4,_t_rel0,_t_in0) - 2*_tslew_min}
++ TRIG v({{param.vout_judge_path}}) VAL={{param.tran_v0_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_clk4,_t_rel0,_t_in0) - 2*_tslew_min}
++ TARG v({{param.vout_judge_path}}) VAL={{param.tran_v1_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={min(_t_clk4,_t_rel0,_t_in0) - 2*_tslew_min}
 {%- endif %}
 
 {#-- ISS-00133: min_pulse 保存値 = パルス源(VCLK/VREL)の能動相幅を 0.5*VDD で実測 (p=rise->fall, n=fall->rise) --#}

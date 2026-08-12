@@ -68,9 +68,8 @@ class MyTbParam:
 
   meas_o_max_min:int       =0;
   
-  timestep     :float      =1e-9;
+  maxstep      :float      =1e-9;  # ISS-00219: .tran の内部積分ステップ上限（第4引数）。 第1引数にも同値を渡す
   tslew_min    :float      =1e-12;  # PWL slew 用の最小時間（秒、 .tran の timestep より細かい用途）
-  timestep_tmax:float      =1e-9;
   tsim_end     :float      =1e-9;
   tdelay_init  :float      =1e-9;  #-- for VCLK
   tpulse_init  :float      =1e-9;  #-- for VCLK
