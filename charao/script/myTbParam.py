@@ -33,6 +33,7 @@ class MyTbParam:
   temp         :float=0.0;
   voltage_vsnp :list[float]=Field(default_factory=list);#for vdd/vss/vnw/vpw
   prop_vth_oirc:list[str]  =Field(default_factory=list); #for outport/inport/related/clock
+  judge_vth_oirc:list[str] =Field(default_factory=list); #ISS-00218(A): const 判定 judge_dly の TRIG 側閾値
   tran_v0_oirc :list[str]  =Field(default_factory=list); #for outport/inport/related/clock
   tran_v1_oirc :list[str]  =Field(default_factory=list); #for outport/inport/related/clock
   ener_v0_oirc :list[str]  =Field(default_factory=list); #for outport/inport/related/clock
@@ -178,6 +179,13 @@ class MyTbParam:
                         h.mls.logic_low_to_high_threshold_voltage if arc_oirc[1]=="r" else h.mls.logic_high_to_low_threshold_voltage,
                         h.mls.logic_low_to_high_threshold_voltage if arc_oirc[2]=="r" else h.mls.logic_high_to_low_threshold_voltage,
                         h.mls.logic_low_to_high_threshold_voltage if arc_oirc[3]=="r" else h.mls.logic_high_to_low_threshold_voltage]
+
+    #-- ISS-00218(A): judge_dly の TRIG 側は「遷移の開始側」に置く（rise=0.1 / fall=0.9）。
+    #   TARG（出力）は prop_vth_oirc[0]（50%）のまま。 .lib の値には影響しない。
+    self.judge_vth_oirc=[h.mls.const_judge_threshold_rise_voltage if arc_oirc[0]=="r" else h.mls.const_judge_threshold_fall_voltage,
+                         h.mls.const_judge_threshold_rise_voltage if arc_oirc[1]=="r" else h.mls.const_judge_threshold_fall_voltage,
+                         h.mls.const_judge_threshold_rise_voltage if arc_oirc[2]=="r" else h.mls.const_judge_threshold_fall_voltage,
+                         h.mls.const_judge_threshold_rise_voltage if arc_oirc[3]=="r" else h.mls.const_judge_threshold_fall_voltage]
 
     self.tran_v0_oirc =[h.mls.logic_threshold_low_voltage  if arc_oirc[0]=="r" else h.mls.logic_threshold_high_voltage,
                         h.mls.logic_threshold_low_voltage  if arc_oirc[1]=="r" else h.mls.logic_threshold_high_voltage,

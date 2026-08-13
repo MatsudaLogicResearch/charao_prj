@@ -1246,7 +1246,12 @@ def runSpiceConstSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
     direction  = 1.0 if seg_end >= seg_start else -1.0   # 掃引向き（pass→fail）
 
     ratio      = h.mls.sim_segment_timestep_ratio
-    threshold  = h.mls.sim_time_const_threshold * h.mls.time_mag
+    #-- ISS-00218(B): 劣化量の閾値は「絶対値の上限」と「基準遅延 d0 への比例項」の小さい方。
+    #   threshold_abs は上限（従来の固定値）、 実効値は掃引ループ内で prop_min から算出する。
+    #   ratio=0.0（既定・未指定）なら比例項を無効化し、 従来どおり上限のみで判定する。
+    threshold_abs   = h.mls.sim_time_const_threshold * h.mls.time_mag
+    threshold_ratio = h.mls.sim_time_const_threshold_ratio
+    threshold  = threshold_abs   # 保持型 hold など、 比例項を使わない経路のための既定
 
     #-- ISS-00153: 保持型 hold（LAT/ICG=seq_lat）は電圧判定（removal と同方式）に使う閾値
     #   is_lat は set_common_value 済の param から取る（logic_type は mls.logic_dict 辞書引きのため）
@@ -1328,11 +1333,22 @@ def runSpiceConstSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
           elif (_held_o in ("1","f")) and (threshold_high > rslt["vlt_min"]):
             break
         else:
-          #- degradation 判定。 ISS-00221: FF は prop_clk_out（CLK→Q）、 LAT は judge_dly（D→Q）。
-          #   透過ラッチでは enable→Q が掃引量そのもの（幾何量）になり、 abs()＋running-min の
-          #   組合せで「戻ると必ず break／進むと絶対に break しない」となって絞り込みが壊れる。
-          prop_last =abs(rslt["judge_dly" if is_lat else "prop_clk_out"])
+          #- degradation 判定。 ISS-00218(A): FF/LAT とも judge_dly に一本化した。
+          #   旧実装は FF で prop_clk_out（CLK→Q）を流用していたが、 これは .lib の
+          #   rising_edge/falling_edge の値そのものなので TRIG 閾値を動かせない。
+          #   judge_dly は判定専用（.lib 非出力）なので TRIG を遷移開始側に置ける。
+          #   ISS-00221: 透過ラッチでは enable→Q が掃引量そのもの（幾何量）になり、 abs()＋
+          #   running-min の組合せで「戻ると必ず break／進むと絶対に break しない」となって
+          #   絞り込みが壊れる。 judge_dly は制約信号起点なのでこの問題を持たない。
+          #   judge_dly が取得できない点は「掃引が進んで Q が一度も遷移しない＝真の崖」で、
+          #   既定値 1（秒）が必ず prop_min+threshold を超えるため下の判定が fail として break する。
+          prop_last =abs(rslt["judge_dly"])
           prop_min=min(prop_min, prop_last)
+          #-- ISS-00218(B): 実効閾値 = min(絶対値の上限, d0 × 比例係数)。 d0 は judge_dly の
+          #   running-min（＝判定式の基準そのもの）。 prop_min が既定 1.0 秒のまま（judge_dly を
+          #   一度も取得できていない）ときは比例項が桁違いに大きくなるので上限側が効く。
+          threshold = (min(threshold_abs, prop_min * threshold_ratio)
+                       if threshold_ratio > 0.0 else threshold_abs)
           if prop_last > prop_min + threshold:
             break;
 
@@ -2222,7 +2238,9 @@ def runSpiceMinPulseSingle(poolg_sema, targetHarness:Mcar, spicef:str):
       seg_end    = 0.0
       tstep_min  = h.mls.sim_segment_timestep_min * h.mls.time_mag
       ratio      = h.mls.sim_segment_timestep_ratio
-      threshold  = h.mls.sim_time_const_threshold * h.mls.time_mag
+      #-- ISS-00218(B): min_pulse 専用の閾値。 従来は sim_time_const_threshold を const と
+      #   共用していたが、 const 側に比例項を入れたため分離した（既定値は従来と同じ 0.1）。
+      threshold  = h.mls.sim_time_pulse_threshold * h.mls.time_mag
 
       tsweep_pass=seg_start
       pulse_pass =seg_start

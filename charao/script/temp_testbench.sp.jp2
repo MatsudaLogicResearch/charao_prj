@@ -344,13 +344,15 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
 + TARG v(VCLK) VAL={{param.prop_vth_oirc[3]}} {{param.arc_oirc4measure[3]}}=1 TD={_t_clk3 - 2*_tslew_min}
   {%- if param.is_lat %}
 *** ISS-00133 judge_dly setup LAT: TRIG VIN(D) -> TARG VOUT(Q)
+*** ISS-00218(A): TRIG は遷移の開始側（judge_vth_oirc）。 TARG は 50%（prop_vth_oirc）。
 .MEASURE TRAN judge_dly
-+ TRIG v(VIN)  VAL={{param.prop_vth_oirc[1]}} {{param.arc_oirc4measure[1]}}=1 TD={_t_clk3 - 2*_tslew_min}
++ TRIG v(VIN)  VAL={{param.judge_vth_oirc[1]}} {{param.arc_oirc4measure[1]}}=1 TD={_t_clk3 - 2*_tslew_min}
 + TARG v({{param.vout_judge_path}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={_t_clk3 - 2*_tslew_min}
   {%- else %}
 *** ISS-00133 judge_dly setup FF: TRIG VCLK(CLK) -> TARG VOUT(Q)
+*** ISS-00218(A): TRIG は遷移の開始側（judge_vth_oirc）。 TARG は 50%（prop_vth_oirc）。
 .MEASURE TRAN judge_dly
-+ TRIG v(VCLK) VAL={{param.prop_vth_oirc[3]}} {{param.arc_oirc4measure[3]}}=1 TD={_t_clk3 - 2*_tslew_min}
++ TRIG v(VCLK) VAL={{param.judge_vth_oirc[3]}} {{param.arc_oirc4measure[3]}}=1 TD={_t_clk3 - 2*_tslew_min}
 + TARG v({{param.vout_judge_path}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={_t_clk3 - 2*_tslew_min}
   {%- endif %}
 
@@ -365,8 +367,15 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
 .MEASURE TRAN judge_vlt_max MAX V({{param.vout_judge_path}}) FROM={_t_clk4} TO={_tsim_end}
 .MEASURE TRAN judge_vlt_min MIN V({{param.vout_judge_path}}) FROM={_t_clk4} TO={_tsim_end}
   {%- else %}
-*** ISS-00138: FF hold は prop_clk_out の degradation で判定するため judge_vlt_max/min は不要。
+*** ISS-00138: FF hold は degradation 判定のため judge_vlt_max/min は不要。
 ***            MAX/MIN measure は autostop を無効化するため出さない（autostop 維持で高速化）。
+*** ISS-00218(A) judge_dly hold FF: TRIG VCLK(CLK) -> TARG VOUT(Q)
+***            判定量を judge_dly に一本化するため追加（従来は prop_clk_out を流用していたが、
+***            prop_clk_out は .lib の rising_edge/falling_edge の値そのものなので TRIG を動かせない）。
+***            TRIG/TARG 型の MEASURE は MAX/MIN と違い autostop を殺さない。
+.MEASURE TRAN judge_dly
++ TRIG v(VCLK) VAL={{param.judge_vth_oirc[3]}} {{param.arc_oirc4measure[3]}}=1 TD={_t_clk3 - 2*_tslew_min}
++ TARG v({{param.vout_judge_path}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={_t_clk3 - 2*_tslew_min}
   {%- endif %}
 
 {%- elif param.setup_kind == "recovery" %}
@@ -376,13 +385,15 @@ VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
 + TARG v(VCLK) VAL={{param.prop_vth_oirc[3]}} {{param.arc_oirc4measure[3]}}=1 TD={_t_clk3 - 2*_tslew_min}
   {%- if param.is_lat %}
 *** ISS-00133 judge_dly recovery LAT: TRIG VREL(async) -> TARG VOUT(Q)
+*** ISS-00218(A): TRIG は遷移の開始側（judge_vth_oirc）。 TARG は 50%（prop_vth_oirc）。
 .MEASURE TRAN judge_dly
-+ TRIG v(VREL) VAL={{param.prop_vth_oirc[2]}} {{param.arc_oirc4measure[2]}}=1 TD={_t_clk3 - 2*_tslew_min}
++ TRIG v(VREL) VAL={{param.judge_vth_oirc[2]}} {{param.arc_oirc4measure[2]}}=1 TD={_t_clk3 - 2*_tslew_min}
 + TARG v({{param.vout_judge_path}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={_t_clk3 - 2*_tslew_min}
   {%- else %}
 *** ISS-00133 judge_dly recovery FF: TRIG VCLK(CLK) -> TARG VOUT(Q)
+*** ISS-00218(A): TRIG は遷移の開始側（judge_vth_oirc）。 TARG は 50%（prop_vth_oirc）。
 .MEASURE TRAN judge_dly
-+ TRIG v(VCLK) VAL={{param.prop_vth_oirc[3]}} {{param.arc_oirc4measure[3]}}=1 TD={_t_clk3 - 2*_tslew_min}
++ TRIG v(VCLK) VAL={{param.judge_vth_oirc[3]}} {{param.arc_oirc4measure[3]}}=1 TD={_t_clk3 - 2*_tslew_min}
 + TARG v({{param.vout_judge_path}}) VAL={{param.prop_vth_oirc[0]}} {{param.arc_oirc4measure[0]}}=1 TD={_t_clk3 - 2*_tslew_min}
   {%- endif %}
 

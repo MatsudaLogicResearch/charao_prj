@@ -4,6 +4,76 @@
 
 ---
 
+## [2.0.0.a12] 2026-08-13
+
+const（setup / hold / recovery）の判定量と閾値の決め方を見直した。
+**`.lib` の const 値は全面的に変わる**（delay / transition / power / leakage は不変）。
+
+### 修正
+
+- **判定量を `judge_dly` に一本化**（ISS-00227）。旧実装は **FF で `prop_clk_out` を流用**して
+  いたが、これは `.lib` の `rising_edge` / `falling_edge` の値そのものなので TRIG 閾値を
+  動かせない。`judge_dly` は判定専用（`.lib` 非出力）なので基準を自由に選べる。
+  あわせて **FF の hold 用 `judge_dly` を jp2 に新規追加**した（従来この分岐には無かった）。
+- **`--measures_only` に存在しない measure 名を渡すと静かに失敗する**（ISS-00228）。
+  全 meas_type がスキップされ、**エラーも警告も出ないまま計測ゼロで `.lib` だけが生成される**
+  （timing ブロック 0 件）。`debug_run.sh` の生成物確認は `.lib` のセル数しか見ないため
+  **「0 failures / .lib N cells」と表示されて成功に見える**。起動時に名前を検証し、
+  未知の名前があれば有効名一覧を出して停止する。有効名は `logic_dict` から動的に集めるので
+  `--mylogic_user` で追加した logic の measure も自動で許容される。
+
+### 変更
+
+- **`judge_dly` の TRIG 側閾値を遷移の開始側へ**（ISS-00227）。新キー
+  `const_judge_threshold_rise`（0.1）/ `const_judge_threshold_fall`（0.9）。
+  TARG（出力 50%）と `.lib` に出る値・ヘッダ宣言は変えない。
+
+  ```
+  50% 基準  : nominal に「入力が 50% から実効的な確定点まで進む時間」が混入し、
+              slew が緩いほど判定量が小さく評価される
+  開始側    : slew とともに必ず大きくなる側に出るので、絶対値閾値の意味が corner 間で安定する
+  完了側(0.9): judge_dly が負になり得て abs()+running-min の判定が壊れる（ISS-00221 と同型）ため不採用
+  ```
+
+- **劣化閾値に比例項を追加**（ISS-00227）。新キー `sim_time_const_threshold_ratio`（0.03）。
+  実効閾値 = **`min(sim_time_const_threshold, d0 × 係数)`**（`d0` は `judge_dly` の running-min）。
+  `0.0`（既定・未指定）で従来動作。**判定量が `judge_dly` なので閾値も同じ量のスケールに紐づける**。
+- **`min_pulse_width` の閾値を分離**（ISS-00227）。新キー `sim_time_pulse_threshold`。
+  const 側に比例項を入れたことで `sim_time_const_threshold` が measure によって違う意味を
+  持つ状態になったため。**値は各 PDK の従来値と同一で挙動不変**。比例項を設けないのは、
+  判定量が `prop` と `trans` の 2 つ（OR 判定）で **`trans` は掃引でほとんど変化しない**
+  （実測 2%）ため。
+
+### 確認
+
+すべて gf180（TT / 5.0V / 25℃）、`index1` = 0.02・2.214 × `index2` 全 10 点、0 failures。
+
+- **退行なし**：`latrnq_1` の recovery 10 点が変更前と**完全一致**（最大差 0.000000 ns）。
+  TRIG の移動は running-min との差分判定で相殺され境界が動かない、という事前予測どおり。
+  `.sp` 実測で rise arc `VAL=0.5` / fall arc `VAL=4.5` を確認。
+- **`min_pulse_width` は挙動不変**：`latrnq_1` / `dffrnq_1` / `icgtp_1` の 9 項目・27 点が
+  キー分離前と**完全一致（差 0）**。
+- **orig との差**（\|0.1 ns\| 以内の点数）：
+
+  ```
+  recovery  latrnq_1                 3/20   最大|差| 0.869 -> 0.307 ns
+  setup     dffrnq_1 + latrnq_1     23/80   「96/96 点で一方向に小さい」は解消（ISS-00222 クローズ）
+  hold      dffrnq_1                15/40   rise は 15/20 と良好
+  ```
+
+### 注意
+
+- **全点一致には到達していない**（合計 41/140）。orig の境界に対応する劣化量は
+  **0.00005〜0.027 ns と 500 倍ばらつき**、`d0` にも `trans_out` にも比例しないため、
+  **閾値則をどう作っても吸収できない**。`min(0.1, trans_out × K)` の案も試算して 6/20 止まり、
+  判定量を `trans_out` の劣化にする案は掃引で 2% しか動かず原理的に不成立だった。
+- **残課題**：`latrnq_1` の setup fall（0/20）と `dffrnq_1` の hold fall（0/20）が全点不合格で、
+  いずれも `fall_constraint` 側。とくに **hold fall は `index1` 大側で符号が一致しない**
+  （orig は 0 付近で符号が変わるのに charao は一貫してマイナス、10 点中 8 点で不一致）。
+  詳細は ISS-00227 に記録。
+
+---
+
 ## [2.0.0.a11] 2026-08-13
 
 jsonc の未知キーを黙って無視せず、起動時にエラーとして検出するようにした。

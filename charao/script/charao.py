@@ -257,7 +257,25 @@ def main():
                     }
   targetLib = targetLib.model_copy(update=config_logic_dict)
   print(f"[INF]: supported logic_dict = {logic_dict.keys()}")
-  
+
+  #--- ISS-00228: --measures_only に存在しない measure 名を渡すと、 charao_run の
+  #    `if measures_only and (mt not in measures_only): continue` で全 meas_type が
+  #    スキップされ、 **エラーも警告も出ないまま計測ゼロで .lib だけが生成される**
+  #    （timing ブロック 0 件。 debug_run.sh の生成物確認は .lib のセル数しか見ないため
+  #    「0 failures / .lib N cells」と表示されて成功に見える）。 起動時に名前を検証する。
+  #    有効名は logic_dict（mylogic_user の拡張を含む）から動的に集める。
+  if targetLib.measures_only:
+    valid_measures = set()
+    for _logic in logic_dict.values():
+      for _exp in _logic.get("expect", []):
+        valid_measures |= set(_exp.meas_types)
+    unknown = [m for m in targetLib.measures_only if m not in valid_measures]
+    if unknown:
+      print(f"[Error] unknown --measures_only name(s): {unknown}")
+      print(f"        available: {sorted(valid_measures)}")
+      my_exit()
+    print(f"[INF]: measures_only = {targetLib.measures_only}")
+
   #--- targetLib : initialize workspace
   initializeFiles(targetLib) 
   targetLib.gen_lut_templates()

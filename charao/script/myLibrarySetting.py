@@ -106,6 +106,31 @@ class MyLibrarySetting(BaseModel):
   logic_threshold_low         : float = 0.2  ;#
   logic_high_to_low_threshold : float = 0.5  ;#
   logic_low_to_high_threshold : float = 0.5  ;#
+  #--- ISS-00218(A): const 判定量 judge_dly の TRIG 側閾値（入力信号＝制約ピン / CLK 側）。
+  #   TARG（出力）は従来どおり logic_*_to_*_threshold（50%）。 .lib に出る値・ヘッダ宣言には一切影響しない。
+  #   遷移の「開始側」に置く（rise=0.1 / fall=0.9）。 50% 基準では nominal に
+  #   「入力が 50% から実効的な確定点まで進む時間」が混入し、 slew が緩いほど判定量が
+  #   小さく評価される。 開始側に置くと slew とともに必ず大きくなる側に出るため、
+  #   絶対値 threshold（sim_time_const_threshold）の意味が corner 間で安定する。
+  #   遷移完了側（rise=0.9）は judge_dly が負になり得て abs()+running-min の判定が
+  #   壊れる（ISS-00221 と同じ失敗モード）ため採らない。
+  const_judge_threshold_rise  : float = 0.1  ;# rise arc の TRIG（VDD 比）
+  const_judge_threshold_fall  : float = 0.9  ;# fall arc の TRIG（VDD 比）
+  #--- ISS-00218(B): const 掃引の終了判定に使う劣化量の閾値を、基準遅延 d0 に比例させる係数。
+  #   閾値 = min(sim_time_const_threshold, d0 × 本係数)。 d0 は judge_dly の running-min。
+  #   0.0（既定）で比例項を無効化＝従来どおり sim_time_const_threshold の絶対値のみ。
+  #   Why: judge_dly の nominal はセル・corner で桁が違う（gf180 latrnq_1 で 0.343〜1.437 ns）。
+  #     絶対値 0.1 ns 固定だと、 nominal が小さいセルほど判定が甘くなり、 掃引が進みすぎて
+  #     制約値が小さく（STA 上は楽観側に）出る。 判定量が judge_dly なので、 閾値も同じ量の
+  #     スケールに紐づける。
+  sim_time_const_threshold_ratio : float = 0.0
+  #--- ISS-00218(B): min_pulse_width 掃引の劣化判定に使う閾値 [ns]。
+  #   従来は sim_time_const_threshold を const（setup/hold/recovery）と共用していたが、
+  #   const 側に比例項（sim_time_const_threshold_ratio）を入れたことで、 同じキーが
+  #   measure によって違う意味を持つ状態になったため分離した。
+  #   min_pulse は判定量が prop と trans の 2 つ（OR 判定）で、 trans は掃引でほとんど
+  #   変化しない（実測 2%）ため比例項は設けない。 既定値は従来と同じ絶対値のみ。
+  sim_time_pulse_threshold       : float = 0.1
   energy_meas_low_threshold   : float = 0.01 ;# ISS-00117: 必ず 0.01 以上を設定。 myTbParam.py の meas_energy=1 補正で 0.99×low → 負電圧化を防ぐため。
   energy_meas_high_threshold  : float = 0.99 ;# ISS-00117: 必ず 0.99 以下を設定。 myTbParam.py の meas_energy=1 補正で 1.01×high → VDD 超過化を防ぐため。
   hold_meas_low_threshold     : float = 0.01 ;#
@@ -198,6 +223,8 @@ class MyLibrarySetting(BaseModel):
   logic_threshold_low_voltage         : float = 1.0
   logic_high_to_low_threshold_voltage : float = 2.5
   logic_low_to_high_threshold_voltage : float = 2.5
+  const_judge_threshold_rise_voltage  : float = 0.5   #-- ISS-00218(A)
+  const_judge_threshold_fall_voltage  : float = 4.5   #-- ISS-00218(A)
   energy_meas_low_threshold_voltage   : float = 0.05
   energy_meas_high_threshold_voltage  : float = 4.95
   
@@ -372,6 +399,11 @@ class MyLibrarySetting(BaseModel):
     self.logic_low_to_high_threshold_voltage = self.logic_low_to_high_threshold * self.vdd_voltage * self.voltage_mag;
     
     self.logic_high_to_low_threshold_voltage = self.logic_high_to_low_threshold * self.vdd_voltage * self.voltage_mag;
+
+    #-- ISS-00218(A): const 判定（judge_dly）の TRIG 側閾値
+    self.const_judge_threshold_rise_voltage = self.const_judge_threshold_rise * self.vdd_voltage * self.voltage_mag;
+
+    self.const_judge_threshold_fall_voltage = self.const_judge_threshold_fall * self.vdd_voltage * self.voltage_mag;
     
     self.energy_meas_low_threshold_voltage = self.energy_meas_low_threshold * self.vdd_voltage * self.voltage_mag
     

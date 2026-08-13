@@ -41,6 +41,14 @@
   ,"logic_threshold_low"         : 0.2
   ,"logic_high_to_low_threshold" : 0.5
   ,"logic_low_to_high_threshold" : 0.5
+// ISS-00218(A): const 判定量 judge_dly の TRIG 側閾値（入力信号＝制約ピン / CLK 側）。
+//   遷移の「開始側」に置く（rise=0.1 / fall=0.9）。 TARG（出力）は 50% のまま。
+//   .lib に出る値・ヘッダ宣言（input/output_threshold_pct 等）には一切影響しない。
+//   50% 基準だと nominal に「入力が 50% から実効的な確定点まで進む時間」が混入し、
+//   slew が緩いほど判定量が小さく評価されて、 絶対値の sim_time_const_threshold が
+//   corner ごとに違う厳しさになってしまう。
+  ,"const_judge_threshold_rise"  : 0.1
+  ,"const_judge_threshold_fall"  : 0.9
   ,"energy_meas_low_threshold"   : 0.01
   ,"energy_meas_high_threshold"  : 0.99
   ,"hold_meas_high_threshold"    : 0.01
@@ -109,6 +117,14 @@
   ,"sim_segment_timestep_ratio" : 0.1
   ,"sim_segment_timestep_min"   : 0.001
   ,"sim_time_const_threshold"   : 0.01
+// ISS-00218(B): const 掃引の終了判定に使う劣化量の閾値を、基準遅延 d0 に比例させる係数。
+//   閾値 = min(sim_time_const_threshold, d0 × 本係数)。 d0 は judge_dly の running-min。
+//   0.0（既定・未指定）で比例項を無効＝従来どおり sim_time_const_threshold の絶対値のみ。
+  ,"sim_time_const_threshold_ratio" : 0.03
+// ISS-00218(B): min_pulse_width 掃引の劣化判定に使う閾値 [ns]。
+//   const（setup/hold/recovery）とは判定量が違うため別キーにした。
+//   値は従来 const と共用していたときと同じ（挙動不変）。
+  ,"sim_time_pulse_threshold"       : 0.01
   ,"sim_tsim_end4hold"          : 30.0
 //  ,"sim_time_end_extent"        : 3
   
