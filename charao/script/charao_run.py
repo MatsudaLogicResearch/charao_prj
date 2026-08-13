@@ -104,13 +104,15 @@ def _aggregate_max_in_harness_list(harness_list):
     rep.set_lut(dst_name)
 
 
-def _check_dbg_sp(spicef:str) -> None:
+def _check_dbg_sp(spicef:str, mls:Mls) -> None:
+  #-- ISS-00226: 停止通知は print_msg_dbg 経由（supress_debug_msg="true" で抑制できる）。
+  #   従来 print() 直書きで、 設定 supress_debug_msg が書いても効かない状態だった。
   if _DBG_SP_LIMIT <= 0:
     return
   with _DBG_SP_LOCK:
     _DBG_SP_COUNT[0] += 1
     if _DBG_SP_COUNT[0] >= _DBG_SP_LIMIT:
-      print(f"[DEBUG] sp count {_DBG_SP_COUNT[0]} reached --debug_stop={_DBG_SP_LIMIT} (last={spicef}), forcing os._exit(0)")
+      mls.print_msg_dbg(f"[DEBUG] sp count {_DBG_SP_COUNT[0]} reached --debug_stop={_DBG_SP_LIMIT} (last={spicef}), forcing os._exit(0)")
       os._exit(0)
 
 
@@ -609,8 +611,9 @@ def genFileLogic_DelayTrial1x(targetHarness:Mcar, spicef:str, param:Mtp) ->dict:
   with open(spicef, 'w') as f:
     f.write(rendered)
   param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
-  print(f"  [INFO] generate tb={spicef}")
-  _check_dbg_sp(spicef)   # ISS-00118 debug: stop after N sp
+  #-- ISS-00226: sim 1 本ごとの高頻度ログ。 supress_sim_msg="true" で抑制できる。
+  h.mls.print_msg_sim(f"  [INFO] generate tb={spicef}")
+  _check_dbg_sp(spicef, h.mls)   # ISS-00118 debug: stop after N sp
 
   #-- execute spice
   spicelis=h.mls.exec_spice(spicef=spicef)
@@ -910,8 +913,9 @@ def genFileLogic_PowerToutTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
   with open(spicef, 'w') as f:
     f.write(rendered)
   param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
-  print(f"  [INFO] generate tb={spicef}")
-  _check_dbg_sp(spicef)   # ISS-00118 debug: stop after N sp
+  #-- ISS-00226: sim 1 本ごとの高頻度ログ。 supress_sim_msg="true" で抑制できる。
+  h.mls.print_msg_sim(f"  [INFO] generate tb={spicef}")
+  _check_dbg_sp(spicef, h.mls)   # ISS-00118 debug: stop after N sp
 
   #-- execute spice
   spicelis=h.mls.exec_spice(spicef=spicef)
@@ -1028,8 +1032,9 @@ def genFileLogic_PowerTinTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
   with open(spicef, 'w') as f:
     f.write(rendered)
   param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
-  print(f"  [INFO] generate tb={spicef}")
-  _check_dbg_sp(spicef)   # ISS-00118 debug: stop after N sp
+  #-- ISS-00226: sim 1 本ごとの高頻度ログ。 supress_sim_msg="true" で抑制できる。
+  h.mls.print_msg_sim(f"  [INFO] generate tb={spicef}")
+  _check_dbg_sp(spicef, h.mls)   # ISS-00118 debug: stop after N sp
 
   ## execute spice
   spicelis = h.mls.exec_spice(spicef=spicef)
@@ -1382,8 +1387,9 @@ def genFileLogic_Const1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
   with open(spicef, 'w') as f:
     f.write(rendered)
   param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
-  print(f"  [INFO] generate tb={spicef}")
-  _check_dbg_sp(spicef)   # ISS-00118 debug: stop after N sp
+  #-- ISS-00226: sim 1 本ごとの高頻度ログ。 supress_sim_msg="true" で抑制できる。
+  h.mls.print_msg_sim(f"  [INFO] generate tb={spicef}")
+  _check_dbg_sp(spicef, h.mls)   # ISS-00118 debug: stop after N sp
 
   #-- execute spice
   spicelis=h.mls.exec_spice(spicef=spicef)
@@ -1662,8 +1668,9 @@ def genFileLogic_Removal1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
   with open(spicef, 'w') as f:
     f.write(rendered)
   param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
-  print(f"  [INFO] generate tb={spicef}")
-  _check_dbg_sp(spicef)   # ISS-00118 debug: stop after N sp
+  #-- ISS-00226: sim 1 本ごとの高頻度ログ。 supress_sim_msg="true" で抑制できる。
+  h.mls.print_msg_sim(f"  [INFO] generate tb={spicef}")
+  _check_dbg_sp(spicef, h.mls)   # ISS-00118 debug: stop after N sp
 
   #-- execute spice
   spicelis=h.mls.exec_spice(spicef=spicef)
@@ -2041,8 +2048,9 @@ def genFileLogic_PassiveTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
   with open(spicef, 'w') as f:
     f.write(rendered)
   param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
-  print(f"  [INFO] generate tb={spicef}")
-  _check_dbg_sp(spicef)   # ISS-00118 debug: stop after N sp
+  #-- ISS-00226: sim 1 本ごとの高頻度ログ。 supress_sim_msg="true" で抑制できる。
+  h.mls.print_msg_sim(f"  [INFO] generate tb={spicef}")
+  _check_dbg_sp(spicef, h.mls)   # ISS-00118 debug: stop after N sp
 
   #-- execute spice
   spicelis=h.mls.exec_spice(spicef=spicef)
@@ -2326,8 +2334,9 @@ def genFileLogic_MinPulse1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
   with open(spicef, 'w') as f:
     f.write(rendered)
   param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
-  print(f"  [INFO] generate tb={spicef}")
-  _check_dbg_sp(spicef)   # ISS-00118 debug: stop after N sp
+  #-- ISS-00226: sim 1 本ごとの高頻度ログ。 supress_sim_msg="true" で抑制できる。
+  h.mls.print_msg_sim(f"  [INFO] generate tb={spicef}")
+  _check_dbg_sp(spicef, h.mls)   # ISS-00118 debug: stop after N sp
 
   #-- execute spice
   spicelis=h.mls.exec_spice(spicef=spicef)
@@ -2524,8 +2533,9 @@ def genFileLogic_LeakageTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
   with open(spicef, 'w') as f:
     f.write(rendered)
   param.write_pinmap_if_enabled(os.path.dirname(spicef))   # ISS-00078: sidecar .pinmap.json
-  print(f"  [INFO] generate tb={spicef}")
-  _check_dbg_sp(spicef)   # ISS-00118 debug: stop after N sp
+  #-- ISS-00226: sim 1 本ごとの高頻度ログ。 supress_sim_msg="true" で抑制できる。
+  h.mls.print_msg_sim(f"  [INFO] generate tb={spicef}")
+  _check_dbg_sp(spicef, h.mls)   # ISS-00118 debug: stop after N sp
 
   #-- execute spice
   spicelis=h.mls.exec_spice(spicef=spicef)

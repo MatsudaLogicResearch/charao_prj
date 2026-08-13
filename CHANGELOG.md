@@ -4,6 +4,41 @@
 
 ---
 
+## [2.0.0.a13] 2026-08-13
+
+`supress_sim_msg` / `supress_debug_msg` が書いても効かない状態を解消した。
+`.lib` の値には一切影響しない（ログ出力の経路だけの変更）。
+
+### 修正
+
+- **`print_msg_sim` / `print_msg_dbg` が定義だけで呼び出し 0 箇所＝dead だった**（ISS-00226）。
+  対応する設定 `supress_sim_msg` / `supress_debug_msg` は**書いても書かなくても出力が変わらない**
+  状態で、ISS-00225 の `extra:"forbid"` 導入で値がモデルへ届くようになった後も無効のままだった。
+  該当する出力を printer 経由に通して設定を生かした。
+
+  ```
+  [INFO] generate tb={spicef}                      -> h.mls.print_msg_sim()   charao_run.py の 8 箇所
+  [DEBUG] sp count ... forcing os._exit(0)         -> mls.print_msg_dbg()     _check_dbg_sp（引数に mls 追加）
+  ```
+
+  `[Error]`（61 箇所）と他の `[INFO]` は**抑制対象にしない**（失敗を見逃す危険があるため）。
+
+### 確認
+
+gf180 `inv_1` × `delay` × 1 点 × `DEBUG_STOP=3`。jsonc 設定を反転した 2 run で
+**2 つの設定が独立して効くこと**を実証した。
+
+```
+run  supress_sim_msg  supress_debug_msg   [INFO] generate tb   [DEBUG] sp count
+ A       false             true                  3 行               0 行
+ B       true              false                 0 行               1 行
+```
+
+**`--debug_stop` は CLI 引数、`supress_debug_msg` は jsonc 設定**と入り口が違うが、
+両者が噛み合っていることも同時に確認した。
+
+---
+
 ## [2.0.0.a12] 2026-08-13
 
 const（setup / hold / recovery）の判定量と閾値の決め方を見直した。
