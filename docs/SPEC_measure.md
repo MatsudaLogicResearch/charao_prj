@@ -913,7 +913,180 @@ library (name) {
 
 ---
 
-## 9. 参照
+## 12. `.tran` の刻み（`maxstep`）と probe（ISS-00219 / ISS-00223）
+
+### 12.1 `maxstep` の決まり方
+
+```
+maxstep = max(tmax_low, min(slew × 0.198, tmax_high))       slew は当該 measure の入力 slew
+maxstep = <significant_digits 桁へ丸め>                     ISS-00230（既定 3 桁）
+.tran {maxstep} {tsim_end} 0 {maxstep}
+```
+
+**`maxstep` の有効桁は `significant_digits` で決まる**（`_fmt_maxstep()`、既定 3）。従来は `"{:.5g}"` の
+ハードコードだった。**`significant_digits` は本来 `.lib` / doc の出力桁**（`--significant_digits` / `-s`、
+`config_lib.jsonc`）なので、**この値を変えると sim の刻みも変わり結果が動く**点に注意。
+`-s` は未指定なら `config_lib.jsonc` → モデル既定 3 の順に解決される（ISS-00230 で `default=None` 化）。
+
+**`.tran tstep tstop <tstart <tmax>>` の `tstep` は printing increment で解析に一切関与しない**
+（`tmax` 明示時。ngspice マニュアルで確認、ISS-00219）。効くのは **`tmax` だけ**。そのため charao は
+`tstep` を廃し **`maxstep` に一本化**している。`tstart` は**出力保存の開始時刻**にすぎず、`0〜tstart` も
+計算されるので**時間短縮には使えない**。
+
+#### ⚠️ `tmax` は「刻み」ではなく「刻みの上限」（2026-08-14 是正）
+
+**`tmax` は実際の積分ステップではない。** ngspice は **LTE（局所打切り誤差）制御で刻みを自律的に決め、
+必要なら `tmax` よりはるかに細かく刻む**。`tmax_low` から実際の刻みまでは **2 段階間接**である。
+
+```
+tmax_low  ──決める──▶  tmax = max(tmax_low, min(slew × 0.198, tmax_high))
+                        （= .tran の第 4 引数）
+                              │
+                              ├─ 上限 : 刻みはこれを超えない
+                              └─ 下限 : delmin = 1e-11 × tmax（ngspice が内部算出）
+
+実際の刻み = LTE 制御が delmin 〜 tmax の範囲で決める
+```
+
+**`tmax_low` を動かすと、上限の天井と `delmin` の床が同時に動く。** これが「下限は粗すぎても細かすぎても
+失敗する」の正体である。
+
+| 動かす向き | 効く側 | 破綻の仕方 |
+|---|---|---|
+| **粗くしすぎ** | 上限（天井） | 遷移をまたいでしまい、波形の形が取れない |
+| **細かくしすぎ** | 下限（`delmin` の床） | LTE 制御が刻みを潰し切れる範囲が広がり、`timestep` が `delmin` 付近まで潰れて `Timestep too small` |
+
+**細かくしすぎの実例（ISS-00229、sky130 `sdlclkp_1`）**：`tmax = 2 ps` → `delmin = 2e-23` に対し
+`timestep = 2.5e-24` まで潰れて `Timestep too small: trouble with node "vclk#branch"` で abort。
+落ちる直前の波形は **`vclk=0 / vrel=0 / vin=1.8 / vout=0` で完全に静止**しており、**回路が動いていない区間で
+純粋に数値的に破綻**していた。`tmax_low` を 4 ps にすると `delmin = 4e-23` となり同じ時刻を素通りする。
+
+#### `pts` は実点数ではなく「点数の下限見積り」
+
+本仕様書および `[INFO] maxstep_fix` が出す
+
+```
+pts = vout_trans / maxstep
+```
+
+は **「遷移に最低でもこれだけの点が乗る」という下限**であって、実際の点数ではない。LTE 制御が細分化
+すれば実点数はこれより多くなる。**`tmax_low` の妥当性は `pts` では判定できず、orig との transition 誤差
+で判定する**（§12.2）。
+
+### 12.2 `tmax_low` の決め方（PDK ごと）
+
+**判定は orig との transition 誤差で行う。**`pts`（＝`vout_trans / maxstep`）は下限見積りにすぎず
+判定基準にはならない（§12.1）。`pts` は**候補を絞る目安**として使い、**最終判断は必ず実測の誤差で下す**。
+
+```
+             出力遷移     tmax_low   pts(下限見積り)   orig との誤差          判定
+sky130       17〜25 ps     0.02        約 1            transition 誤差 18%    ✗ 粗すぎる
+                           0.004       約 4〜6         （要確認）             LTE 破綻なし
+                           0.002       約 9〜13        誤差 18% が消える      ✗ LTE 破綻あり（ISS-00229）
+gf180        70〜96 ps     0.02        約 4            基準内                 ⭕ 採用
+                           0.002       約 40           orig から遠ざかる +58% ✗ 細かすぎる
+```
+
+**細かくすれば精度が上がるとは限らない**のが要点である。gf180 で `0.002` にすると誤差が **+58% 悪化**した。
+遷移幅は**露払いを 1 回回せば `.lib` から読める**ので、新規 PDK でもまず `pts` で当たりを付け、
+**露払い（LTE 破綻の有無）→ full grid（orig との誤差）** の順に確定させる。
+
+sky130 は `tmax_low_power_tin` で `power_tin` だけ分離している（`power_tin` は最速 slew で
+`Timestep too small ... vclk#branch` を起こすため）。**`tmax_low` は measure 横断で効く**ので、
+変更時は `power` 以外の全 measure が影響を受ける。
+
+### 12.2.1 `tsim_end` は 1 ps 単位へ切り上げる（ISS-00230）
+
+**const の `tsim_end` は `_quantize_tsim_end()` で 1 ps 単位へ切り上げる**（`_TSIM_END_QUANTUM = 1e-12`、
+`charao_run.py` の 3 箇所＝probe ループ / nodeset 準備 / 掃引ループ）。
+
+```
+tsim_end = ceil( max(t_clk5, t_in1, t_rel1) + 3 ns  /  1 ps ) × 1 ps
+```
+
+**【なぜ必要か】** 端数のある `tstop` に**ちょうど着地した後**、ngspice が余分な 1 ステップを刻もうとして
+`timestep` が `delmin` を割り、`Timestep too small` で abort する。
+
+```
+sky130 LAT/ICG hold  maxstep = 4 ps      _tsim_end = 14.040367 ns
+  → time = 1.40404e-08, timestep = 5e-24: trouble with node "vclk#branch"
+  → .raw は 3566 点で tstop まで完走して書けている（Δt = 4.00000 ps 一定、波形は静止）
+  → しかし abort により .meas が実行されず、値が取れないまま捨てられる
+```
+
+**⚠️ 計算は完走しているのに結果を失う**のがこの症状の質の悪いところで、`.lib` には `0.0000` が残る。
+`tsim_end` を 14.041 ns（**+0.633 ps**）にするだけで **12 failures → 0**、しかも**他の値は 1 点も動かない**
+（sky130 5 セル × 全 measure × 2x2 の 3126 点で検証）。**切り上げ**に限るのは、縮めると測定対象
+（Q の応答）を切り落とすため。
+
+### 12.3 probe（`simulation_points_per_transition`）
+
+**出力遷移 `trans_out` に何点のサンプルを乗せるか**を指定し、**掃引位置を固定したまま** `maxstep` を
+反復収束させる。
+
+```
+_lim = trans_out / simulation_points_per_transition
+maxstep = min(_lim, maxstep)        絞る方向にしか動かない
+収束     改善 20% 未満（_lim >= maxstep × 0.8）、上限 4 回
+0.0      無効＝従来動作
+```
+
+掃引位置と同時に動かすと**変化がどちらに由来するか分離できない**（実測で 99 → 29 ps と往復し収束
+判定できなかった）ため、位置を固定して `maxstep` だけを収束させる。実測では 297 → 49.5 → 8.3 → 5.1
+→ 3.89 ps と単調に収束した（真値 7.5 ps に対し当初 99 ps ＝ 13 倍の過大評価）。
+
+### 12.4 measure 別のカバレッジ
+
+**probe は `trans_out` を測る measure にだけ存在する。**`_lim = trans_out / points` で刻みを決めるため、
+`trans_out` を測らない measure では**原理的に成立しない**。
+
+| measure | probe | 実装関数 |
+|---|---|---|
+| `delay` / `rising_edge` / `falling_edge` | **あり** | `runSpiceDelaySingle` |
+| `setup_rising` / `setup_falling` | **あり** | `runSpiceConstSingle` |
+| `recovery_rising` / `recovery_falling` | **あり** | 〃 |
+| `hold_rising` / `hold_falling`（**FF**） | **あり** | 〃 |
+| `hold_rising` / `hold_falling`（**LAT / ICG**） | **なし** | 〃（`is_hold and is_lat` で除外）。**電圧判定**（`judge_vlt_max/min`）で `trans_out` を測らない |
+| `removal_rising` / `removal_falling` | **なし** | `runSpiceRemovalSingle`。**Q が遷移しないことが正常**なので遷移時間が定義できず、電圧判定を採る（ISS-00138 の設計） |
+| `min_pulse_width_low` / `_high` | **あり** | `runSpiceMinPulseSingle` |
+| `power_tout` / `power_tin` | なし | — |
+| `passive` | なし | — |
+| `leakage` | なし | — |
+
+**⚠️ 既知の課題**：`removal` は **Q の一過性の落ち込みを見るため `maxstep` 感度は低くないのに適応機構が
+無い**。sky130 で `dfrtn_1` の `removal` が唯一 `|diff| > 0.2` だったことと符合する（ISS-00223 の観察）。
+
+### 12.5 ログ
+
+`maxstep` 確定時に `[INFO] maxstep_fix` を出す。`maxstep` と `trans_out` は **`.lib` に出ない量**なので、
+これが無いと `work`（`.sp` / `.lis`）を回収しないと解析できない。
+
+```
+[INFO] maxstep_fix <cell>/vt_<vdd>_<temp>_<n>_<meas>/oir=<oirc>_arc=<arc>_c<index1>_r<index2> \
+       maxstep=7.2553e-12 vout_trans=1.39407e-11 pts=1.92
+```
+
+識別子は **`.sp` の命名から `_sXX`（掃引点）を除いた形**。マルチスレッド実行で行が混ざっても対象を
+特定できる。`pts` は設定値ちょうどにはならない（収束を「改善 20% 未満」で打ち切るため。実測 1.61〜1.92）。
+
+**`pts` の読み方**：`maxstep` が `tmax_low` に張り付いた点では `pts` が設定値を大きく上回る
+（sky130 `sdlclkp_1` で 18.77〜25.51）。これは**精度が高いという意味ではなく、probe が「これ以上絞る
+必要なし」と判断して即 break した＝上限が `tmax_low` に律速されている**サインで、**LTE 破綻の予兆**として
+読む（ISS-00229）。**`pts` が過大な点を探せば、`tmax_low` のフロアに当たっている点を特定できる。**
+
+### 12.6 効果（実測）
+
+```
+dfxtp_1 setup fall (1.5, 1.5)        5.0064 → 0.0474 ns（1/106）
+buf_16 rise_transition (5, 0.0005)   +0.1787 → +0.0013（1/137）
+buf_16 fall_transition               +0.0774 → −0.0020（1/39）
+十分細かい点は 1 ビットも変わらない（buf_16 は 294 点中 176 点が無変化）
+コスト                                const 1.13 倍 / delay 1.05 倍
+```
+
+---
+
+## 13. 参照
 
 - ISS-00101：ival/arc 値モデル刷新（本仕様書と並行進行）
 - ISS-00108：charao .lib と orig .lib の構成・属性差分
