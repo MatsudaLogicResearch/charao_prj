@@ -4,6 +4,68 @@
 
 ---
 
+## [2.0.0.a14] 2026-08-14
+
+const（setup / hold / recovery）の掃引を高速化した。初期化のやり直しを止め、
+`nodeset` で状態を復元して測定区間だけを回す。**gf180 の full grid で 1.46 倍**。
+
+### 追加
+
+- **`const_start_offset_enable`**（既定 `true`、ISS-00220）。0 回目（準備 run）で
+  `_t_init3 + 0.4 ns` 時点の内部ノード電圧を取得して `nodeset_<arc>_c<i1>_r<i2>.sp` を書き、
+  1 回目以降は `.include` で復元しつつ **`start_offset`（負値）を全時刻に加算**して
+  測定区間だけを回す。`false` で従来動作。仕様は `docs/SPEC_const.md` §7。
+- **`[INFO] maxstep_fix`**（ダーマツ指示）。確定した `maxstep` と VOUT の遷移時間
+  （`vout_trans`）、遷移あたりの点数（`pts`）を**ログに残す**。`.lib` に出ない量なので、
+  従来は `work`（`.sp` / `.lis`）を回収しないと解析できなかった。識別子は **`.sp` の命名から
+  `_sXX`（掃引点）を除いた形**で、マルチスレッド実行で行が混ざっても対象を特定できる。
+
+  ```
+  [INFO] maxstep_fix <cell>/vt_<vdd>_<temp>_<n>_<meas>/oir=<oirc>_arc=<arc>_c<i1>_r<i2> \
+         maxstep=7.2553e-12 vout_trans=1.39407e-11 pts=1.92
+  ```
+
+### 修正
+
+- **`MyTbParam` は `@dataclass` なのに pydantic の `Field(default_factory=...)` を既定値に
+  使っている**ため、明示代入しないと `FieldInfo` が残る（jp2 で
+  `TypeError: 'FieldInfo' object is not iterable`）。leakage 経路は必ず代入するので露見して
+  いなかった。`set_common_value` で `internal_nodes` を確実に初期化する。
+- **`WAVE_RAW` の保存信号に DUT 内部ノードが含まれていなかった**（TB トップの 14 本のみで、
+  ICG の `vout_infos` がある場合に 1 本追加されるだけ）。jp2 の `write` 行で `internal_nodes` を
+  展開し、**`nodeset` 対象の全ノードを raw に保存**する。波形での切り分けに必須だった。
+
+### 確認
+
+gf180 `latrnq_1` + `dffrnq_1` × const 6 measure × 10×10（全 1000 点）、両 run とも
+**0 failures / 0 traceback**、const に `0.0000` の張り付き 0 件。
+
+```
+高精度（enable=false）  2503 秒（41.7 分）
+中精度（enable=true）   1719 秒（28.7 分）      1.46 倍
+
+値のずれ   |差| = 0     476/1000（47.6% が完全一致）
+           |差| ≦ 0.010  837/1000
+           |差| ≦ 0.050 1000/1000（全点）
+           最大          0.0490 ns
+```
+
+参考として、同じデータの **charao vs orig は最大 0.393 ns**（`|0.1ns|` 以内 241/1000）なので、
+**高速化由来のずれはその 1/8**。「長時間・高精度／短時間・中精度」で使い分ける。
+
+### 注意
+
+- **既知の限界**：`net9` のような **VDD を超えるブートストラップ的な定常値**を持つノードは、
+  `nodeset`（DC 反復の初期推定値）では再現できない（DC に存在しない状態のため）。
+  ずれの主因はこれで、`dffrnq_1` の `recovery_rising`（`index1` 小・`index2` 大）に集中する。
+- **PWL の先頭固定点にも offset が要る**（`VPC_CTRL` 2 箇所・`VIN`/`VREL`/`VCLK` 15 箇所）。
+  忘れると先頭だけ固定・2 点目以降が負値になり**時刻が逆行**して PWL が不正になる。
+- **`nodeset` ファイル名に arc を含める**こと。含めないと同一格子点の rise/fall arc で
+  **上書きが起きて論理が反転**する。
+- `.tran` の `tstart` は **0 のまま**。`tstart` を使っても `0〜tstart` は計算されるので短縮にならない。
+
+---
+
 ## [2.0.0.a13] 2026-08-13
 
 `supress_sim_msg` / `supress_debug_msg` が書いても効かない状態を解消した。

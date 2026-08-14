@@ -215,7 +215,83 @@ charao の secant は **`_t_clk4` を sweep**（VCLK position）。 ただし「
 
 ---
 
-## 7. 参照
+## 7. sweep の時短（start_offset / nodeset、ISS-00220）
+
+const は **1 格子点あたり約 30 sim** 回るが、掃引で変わるのは制約信号 / CLK の相対位置だけで、
+**初期化フェーズより前の内部状態は全掃引点で共通**である。にもかかわらず毎回 0 から回し直していた。
+
+```
+sky130 dfxtp_1 setup_rising の 1 sim（24.509 ns）の内訳
+  0      〜 19.009 ns   初期化（pre-charge / 状態確立 / 待機 / D 遷移）
+  19.009 〜 24.509 ns   測定区間（CLK 遷移と Q の応答）
+```
+
+### 7.1 方式
+
+```
+0 回目（準備 run）  掃引位置は seg_start 固定、start_offset = 0
+                    ・maxstep を反復収束（probe = simulation_points_per_transition）
+                    ・_t_init3 + 0.4 ns 時点の内部ノード電圧を .meas find で取得
+                    → <meas dir>/nodeset_<arc>_c<index1>_r<index2>.sp を書く
+
+1 回目以降（掃引）   start_offset = -(_t_init3 + 0.4 ns) を負値で渡す
+                    ・jp2 が .include で nodeset を読み、全時刻に + _t_ofs する
+                    → 測定区間だけを回す。全掃引点が同一処理（分岐なし）
+```
+
+**Python 側は元の時間軸を保持し、加算は jp2 だけが行う**（`param.t_*` を書き換えると二重加算になる）。
+
+### 7.2 実装上の要点
+
+| 項目 | 内容 |
+|---|---|
+| **時刻のシフト** | jp2 が `.param _t_ofs` を置き、`_t_init0..3` / `_t_in0,1` / `_t_rel0..3` / `_t_clk0..7` / `_tsim_end` の **18 行に `+ _t_ofs`** する |
+| **PWL の先頭点** | `VPC_CTRL` の `PWL(0 ...)` と `VIN`/`VREL`/`VCLK` の `PWL({_tslew_min} ...)` **17 箇所にも offset**。これを忘れると**先頭だけ固定・2 点目以降が負値で時刻が逆行**し PWL が不正になる |
+| **負時刻 PWL** | `t=0` の値は「0ns に最も近い点から補間」される（実測確認済み）。`.tran` の `tstart` は **0 のまま**。`tstart` を使っても `0〜tstart` は計算されるので短縮にならない |
+| **状態の復元** | **`nodeset` を使う**（`uic` は DC を飛ばすので捕捉漏れで破綻する）。内部ノードは `myLogicCell.get_internal_nodes()` が netlist から自動抽出 |
+| **再開時刻** | `_t_init3 + 0.4 ns`。`_t_init3` は **pre-charge SW（`VPC_CTRL`）が OFF になる瞬間**で、内部ノードに約 0.4 ns のオーバーシュートが残る（実測で `net10` が VDD+1.38V） |
+| **掃引の下限** | `seg_start` / `seg_end` を **`_t_init3 + 0.4 ns` 以降**にクランプし、CLK が再開時刻より前に来ないようにする |
+| **nodeset ファイル名** | **arc を含める**（`nodeset_<arc>_c<i1>_r<i2>.sp`）。含めないと同一格子点の rise/fall arc で**上書きが起きて論理が反転する** |
+| **`chg_out` の補正** | `chg_out` は `WHEN` 形式で**絶対時刻**を返すため、読み出し時に offset を戻す。`TRIG/TARG` 形式（`prop_*` / `dly_*` / `judge_dly` / `trans_out`）は**差分なので相殺され不要** |
+
+### 7.3 有効化と効果
+
+`config_lib.jsonc` の **`const_start_offset_enable`**（既定 `true`）。`false` で従来動作。
+
+```
+gf180 latrnq_1 + dffrnq_1 × const 6 measure × 10×10（全 1000 点）
+  高精度（false）  2503 秒
+  中精度（true）   1719 秒      1.46 倍
+
+  値のずれ   |差| = 0     476/1000（47.6% が完全一致）
+             |差| ≦ 0.010  837/1000
+             |差| ≦ 0.050 1000/1000（全点）
+             最大          0.0490 ns
+```
+
+**「長時間・高精度／短時間・中精度」で使い分ける。** 参考として、同じデータの
+**charao vs orig は最大 0.393 ns**（`|0.1ns|` 以内 241/1000）なので、**高速化由来のずれはその 1/8**。
+
+**既知の限界**：`net9` のような **VDD を超えるブートストラップ的な定常値**を持つノードは、
+`nodeset`（DC 反復の初期推定値）では再現できない（DC に存在しない状態のため）。
+ずれの主因はこれで、`dffrnq_1` の `recovery_rising`（`index1` 小・`index2` 大）に集中する。
+
+### 7.4 ログ
+
+`maxstep` 確定時に `[INFO] maxstep_fix` を出す。`.lib` に出ない量なので、
+これが無いと `work`（`.sp` / `.lis`）を回収しないと解析できない。
+
+```
+[INFO] maxstep_fix <cell>/vt_<vdd>_<temp>_<n>_<meas>/oir=<oirc>_arc=<arc>_c<i1>_r<i2> \
+       maxstep=7.6577e-12 vout_trans=1.48317e-11 pts=1.94
+```
+
+識別子は **`.sp` の命名から `_sXX`（掃引点）を除いた形**。マルチスレッド実行で行が混ざっても
+対象を特定できる。
+
+---
+
+## 8. 参照
 
 - ISS-00133（charao_prj.md）：本仕様の起票・確定経緯
 - ISS-00127（charao_prj.md）：pin_oirc + pin_tr 分離（前提）

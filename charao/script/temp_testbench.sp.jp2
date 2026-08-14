@@ -72,32 +72,37 @@
 
 .param _tslew_min  = {{param.tslew_min}}
 .param _maxstep    = {{param.maxstep}}
-.param _tsim_end   = {{param.tsim_end}}
+** ISS-00220: 時間軸のシフト量。 通常 0（従来動作）、 const 掃引の時短では負値が渡る。
+**   全時刻に + _t_ofs するだけで測定区間だけを回せる。 t=0 より前になった PWL 点は
+**   「0ns に最も近い点から補間した値」が t=0 の初期値になる（2026-08-13 実測で確認）。
+**   .tran の tstart は 0 のまま（tstart を使っても 0〜tstart は計算され短縮にならない＝ISS-00219）。
+.param _t_ofs      = {{param.start_offset}}
+.param _tsim_end   = {{param.tsim_end}} + _t_ofs
 
 ** timing (ISS-00080: Python 側 Mtp.compute_timing() で算出した絶対時刻を直接埋め込み。
 **          jp2 側 `.param` 計算撤廃、 Python 側で単一管理。 clk_role 分岐も Python 側で完結。
 **          spice 内で参照される _t_* のみ残し、 中間 .param (_tdelay_init 等、 _t_init1/2、 _t_rel2/3) は削除。)
-.param _t_init0 = {{param.t_init0}}
-.param _t_init1 = {{param.t_init1}}
-.param _t_init2 = {{param.t_init2}}
-.param _t_init3 = {{param.t_init3}}
+.param _t_init0 = {{param.t_init0}} + _t_ofs
+.param _t_init1 = {{param.t_init1}} + _t_ofs
+.param _t_init2 = {{param.t_init2}} + _t_ofs
+.param _t_init3 = {{param.t_init3}} + _t_ofs
 
-.param _t_in0   = {{param.t_in0}}
-.param _t_in1   = {{param.t_in1}}
+.param _t_in0   = {{param.t_in0}} + _t_ofs
+.param _t_in1   = {{param.t_in1}} + _t_ofs
 
-.param _t_rel0  = {{param.t_rel0}}
-.param _t_rel1  = {{param.t_rel1}}
-.param _t_rel2  = {{param.t_rel2}}
-.param _t_rel3  = {{param.t_rel3}}
+.param _t_rel0  = {{param.t_rel0}} + _t_ofs
+.param _t_rel1  = {{param.t_rel1}} + _t_ofs
+.param _t_rel2  = {{param.t_rel2}} + _t_ofs
+.param _t_rel3  = {{param.t_rel3}} + _t_ofs
 
-.param _t_clk0  = {{param.t_init0}}
-.param _t_clk1  = {{param.t_init1}}
-.param _t_clk2  = {{param.t_init2}}
-.param _t_clk3  = {{param.t_init3}}
-.param _t_clk4  = {{param.t_clk4}}
-.param _t_clk5  = {{param.t_clk5}}
-.param _t_clk6  = {{param.t_clk6}}
-.param _t_clk7  = {{param.t_clk7}}
+.param _t_clk0  = {{param.t_init0}} + _t_ofs
+.param _t_clk1  = {{param.t_init1}} + _t_ofs
+.param _t_clk2  = {{param.t_init2}} + _t_ofs
+.param _t_clk3  = {{param.t_init3}} + _t_ofs
+.param _t_clk4  = {{param.t_clk4}} + _t_ofs
+.param _t_clk5  = {{param.t_clk5}} + _t_ofs
+.param _t_clk6  = {{param.t_clk6}} + _t_ofs
+.param _t_clk7  = {{param.t_clk7}} + _t_ofs
 
 
 ** DC
@@ -122,6 +127,13 @@ VLOW_IO  VLOW_IO  0 PWL (0           {_vssio})
 ** output load 
 VOCAP VOUT WOUT DC 0
 
+** ISS-00220: 0 回目（準備 run）で取得した「再開時刻」の内部状態を復元する。
+**   uic は使わない（DC を飛ばすため捕捉漏れで破綻する。ISS-00176 で実際に踏んだ）。
+**   nodeset は DC 反復の初期推定値なので、 双安定でも示した側へ収束する（leakage と同方式）。
+{%- if param.nodeset_file %}
+.include '{{param.nodeset_file}}'
+{%- endif %}
+
 ** tran
 *.tran {_maxstep} {_tsim_end} UIC
 .tran {_maxstep} {_tsim_end} 0 {_maxstep}
@@ -141,13 +153,13 @@ VOCAP VOUT WOUT DC 0
 {% if param.val_oirc[0] in ["u","1"] %}
 .model SW_PRECHARGE SW(Ron=0.1 Roff=1G Vt={{param.prop_vth_oirc[0]}} Vh=0.3)
 VFORCE_VAL VFORCE_VAL 0 DC {_vdd_vout}
-VPC_CTRL   VPC_CTRL   0 PWL(0 {_vss_vout} {_t_init0 - _tslew_min} {_vss_vout} {_t_init0} {_vdd_vout} {_t_init3 - _tslew_min} {_vdd_vout} {_t_init3} {_vss_vout})
+VPC_CTRL   VPC_CTRL   0 PWL({_t_ofs} {_vss_vout} {_t_init0 - _tslew_min} {_vss_vout} {_t_init0} {_vdd_vout} {_t_init3 - _tslew_min} {_vdd_vout} {_t_init3} {_vss_vout})
 SPRECHARGE WOUT VFORCE_VAL VPC_CTRL 0 SW_PRECHARGE
 .IC V(WOUT)={_vdd_vout}
 {% elif param.val_oirc[0] in ["d","0"] %}
 .model SW_PRECHARGE SW(Ron=0.1 Roff=1G Vt={{param.prop_vth_oirc[0]}} Vh=0.3)
 VFORCE_VAL VFORCE_VAL 0 DC {_vss_vout}
-VPC_CTRL   VPC_CTRL   0 PWL(0 {_vss_vout} {_t_init0 - _tslew_min} {_vss_vout} {_t_init0} {_vdd_vout} {_t_init3 - _tslew_min} {_vdd_vout} {_t_init3} {_vss_vout})
+VPC_CTRL   VPC_CTRL   0 PWL({_t_ofs} {_vss_vout} {_t_init0 - _tslew_min} {_vss_vout} {_t_init0} {_vdd_vout} {_t_init3 - _tslew_min} {_vdd_vout} {_t_init3} {_vss_vout})
 SPRECHARGE WOUT VFORCE_VAL VPC_CTRL 0 SW_PRECHARGE
 .IC V(WOUT)={_vss_vout}
 {% endif %}
@@ -160,15 +172,15 @@ VIN VIN 0 DC {_vss_vin}
 {%- else %}
 ****** for t_init
   {%- if   param.val_oirc[1] == "0" %}
- VIN VIN 0 PWL({_tslew_min} {_vss_vin}
+ VIN VIN 0 PWL({_tslew_min + _t_ofs} {_vss_vin}
   {%- elif param.val_oirc[1] == "1" %}
- VIN VIN 0 PWL({_tslew_min} {_vdd_vin}
+ VIN VIN 0 PWL({_tslew_min + _t_ofs} {_vdd_vin}
   {%- elif param.val_oirc[1] == "r" %}
- VIN VIN 0 PWL({_tslew_min} {_vss_vin} {_t_init2} {_vss_vin} {_t_init3} {_vdd_vin}
+ VIN VIN 0 PWL({_tslew_min + _t_ofs} {_vss_vin} {_t_init2} {_vss_vin} {_t_init3} {_vdd_vin}
   {%- elif param.val_oirc[1] == "f" %}
- VIN VIN 0 PWL({_tslew_min} {_vdd_vin} {_t_init2} {_vdd_vin} {_t_init3} {_vss_vin}
+ VIN VIN 0 PWL({_tslew_min + _t_ofs} {_vdd_vin} {_t_init2} {_vdd_vin} {_t_init3} {_vss_vin}
   {%- else %}
- VIN VIN 0 PWL({_tslew_min} {_vss_vin}
+ VIN VIN 0 PWL({_tslew_min + _t_ofs} {_vss_vin}
   {%- endif %}
 
 ****** for t_in
@@ -195,11 +207,11 @@ VREL VREL 0 DC {_vss_vrel}
 {%- else %}
   ****** for t_init
   {%- if   param.val_oirc[2] == "0" %}
-VREL VREL 0 PWL({_tslew_min} {_vss_vrel}
+VREL VREL 0 PWL({_tslew_min + _t_ofs} {_vss_vrel}
   {%- elif param.val_oirc[2] == "1" %}
-VREL VREL 0 PWL({_tslew_min} {_vdd_vrel}
+VREL VREL 0 PWL({_tslew_min + _t_ofs} {_vdd_vrel}
   {%- else %}
-VREL VREL 0 PWL({_tslew_min} {_vss_vrel}
+VREL VREL 0 PWL({_tslew_min + _t_ofs} {_vss_vrel}
   {%- endif %}
 
   ****** for t_rel
@@ -230,19 +242,19 @@ VCLK VCLK 0 DC {_vss_vclk}
 {%- else %}
   ****** for t_init
   {%- if   param.val_oirc[3] == "0" %}
-VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk} {_t_clk0} {_vss_vclk}
+VCLK VCLK 0 PWL({_tslew_min + _t_ofs} {_vss_vclk} {_t_clk0} {_vss_vclk}
   {%- elif param.val_oirc[3] == "1" %}
-VCLK VCLK 0 PWL({_tslew_min} {_vdd_vclk} {_t_clk0} {_vdd_vclk}
+VCLK VCLK 0 PWL({_tslew_min + _t_ofs} {_vdd_vclk} {_t_clk0} {_vdd_vclk}
   {%- elif param.val_oirc[3] == "p" %}
-VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk} {_t_clk0} {_vss_vclk} {_t_clk1} {_vdd_vclk} {_t_clk2} {_vdd_vclk} {_t_clk3} {_vss_vclk}
+VCLK VCLK 0 PWL({_tslew_min + _t_ofs} {_vss_vclk} {_t_clk0} {_vss_vclk} {_t_clk1} {_vdd_vclk} {_t_clk2} {_vdd_vclk} {_t_clk3} {_vss_vclk}
   {%- elif param.val_oirc[3] == "n" %}
-VCLK VCLK 0 PWL({_tslew_min} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vclk} {_t_clk2} {_vss_vclk} {_t_clk3} {_vdd_vclk}
+VCLK VCLK 0 PWL({_tslew_min + _t_ofs} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vclk} {_t_clk2} {_vss_vclk} {_t_clk3} {_vdd_vclk}
   {%- elif param.val_oirc[3] == "r" %}
-VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk} {_t_clk0} {_vss_vclk} {_t_clk1} {_vdd_vclk}
+VCLK VCLK 0 PWL({_tslew_min + _t_ofs} {_vss_vclk} {_t_clk0} {_vss_vclk} {_t_clk1} {_vdd_vclk}
   {%- elif param.val_oirc[3] == "f" %}
-VCLK VCLK 0 PWL({_tslew_min} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vclk}
+VCLK VCLK 0 PWL({_tslew_min + _t_ofs} {_vdd_vclk} {_t_clk0} {_vdd_vclk} {_t_clk1} {_vss_vclk}
   {%- else %}
-VCLK VCLK 0 PWL({_tslew_min} {_vss_vclk}
+VCLK VCLK 0 PWL({_tslew_min + _t_ofs} {_vss_vclk}
   {%- endif %}
 
   ****** for t_clk
@@ -544,7 +556,14 @@ C0 WOUT 0 'cap'
 *   静定させる。 これで nodeset が安定し op が正しい安定解へ収束（過渡途中を拾うと metastable=貫通）。
 *   他 measure(0/1/2/4/5)は run で .tran＋.MEASURE を実行。 op 源値は arc_oirc(1/r/n→vdd, 0/f/p→vss)。
 .control
-{%- if param.meas_energy == 3 %}
+{%- if param.nodeset_probe %}
+* ISS-00220: 0 回目（準備 run）。 再開時刻の内部ノード電圧を取り、 1 回目以降へ nodeset で渡す。
+*   値は .lis に nsv<N> として出るので Python が読み、 nodeset ファイルを書く。
+run
+{%- for n in param.internal_nodes %}
+meas tran nsv{{loop.index0}} find v(xcell.xdut.{{n}}) at={{ param.nodeset_meas_at }}
+{%- endfor %}
+{%- elif param.meas_energy == 3 %}
 {%- if param.internal_nodes %}
 run
 {%- for n in param.internal_nodes %}
@@ -587,7 +606,8 @@ print i_rel_leak
 run
 {%- endif %}
 {%- if param.wave_raw %}
-write sim.sp.raw {{ param.wave_save_list }}
+* ISS-00220: nodeset 対象の DUT 内部ノードも raw に保存する（復元の成否を波形で突き合わせるため）
+write sim.sp.raw {{ param.wave_save_list }}{%- for n in param.internal_nodes %} v(xcell.xdut.{{n|lower}}){%- endfor %}
 {%- endif %}
 .endc
 

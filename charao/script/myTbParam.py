@@ -109,6 +109,17 @@ class MyTbParam:
   pinmap_dict      :dict        = None #-- raw signal → cell port mapping (sidecar .pinmap.json 用)
   internal_nodes   :list[str]   = Field(default_factory=list); #-- ISS-00166: leakage op 用 DUT 内部ノード（nodeset/meas 対象）
   leak_meas_at     :float       = 0.0  #-- ISS-00166: leakage op で内部ノード電圧を meas find する時刻（tsim_end より僅か手前）
+  #--- ISS-00220: const 掃引の高速化（初期化のやり直しを止める）。
+  #   const は 1 格子点あたり約 30 sim 回るが、 掃引で変わるのは CLK の相対位置だけで
+  #   「再開時刻」より前の内部状態は全掃引点で共通。 にもかかわらず毎回 0 から回し直しており、
+  #   sky130 dfxtp_1 setup では初期化が 1 sim の 77.6% を占めていた。
+  #   0 回目（準備 run）で再開時刻の内部ノード電圧を取得し、 1 回目以降は nodeset で復元して
+  #   測定区間だけ回す。 時刻は jp2 側で `+ _t_ofs` するだけ（start_offset は負値で渡す）。
+  #   .tran の tstart は 0 のまま（tstart を使っても 0〜tstart は計算されるので短縮にならない＝ISS-00219）。
+  start_offset     :float       = 0.0  #-- 時間軸のシフト量[s]。 0=従来動作。 時短時は負値
+  nodeset_file     :str         = ""   #-- 取り込む nodeset ファイル（sim dir からの相対パス）。 空なら出力しない
+  nodeset_probe    :bool        = False #-- True で .control に内部ノード電圧の meas find を出す（0 回目のみ）
+  nodeset_meas_at  :float       = 0.0  #-- 内部ノード電圧を meas find する時刻[s]（＝再開時刻）
 
   def set_common_value(self, harness:Mcar, arc_oirc:list[str]):
     h=harness
@@ -116,6 +127,11 @@ class MyTbParam:
     #-- ISS-00078: wave_raw 設定 + testbench top node を .save
     #   raw 内の signal name は ngspice 内部 node 名（generic）のまま。 viewer 側で
     #   sidecar .pinmap.json (DUT pin name -> plot signal name) を参照して表示変換する。
+    #-- ISS-00220: MyTbParam は @dataclass なので pydantic の Field(default_factory=...) は
+    #   既定値として機能せず、 未設定だと FieldInfo が残る（jp2 で 'not iterable' になる）。
+    #   leakage 経路は必ず代入するので露見していなかった。 ここで確実に空リストへ初期化する。
+    if not isinstance(self.internal_nodes, list):
+      self.internal_nodes = []
     self.wave_raw = bool(getattr(h.mls, "wave_raw", False))
     if self.wave_raw:
       # XCELL（DUT instance）に渡す 14 信号のみ。 WOUT/WFLOAT は XCELL の port ではないため除外。

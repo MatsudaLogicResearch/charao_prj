@@ -131,6 +131,13 @@ class MyLibrarySetting(BaseModel):
   #   min_pulse は判定量が prop と trans の 2 つ（OR 判定）で、 trans は掃引でほとんど
   #   変化しない（実測 2%）ため比例項は設けない。 既定値は従来と同じ絶対値のみ。
   sim_time_pulse_threshold       : float = 0.1
+  #--- ISS-00220: const 掃引の高速化を有効にするか（既定 True）。
+  #   True で 0 回目（準備 run）に _t_init3 時点の内部ノード電圧を取得し、 1 回目以降は
+  #   nodeset で復元して測定区間だけ回す（時間軸は jp2 側で + _t_ofs するだけ）。
+  #   掃引で変わるのは制約信号 / CLK の相対位置だけで、 _t_init3 より前の状態は全掃引点で共通。
+  #   False で従来動作（0 から回し直す）。 値が合わないときの切り分け用に残す。
+  #   内部ノードが取れないセル・LAT/ICG の hold（電圧判定）は True でも自動的に従来動作へ落ちる。
+  const_start_offset_enable      : bool  = True
   energy_meas_low_threshold   : float = 0.01 ;# ISS-00117: 必ず 0.01 以上を設定。 myTbParam.py の meas_energy=1 補正で 0.99×low → 負電圧化を防ぐため。
   energy_meas_high_threshold  : float = 0.99 ;# ISS-00117: 必ず 0.99 以下を設定。 myTbParam.py の meas_energy=1 補正で 1.01×high → VDD 超過化を防ぐため。
   hold_meas_low_threshold     : float = 0.01 ;#

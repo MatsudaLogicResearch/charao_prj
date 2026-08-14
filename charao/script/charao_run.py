@@ -104,6 +104,13 @@ def _aggregate_max_in_harness_list(harness_list):
     rep.set_lut(dst_name)
 
 
+#-- ISS-00220: const 掃引の再開時刻を _t_init3 からどれだけ後ろへ置くか [s]。
+#   _t_init3 は pre-charge SW（VPC_CTRL）が OFF に切り替わる瞬間で、 内部ノードに
+#   オーバーシュートが残る（gf180 dffrnq_1 で net10 が VDD+1.38V、 ncki が VSS-0.48V）。
+#   実測では約 0.4 ns で収まるため、 そのぶん後ろへずらして静定点を捕まえる。
+#   同じ値を掃引の下限にも使い、 CLK が再開時刻より前に来ないようにする。
+_CONST_OFS_MARGIN = 0.4e-9
+
 def _check_dbg_sp(spicef:str, mls:Mls) -> None:
   #-- ISS-00226: 停止通知は print_msg_dbg 経由（supress_debug_msg="true" で抑制できる）。
   #   従来 print() 直書きで、 設定 supress_debug_msg が書いても効かない状態だった。
@@ -1243,10 +1250,16 @@ def runSpiceConstSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
       ##   なる（icgtp CLK 大 slew corner で実測）。 capture 完了＋settle 以後へ clamp する。
       if param.is_lat:
         seg_start = max(seg_start, param.tsweep_for_clk4_at(param.t_init3 + 2e-9))
+      ## ISS-00220: 掃引の下限を _t_init3 + マージン 以降に固定する。 nodeset の再開時刻を
+      ##   同じ位置に置くため、 CLK がそれより前に来ると「再開時刻より過去」を掃引することになる。
+      ##   現行ジオメトリでは hold の seg_start が _t_init3+0.475ns、 setup/recovery の seg_end が
+      ##   +0.5ns なので、 このクランプは通常は効かない（＝const の値は変わらない）。
+      seg_start = max(seg_start, param.tsweep_for_clk4_at(param.t_init3 + _CONST_OFS_MARGIN))
     else:
       #-- 制約信号が CLK の前(setup/recovery)：_t_clk4 を「nominal(pass)」→「(t_init3+t_in0)/2(fail)」へ
       seg_start  = 0.0
-      seg_end    = param.tsweep_for_clk4_at((param.t_init3 + param.t_in0) / 2)
+      seg_end    = param.tsweep_for_clk4_at(
+                     max((param.t_init3 + param.t_in0) / 2, param.t_init3 + _CONST_OFS_MARGIN))
 
     direction  = 1.0 if seg_end >= seg_start else -1.0   # 掃引向き（pass→fail）
 
@@ -1274,7 +1287,13 @@ def runSpiceConstSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
     #   するか分離できない（実測：s100→s101 で trans_out 99→29 ps）。 そこで掃引位置を
     #   固定して maxstep だけを収束させ、 確定後に探索を開始する。
     #   絞る方向にしか動かないので発散しない。 収束＝改善 20% 未満、 上限 4 回。
+    #-- ISS-00220: 内部ノードは probe の run でも jp2 の write 行が参照するので、
+    #   probe ループより前に設定しておく（nodeset を使うかどうかとは独立）。
+    _nodes = list(getattr(h.mlc, "get_internal_nodes", lambda: [])())
+    param.internal_nodes = _nodes
+
     _pts_per_trans = getattr(h.mls, "simulation_points_per_transition", 0.0)
+    _tr_last = 0.0
     if _pts_per_trans > 0.0 and not (is_hold and is_lat):
       for _it in range(4):
         _sfp = _make_sim_path(f"{spicef}_c{index1_slope_const}_r{index2_slope_rel}_p{_it}")
@@ -1292,10 +1311,60 @@ def runSpiceConstSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
           #   「分解能不明の値」が出るだけなので、 この measure はここで打ち切る。
           raise RuntimeError(
             f"[ERROR] ISS-00219: trans_out 未取得のため maxstep を確定できません: {_sfp}")
+        _tr_last = _tr
         _lim = _tr / _pts_per_trans
         if _lim >= param.maxstep * 0.8:
           break
         param.maxstep = float("{:.5g}".format(min(_lim, param.maxstep)))
+
+    #-- ISS-00219/00220: 確定した maxstep と VOUT の遷移時間をログに残す（ダーマツ指示）。
+    #   .lib には出ない量なので、 これが無いと work(.sp/.lis) を回収しないと解析できない。
+    #   識別子は .sp の命名から _sXX（掃引点）を除いた形＝
+    #     <cell>/vt_<vdd>_<temp>_<n>_<meas>/oir=<oirc>_arc=<arc>_c<index1>_r<index2>
+    #   マルチスレッド実行では行が入り混じるので、 これが無いとどの sim の値か分からない。
+    _pts = (_tr_last / param.maxstep) if (param.maxstep > 0 and _tr_last > 0) else 0.0
+    print(f"  [INFO] maxstep_fix {spicef}_c{index1_slope_const}_r{index2_slope_rel}"
+          f" maxstep={param.maxstep:.6g} vout_trans={_tr_last:.6g} pts={_pts:.2f}")
+
+    #-- ISS-00220: 0 回目（準備 run）で「再開時刻」の内部ノード電圧を取り、 nodeset ファイルへ書く。
+    #   掃引で変わるのは制約信号 / CLK の相対位置だけで、 _t_init3（初期化フェーズの終わり）
+    #   より前の内部状態は全掃引点で共通。 1 回目以降はそれを復元して測定区間だけ回す。
+    #   再開時刻に _t_init3 を選ぶのは、 掃引が CLK を seg_end（=(t_init3+t_in0)/2）まで
+    #   前に動かすため。 それより後ろに置くと掃引点が offset より前に来てしまう。
+    #   probe の有無（points_per_transition）とは独立に必ず 1 回走らせる（案 1）。
+    param.start_offset = 0.0
+    param.nodeset_file = ""
+    if _nodes and h.mls.const_start_offset_enable and not (is_hold and is_lat):
+      param.tsweep_clk = seg_start
+      param.tsim_end   = tsim_end
+      param.tpulse_clk = tsim_end
+      param.compute_timing()
+      param.tsim_end   = max(param.t_clk5, param.t_in1, param.t_rel1) + 3e-9
+      param.tpulse_clk = param.tsim_end
+      param.compute_timing()
+      _ofs = param.t_init3 + _CONST_OFS_MARGIN   #-- 再開時刻（元の時間軸、 オーバーシュート回避）
+      _nsf = _make_sim_path(f"{spicef}_c{index1_slope_const}_r{index2_slope_rel}_ns")
+      param.nodeset_probe   = True
+      param.nodeset_meas_at = _ofs
+      _rp = genFileLogic_Const1x(targetHarness=h, spicef=_nsf, param=param)
+      param.nodeset_probe   = False
+      _vals = _rp.get("nodeset_values", [])
+      if len(_vals) == len(_nodes):
+        _nsfile = os.path.join(os.path.dirname(os.path.dirname(_nsf)),
+                               #-- ISS-00220: arc_oirc は ["r","f","","r"] のリストなので、
+                               #   そのまま埋めるとクォート・空白でパスが壊れる。 空要素は "n" に置換して連結。
+                               f"nodeset_{''.join(c or 'n' for c in arc_oirc)}"
+                               f"_c{index1_slope_const}_r{index2_slope_rel}.sp")
+        with open(_nsfile, "w") as _f:
+          _f.write("* ISS-00220: const 掃引の再開用 nodeset（0 回目の準備 run で取得）\n")
+          _f.write(".nodeset " + " ".join(
+            f"v(xcell.xdut.{n})={v:.6e}" for n, v in zip(_nodes, _vals)) + "\n")
+        param.start_offset = -_ofs
+        param.nodeset_file = os.path.join("..", os.path.basename(_nsfile))
+      else:
+        #-- 取得できなければ従来動作へ落とす（値が静かに狂うより遅いほうがよい）
+        print(f"  [INFO] ISS-00220: nodeset 未取得のため従来動作で継続 ({_nsf})")
+
     prop_min=1.0
 
     segstep = h.mls.sim_segment_timestep_start * h.mls.time_mag
@@ -1436,8 +1505,22 @@ def genFileLogic_Const1x(targetHarness:Mcar, spicef:str, param:Mtp) -> dict:
 
   
   # result
+  #-- ISS-00220: nodeset 取得 run では内部ノード電圧 nsv<N> を読む（.control の meas find が出す）。
+  _ns_vals=[]
+  if param.nodeset_probe:
+    _txt=open(spicelis, errors="ignore").read()
+    for _i in range(len(param.internal_nodes)):
+      _m=re.search(rf'^\s*nsv{_i}\s*=\s*(\S+)', _txt, re.M)
+      if _m is None: _ns_vals=[]; break
+      _ns_vals.append(float(_m.group(1)))
+
+  #-- ISS-00220: chg_out は WHEN 形式で「絶対時刻」を返すため、 offset ぶんを戻して
+  #   元の時間軸にそろえる（呼び出し側の tsim_end 計算が二重 offset になるのを防ぐ）。
+  #   TRIG/TARG 形式（prop_*/dly_*/judge_dly/trans_out）は差分なので offset は相殺され不要。
+  #   energy_start/energy_end も WHEN だが power measure 専用で start_offset=0 のため対象外。
   rslt={
-    "chg_out"     :float(res["chg_out"]),
+    "chg_out"     :float(res["chg_out"]) - param.start_offset,
+    "nodeset_values":_ns_vals,
     "setup"       :float(res[_dly_key]),
     "prop_clk_out":float(res["prop_clk_out"]),
     "vlt_max"     :float(res.get("judge_vlt_max", 1)),   # ISS-00153: seq_lat hold のみ実値
