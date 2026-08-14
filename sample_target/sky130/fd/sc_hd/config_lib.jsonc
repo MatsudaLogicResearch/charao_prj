@@ -146,14 +146,23 @@
   ,"runsim"     :"true"
 //--- ISS-00079 の sweet spot
   ,"num_thread" : 4
+//--- ISS-00230: 有効桁。 .lib / doc の出力桁に加え、 maxstep(=.tran の tmax) の有効桁にも使う。
+//    ⚠ この値を変えると sim の刻みも変わる＝結果が動く。 未指定ならモデル既定 3。
+  ,"significant_digits" : 3
   ,"sim_nice"   : 19
   ,"tmax_high"                 : 20
-// ISS-00219/00223: 出力遷移 trans_out に対し 4 点以上を目安に決める（trans_out / tmax_low）。
-//   sky130 は遷移 17〜25ps で 0.02 だと約 1 点＝不足のため 0.002。gf180 は 70〜96ps で 0.02（約 4 点）で十分。
+// ISS-00219/00223: 出力遷移 trans_out に対する点数を目安に決める（trans_out / tmax_low）。
+//   ⚠ ISS-00230(2026-08-14): この「点数」は下限見積りであって実点数ではない。 tmax は刻みではなく
+//     刻みの「上限」で、 実際の刻みは ngspice の LTE 制御が決める（docs/SPEC_measure.md §12.1）。
+//     最終判断は orig との transition 誤差で行うこと。
+//   sky130 は遷移 17〜25ps で 0.02 だと不足のため 0.002 としていたが、 ISS-00229(2026-08-14) で
+//   0.004 へ変更。 0.002 では delmin=1e-11*tmax=2e-23 が小さすぎ、 sdlclkp_1 の setup_rising が
+//   `Timestep too small ... vclk#branch` で落ちて .lib に 0 値 4 点が出ていた。
+//   gf180 は 70〜96ps で 0.02 で十分（0.002 にすると orig から +58% 遠ざかる＝細かい≠高精度）。
 //--- ISS-00188: 既定 0.001ns では index_1 下 3 点（0.01/0.0231/0.0531ns）で
 //    tstep = slope*0.0099 がフロアに張り付き、 エッジを 10〜53 点しか刻めない。
 //    energy2 の大負荷点が `Timestep too small ... vrel#branch` で落ちるため 0.0001 とする。
-  ,"tmax_low"                  : 0.002
+  ,"tmax_low"                  : 0.004
 //--- ISS-00188: ただし power_tin だけは 0.0001 にすると逆に落ちる（2026-08-05 実測）。
 //    最速 slew 0.01ns で tstep 0.1ps となり `Timestep too small ... vclk#branch` で
 //    全 181 セル中 26 セル・109 件が失敗。 0.001 に戻すと 0 件。
