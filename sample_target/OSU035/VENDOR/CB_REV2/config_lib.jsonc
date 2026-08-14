@@ -85,6 +85,9 @@
   ,"runsim"     :"true"
 //--- num_thread : ISS-00079 の sweet spot（8 以上は ngspice 内部の直列ボトルネックで逆に遅い）
   ,"num_thread" : 4
+//--- ISS-00230: 有効桁。 .lib / doc の出力桁に加え、 maxstep(=.tran の tmax) の有効桁にも使う。
+//    ⚠ この値を変えると sim の刻みも変わる＝結果が動く。 未指定ならモデル既定 3。
+  ,"significant_digits" : 3
   ,"sim_nice"   : 19
 
 //--- 2026-07-29 追加（a29〜a33 で導入されたキー。 未指定でも既定値で動くが明示する）

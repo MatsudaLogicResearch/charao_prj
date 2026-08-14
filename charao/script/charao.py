@@ -74,7 +74,10 @@ def main():
   parser.add_argument('--measures_only' , type=str, nargs="*"   , default=[]    , help='list of measure_type names. blank meas all measure_type.')
   parser.add_argument('--template_index1_only', type=int, nargs="*", default=[], help='indices of index_1 to run (0-based). blank means all.')
   parser.add_argument('--template_index2_only', type=int, nargs="*", default=[], help='indices of index_2 to run (0-based). blank means all.')
-  parser.add_argument('-s','--significant_digits'   , type=int  , default=3     , help='significant digits.')
+  ## ISS-00230: default=None にして「指定されたときだけ jsonc を上書き」に変える（ISS-00198 と同じ扱い）。
+  ##   significant_digits は .lib/doc の出力桁に加え、 maxstep(tmax) の有効桁にも使う（_fmt_maxstep）。
+  ##   未指定時のモデル既定は myLibrarySetting.significant_digits = 3 なので従来動作は変わらない。
+  parser.add_argument('-s','--significant_digits'   , type=int  , default=None  , help='significant digits. (blank: use config_lib.jsonc / model default 3)')
   parser.add_argument('-b','--build_stamp',type=str             , default="b00" , help='build-stamp for output files.')
   parser.add_argument('-w','--work_dir' ,type=str               , default="work", help='work directory.')
   #--- ISS-00198: result_path は config_lib.jsonc の値（既定 ./rslt）しか使えず、
@@ -233,13 +236,15 @@ def main():
                     "measures_only"       :args.measures_only,
                     "template_index1_only":args.template_index1_only,
                     "template_index2_only":args.template_index2_only,
-                    "significant_digits"  :args.significant_digits,
                     "work_dir"            :args.work_dir,
                     "wave_raw"            :args.wave_raw
                     }
   #--- ISS-00198: --result_path は指定されたときだけ上書きする（未指定なら config の値）
   if args.result_path:
     config_from_args["result_path"] = args.result_path
+  #--- ISS-00230: -s も指定されたときだけ上書きする（未指定なら jsonc / モデル既定 3）
+  if args.significant_digits is not None:
+    config_from_args["significant_digits"] = args.significant_digits
   targetLib = targetLib.model_copy(update=config_from_args)
 
   #--- targetLib : update & display

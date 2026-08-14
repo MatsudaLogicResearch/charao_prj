@@ -242,6 +242,9 @@
   ,"simulator"  : "ngspice"
   ,"runsim"     : "true"
   ,"num_thread" : 4
+//--- ISS-00230: 有効桁。 .lib / doc の出力桁に加え、 maxstep(=.tran の tmax) の有効桁にも使う。
+//    ⚠ この値を変えると sim の刻みも変わる＝結果が動く。 未指定ならモデル既定 3。
+  ,"significant_digits" : 3
   ,"sim_nice"   : 19
   ,"tmax_high"              : 20
 // ISS-00219/00223: 出力遷移 trans_out に対し 4 点以上を目安に決める（trans_out / tmax_low）。
