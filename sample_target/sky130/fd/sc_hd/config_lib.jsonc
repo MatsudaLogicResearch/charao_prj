@@ -159,15 +159,17 @@
 //   0.004 へ変更。 0.002 では delmin=1e-11*tmax=2e-23 が小さすぎ、 sdlclkp_1 の setup_rising が
 //   `Timestep too small ... vclk#branch` で落ちて .lib に 0 値 4 点が出ていた。
 //   gf180 は 70〜96ps で 0.02 で十分（0.002 にすると orig から +58% 遠ざかる＝細かい≠高精度）。
-//--- ISS-00188: 既定 0.001ns では index_1 下 3 点（0.01/0.0231/0.0531ns）で
-//    tstep = slope*0.0099 がフロアに張り付き、 エッジを 10〜53 点しか刻めない。
-//    energy2 の大負荷点が `Timestep too small ... vrel#branch` で落ちるため 0.0001 とする。
-  ,"tmax_low"                  : 0.004
-//--- ISS-00188: ただし power_tin だけは 0.0001 にすると逆に落ちる（2026-08-05 実測）。
-//    最速 slew 0.01ns で tstep 0.1ps となり `Timestep too small ... vclk#branch` で
-//    全 181 セル中 26 セル・109 件が失敗。 0.001 に戻すと 0 件。
-//    フロアは ISS-00087（ngspice LTE 暴走の抑制）由来で、 下げすぎると逆方向に破綻する。
-  ,"tmax_low_power_tin"        : 0.02
+//--- 変遷: 0.002 -> 0.004(ISS-00229) -> 0.005 -> 0.01(ISS-00234、 2026-08-15 確定)
+//    ⚠ tmax_low を上げるだけでは 3 failures で頭打ちになり、 そこから
+//      「maxstep が下限を守っていない経路がある」という発見に至った（ISS-00234）。
+//      現在は maxstep = clamp(slope/simulation_points_per_transition, tmax_low, tmax_high)
+//      に統一し、 全 measure で下限・上限を守る（docs/SPEC_measure.md §12.1.2）。
+//    フロアは ISS-00087（ngspice LTE 暴走の抑制）由来。 下げすぎると delmin(=1e-11*tmax) が
+//    小さくなりすぎて `Timestep too small` で落ちる（ISS-00229 / ISS-00234 で実証）。
+  ,"tmax_low"                  : 0.01
+//--- ISS-00234(2026-08-15): tmax_low_power_tin（power_tin 専用フロア）は廃止した。
+//    ISS-00188 で「共通値を下げると power_tin の最速 slew が落ちる」として設けたが、
+//    同じ関数の中で maxstep/5 して 1/5 に潰しており自己矛盾していた。 現在は tmax_low に統一。
   ,"sim_pulse_max"              : 3.0
   ,"sim_prop_max"               : 10.0
   ,"sim_prop_tri_max"           : 10.0
