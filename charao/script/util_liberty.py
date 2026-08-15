@@ -176,6 +176,8 @@ class LibertyParser:
         self.n = len(lines)
         self.i = 0
         self.s = scales
+        #-- ISS(2026-08-15): lu_table_template / power_lut_template の name -> (variable_1, variable_2)
+        self.template_vars = {}
         self.leakage_rows = []
         self.power_rows = []
         self.timing_rows = []
@@ -207,10 +209,60 @@ class LibertyParser:
         m = re.match(rf'index_{num}\s*\("([^"]*)"\)', line)
         return [v.strip() for v in m.group(1).split(",")] if m else []
 
-    def _emit_table(self, index1, index2, values_flat, template, dest, value_key, value_scale):
+    #-- ISS(2026-08-15、 ダーマツ指示): index1/index2 の意味は Liberty では
+    #   lu_table_template の variable_1/variable_2 で宣言するため、 PDK ごとに順序が違う。
+    #     charao / gf180 : v1=constrained_pin_transition, v2=related_pin_transition
+    #     sky130         : v1=related_pin_transition,     v2=constrained_pin_transition （逆）
+    #   軸の順序が違うまま突合すると値が転置したまま比較され、 誤った差分が出る。
+    #   **make_template / extract では常に charao の並びへ正規化する**（下表）。
+    #     const 系 : index1=constrained_pin_transition  index2=related_pin_transition
+    #     delay 系 : index1=input_net_transition        index2=total_output_net_capacitance
+    #     power 系 : index1=input_transition_time       index2=total_output_net_capacitance
+    _AXIS_CANON = {
+        "constrained_pin_transition": 1, "related_pin_transition": 2,
+        "input_net_transition": 1,       "total_output_net_capacitance": 2,
+        "input_transition_time": 1,      "normalized_voltage": 2,
+    }
+
+    def _idx2_is_cap(self, tmpl_name):
+        """正規化後の index2 が容量軸か（＝cap_scale を掛けるべきか）。"""
+        v = self.template_vars.get(tmpl_name)
+        if not v:
+            return True                      # 不明時は従来動作（cap_scale）
+        v1, v2 = v
+        vv = [x for x in (v1, v2) if x]
+        return "total_output_net_capacitance" in vv
+
+    def _need_transpose(self, tmpl_name):
+        """この table が使う template の軸順が charao 基準と逆なら True。"""
+        v = self.template_vars.get(tmpl_name)
+        if not v:
+            return False
+        v1, v2 = v
+        r1 = self._AXIS_CANON.get(v1); r2 = self._AXIS_CANON.get(v2)
+        if r1 is None or r2 is None:
+            return False
+        return r1 > r2          # 例: v1=related(2), v2=constrained(1) -> 転置が要る
+
+    def _emit_table(self, index1, index2, values_flat, template, dest, value_key, value_scale,
+                    transpose=False, idx2_is_cap=True):
+        #-- ISS(2026-08-15): 軸順が charao 基準と逆の PDK（sky130 の const 系）は、
+        #   index と values を転置して常に同じ意味の並びで出す。
+        if transpose and index1 and index2:
+            n1, n2 = len(index1), len(index2)
+            if len(values_flat) >= n1 * n2:
+                #   values は row-major（index1 が行 / index2 が列）。
+                #   new[c*n1+r] = old[r*n2+c] となるよう詰め替える。
+                values_flat = [values_flat[r * n2 + c]
+                               for c in range(n2) for r in range(n1)]
+                index1, index2 = index2, index1
         ni2 = len(index2)
         ts = self.s["time_scale"]
-        cs = self.s["cap_scale"]
+        #-- ISS(2026-08-15): index2 のスケールは軸の種類で決まる。
+        #   const 系（related_pin_transition）は **時間**なので cap_scale を掛けてはいけない。
+        #   従来は一律 cap_scale だった（sky130/gf180 とも time=1ns・cap=1pF で
+        #   両方 1.0 だったため実害が出ていなかった）。
+        cs = self.s["cap_scale"] if idx2_is_cap else ts
         if ni2 == 0:
             ## 1D table (e.g. power_tin: input slope only) or scalar (index1=["NaN"])
             for ri, i1 in enumerate(index1):
@@ -308,12 +360,15 @@ class LibertyParser:
             # passive の stable (passive_energy_template) 等も拾う（table 名を限定すると
             # 未知 table の内側 `}` で早期 break し、 以降の pin を取りこぼすため）。
             # related_pin/when 行は `name : ...` で `(template){` 形を持たず誤マッチしない。
-            m = re.match(r'(\w+)\s*\(\S+\)\s*\{', line)
+            m = re.match(r'(\w+)\s*\((\S+)\)\s*\{', line)
             if m:
                 pt_type = m.group(1)
+                #-- ISS(2026-08-15): template 名を控え、 軸順が charao 基準と逆なら転置する
+                tmpl_nm = m.group(2).strip('"')
                 self.advance()
                 i1, i2, vals = self.parse_2d_table()
-                pending.append((i1, i2, vals, pt_type))
+                pending.append((i1, i2, vals, pt_type,
+                                self._need_transpose(tmpl_nm), self._idx2_is_cap(tmpl_nm)))
                 continue
             line = self.advance()
             m = re.search(r'related_pin\s*:\s*"?([^";\s]*)"?\s*;', line)
@@ -324,13 +379,13 @@ class LibertyParser:
                 when = _normalize_when(m.group(1))
             if "}" in line and "{" not in line:
                 break
-        for i1, i2, vals, pt_type in pending:
+        for i1, i2, vals, pt_type, tr, i2cap in pending:
             self._emit_table(i1, i2, vals,
                              {"cell_name": cell_name, "pin": pin_name,
                               "related_pin": related_pin, "when": when,
                               "rise_fall": pt_type},
                              self.power_rows, COL_POWER_VALUE,
-                             self.s["energy_scale"])
+                             self.s["energy_scale"], transpose=tr, idx2_is_cap=i2cap)
 
     def parse_timing(self, cell_name, pin_name):
         #--- ISS-00181: 属性が table の後ろに来る PDK（sky130）に対応するため
@@ -343,12 +398,14 @@ class LibertyParser:
                          "rise_constraint", "fall_constraint"}
         while self.i < self.n:
             line = self.peek()
-            m = re.match(r'(\w+)\s*\(\S+\)\s*\{', line)
+            m = re.match(r'(\w+)\s*\((\S+)\)\s*\{', line)
             if m and m.group(1) in timing_tables:
                 tt_type = m.group(1)
+                tmpl_nm = m.group(2).strip('"')
                 self.advance()
                 i1, i2, vals = self.parse_2d_table()
-                pending.append((i1, i2, vals, tt_type))
+                pending.append((i1, i2, vals, tt_type,
+                                self._need_transpose(tmpl_nm), self._idx2_is_cap(tmpl_nm)))
                 continue
             line = self.advance()
             m = re.search(r'related_pin\s*:\s*"?([^";\s]*)"?\s*;', line)
@@ -362,14 +419,14 @@ class LibertyParser:
                 timing_type = m.group(1)
             if "}" in line and "{" not in line:
                 break
-        for i1, i2, vals, tt_type in pending:
+        for i1, i2, vals, tt_type, tr, i2cap in pending:
             self._emit_table(i1, i2, vals,
                              {"cell_name": cell_name, "pin": pin_name,
                               "related_pin": related_pin, "when": when,
                               "timing_type": timing_type,
                               "table_type": tt_type},
                              self.timing_rows, COL_TIMING_VALUE,
-                             self.s["time_scale"])
+                             self.s["time_scale"], transpose=tr, idx2_is_cap=i2cap)
 
     def parse_pin(self, cell_name, pin_name):
         depth = 1
@@ -407,8 +464,33 @@ class LibertyParser:
             if depth <= 0:
                 break
 
+    def _scan_templates(self):
+        """lu_table_template / power_lut_template の name -> (variable_1, variable_2) を収集。"""
+        name = None; v1 = None; v2 = None
+        for line in self.lines:
+            t = line.strip()
+            m = re.match(r'(?:lu_table_template|power_lut_template)\s*\(\s*([^)]+?)\s*\)\s*\{', t)
+            if m:
+                if name:
+                    self.template_vars[name] = (v1, v2)
+                name = m.group(1).strip('" '); v1 = v2 = None
+                continue
+            if name:
+                m = re.match(r'variable_1\s*:\s*"?([a-z_]+)', t)
+                if m: v1 = m.group(1); continue
+                m = re.match(r'variable_2\s*:\s*"?([a-z_]+)', t)
+                if m: v2 = m.group(1); continue
+                if t.startswith('}'):
+                    self.template_vars[name] = (v1, v2); name = None
+        if name:
+            self.template_vars[name] = (v1, v2)
+
     def parse(self):
         """ライブラリ全体を解析。(leakage_rows, power_rows, timing_rows) を返す。"""
+        #-- ISS(2026-08-15): 先に lu_table_template / power_lut_template の
+        #   variable_1 / variable_2 を全部拾っておく（cell より前に定義されるが、
+        #   順序に依存しないよう全文を先読みする）。 軸順の正規化に使う。
+        self._scan_templates()
         while self.i < self.n:
             line = self.peek()
             m = re.match(r'cell\s*\((\S+)\)\s*\{', line)
