@@ -918,10 +918,52 @@ library (name) {
 ### 12.1 `maxstep` の決まり方
 
 ```
-maxstep = max(tmax_low, min(slew × 0.198, tmax_high))       slew は当該 measure の入力 slew
+maxstep = clamp( slope / simulation_points_per_transition , tmax_low , tmax_high )
 maxstep = <significant_digits 桁へ丸め>                     ISS-00230（既定 3 桁）
 .tran {maxstep} {tsim_end} 0 {maxstep}
 ```
+
+**`slope` は template の index 値**（閾値間の遷移時間）。**transition なので index のままでよく**、
+実 PWL 幅への換算は不要（ISS-00234、ダーマツ判断）。measure ごとにどの index を使うかは §12.1.1。
+
+**`simulation_points_per_transition` は probe（§12.3）と同じ設定**を使い、「遷移に何点乗せるか」の
+意味を**入力側にも揃える**。
+
+**⚠️ 2026-08-15 以前は `max(tmax_low, min(slope × 0.198, tmax_high))`** だった。`0.198` は根拠不明の
+係数で、さらに **measure ごとに下限を破る追加処理**があった（ISS-00234 で全廃）。
+
+### 12.1.1 measure 別の `slope`（どの index を使うか）
+
+| measure | `slope` |
+|---|---|
+| `delay` / `power_tout` / `power_tin` / `passive` | **入力 slew**（`index1_slope` / `index1_slope_in`） |
+| `setup` / `hold` / `recovery` / `removal` / LAT `hold` | **CLK slew**（`index2_slope_rel`） |
+| `min_pulse_width` | **なし** → `tmax_low`（ISS-00234、ダーマツ指示） |
+| `leakage` | **なし** → `tmax_low`（入力が動かない measure） |
+
+### 12.1.2 ⚠️ `maxstep` は全 measure で `[tmax_low, tmax_high]` を守る（ISS-00234）
+
+**2026-08-15 以前は 5 経路が下限を破っていた。**
+
+```
+measure      旧・下限を破っていた処理                          落ちた先
+delay        probe: min(_lim, maxstep)                       tmax_low 未満
+const        probe: min(_lim, maxstep)                       tmax_low 未満
+min_pulse    probe: min(_lim, maxstep)  ＋ 初期値 5×tmax_high  上限の 5 倍から出発
+power_tin    max(maxstep/20, min(maxstep/5, tslew_min×20))   tmax_low の 1/5
+passive      max(maxstep/20, min(maxstep, tslew_min×20))     tmax_low の 1/20
+```
+
+**`power_tin` は自己矛盾していた**。ISS-00188 が「共通値を下げると `power_tin` の最速 slew が
+`Timestep too small` で落ちる」と実測して**専用フロア `tmax_low_power_tin`（sky130 で 20 ps）**を
+設けたのに、**同じ関数の中で `/5` して 4 ps まで落としていた**＝ISS-00188 が禁じた領域に自ら入っていた。
+`tslew_min × 20`（20 ps）と `tmax_low_power_tin`（20 ps）は同値なので、`/5` が無ければ 20 ps で確定していた。
+
+**`min_pulse` の `5 × tmax_high`** は `.tran` の `tmax`（刻みの上限）であって**パルス幅ではない**。
+`tmax_high = 20 ns` に対し `maxstep = 100 ns` と**上限の 5 倍**を指定していた。
+
+**現在は `_calc_maxstep()` / `_clamp_maxstep()`（`charao_run.py`）に集約**し、
+初期式・probe とも必ず `[tmax_low, tmax_high]` に収める。**`tmax_low_power_tin` は廃止**。
 
 **`maxstep` の有効桁は `significant_digits` で決まる**（`_fmt_maxstep()`、既定 3）。従来は `"{:.5g}"` の
 ハードコードだった。**`significant_digits` は本来 `.lib` / doc の出力桁**（`--significant_digits` / `-s`、
@@ -979,13 +1021,19 @@ pts = vout_trans / maxstep
 判定基準にはならない（§12.1）。`pts` は**候補を絞る目安**として使い、**最終判断は必ず実測の誤差で下す**。
 
 ```
-             出力遷移     tmax_low   pts(下限見積り)   orig との誤差          判定
-sky130       17〜25 ps     0.02        約 1            transition 誤差 18%    ✗ 粗すぎる
-                           0.004       約 4〜6         （要確認）             LTE 破綻なし
-                           0.002       約 9〜13        誤差 18% が消える      ✗ LTE 破綻あり（ISS-00229）
-gf180        70〜96 ps     0.02        約 4            基準内                 ⭕ 採用
-                           0.002       約 40           orig から遠ざかる +58% ✗ 細かすぎる
+             出力遷移     tmax_low   判定
+sky130       17〜25 ps     0.02       ✗ 粗すぎる（transition 誤差 18%）
+                           0.002      ✗ LTE 破綻（ISS-00229、Timestep too small）
+                           0.004      △ ISS-00229 は解消するが const/removal で破綻が残る
+                           0.005      △ 5 → 4 failures
+                           **0.010**  ⭕ **確定値**（ISS-00234、2026-08-15 ダーマツ判断）
+gf180        70〜96 ps     0.02       ⭕ 採用（0.002 は orig から +58% 遠ざかる＝細かい≠高精度）
 ```
+
+**sky130 の変遷**：`0.002 → 0.004`（ISS-00229）`→ 0.005 → 0.010`（ISS-00234）。
+**`tmax_low` を上げるだけでは 3 failures で頭打ち**になり、そこから
+「`maxstep` が下限を守っていない経路がある」という発見（§12.1.2）につながった。
+**統一式と下限遵守を入れて初めて 0 failures**（`dfstp_1` 5→0、`dfrtn_1` 8→0）。
 
 **細かくすれば精度が上がるとは限らない**のが要点である。gf180 で `0.002` にすると誤差が **+58% 悪化**した。
 遷移幅は**露払いを 1 回回せば `.lib` から読める**ので、新規 PDK でもまず `pts` で当たりを付け、
@@ -1086,7 +1134,83 @@ buf_16 fall_transition               +0.0774 → −0.0020（1/39）
 
 ---
 
-## 13. 参照
+## 13. `index_1` / `index_2` の意味と軸の正規化（2026-08-15、ダーマツ指示）
+
+### 13.1 Liberty では軸の意味は `lu_table_template` が決める
+
+`index_1` / `index_2` が何を表すかは **`lu_table_template` / `power_lut_template` の
+`variable_1` / `variable_2` で宣言する**。したがって **どちらの順序でも正しい**。順序そのものに
+標準はなく、**宣言と中身が一致していれば整合**する。
+
+### 13.2 charao の並び（基準）
+
+| measure | template | `index_1`（`variable_1`） | `index_2`（`variable_2`） |
+|---|---|---|---|
+| `delay` / `transition` | `delay_template_7x7` | `input_net_transition` | `total_output_net_capacitance` |
+| `setup`/`hold`/`recovery`/`removal` | `const_template_7x7` | **`constrained_pin_transition`** | **`related_pin_transition`** |
+| `min_pulse_width` | `mpw_template_3x0` | `constrained_pin_transition` | — |
+| `power_tout` | `power_tout_energy_template_7x7` | `input_transition_time` | `total_output_net_capacitance` |
+| `power_tin` | `power_tin_energy_template_7x0` | `input_transition_time` | — |
+| `passive` | `passive_energy_template_7x0` | `input_transition_time` | — |
+
+**実装との対応**（`charao_run.py`）：`runSpiceConstSingle(..., index1_slope_const, index2_slope_rel)` で
+`index1` → 制約信号（D / SET / RESET）の slew、`index2` → CLK の slew。**宣言と一致している**。
+
+### 13.3 PDK ごとの違い — **sky130 の const 系だけ順序が逆**
+
+```
+                     const 系の variable_1 / variable_2
+charao        constrained_pin_transition / related_pin_transition
+gf180 orig    constrained_pin_transition / related_pin_transition   ← 同じ
+sky130 orig   related_pin_transition / constrained_pin_transition   ← 逆
+```
+
+`delay` 系（`input_net_transition` / `total_output_net_capacitance`）と `power` 系
+（`input_transition_time` / `total_output_net_capacitance`）は **3 者とも同じ**。**const 系だけ**が食い違う。
+
+### 13.4 正規化の方針（`util_liberty.py`）
+
+**`make_template` / `extract` では、常に charao の並び（§13.2）へ正規化してから
+生成・比較する**（ダーマツ指示）。実装は `util_liberty.py` の `LibertyParser`：
+
+```
+_scan_templates()   .lib 全体を先読みし、template 名 -> (variable_1, variable_2) を収集
+_need_transpose()   その table の軸順が charao 基準と逆なら True
+_emit_table(..., transpose=True)
+                    index1/index2 を入れ替え、values を row-major で詰め替える
+                      new[c*n1+r] = old[r*n2+c]
+```
+
+**1D table（`variable_2` なし）は転置対象外。** 軸名が未知の template も従来動作のまま。
+
+**⚠️ これを入れないと、sky130 の const 系は値が転置したまま orig と突合される。**
+2026-08-15 以前の sky130 const の orig 比較（ISS-00218 / ISS-00227 の数字）は
+**この状態で得たものなので再評価が要る**。gf180 は元から同じ並びなので影響しない。
+
+**【検証】** 変更前後で 3 つの `.lib` をパースして全行比較：
+
+```
+                timing 値が変わった   power 値が変わった   行数・キー
+sky130(orig)         3720                   0            保存
+gf180(orig)             0                   0            保存
+sky130(charao)          0                   0            保存
+```
+
+sky130 orig の const 系（`vio_3_3_1` を使う setup/hold/recovery/removal）**だけ**が転置され、
+対角成分は不変、非対角が入れ替わることを `dfrtn_1` / `setup_falling` の 3×3 で確認した。
+
+### 13.5 併せて修正 — `index_2` の単位スケール
+
+`_emit_table` は `index_1` に `time_scale`、**`index_2` に一律 `cap_scale`** を掛けていた。
+**const 系は `index_2` も時間（slew）**なので誤り。`variable_1/2` に
+`total_output_net_capacitance` が含まれるときだけ `cap_scale`、それ以外は `time_scale` を掛ける。
+
+**実害は出ていなかった**（sky130 / gf180 とも `time_unit = 1ns` / `capacitive_load_unit(1, pf)` で
+両スケールが 1.0）。単位系の違う `.lib` を読むと値が壊れるため、先に直した。
+
+---
+
+## 14. 参照
 
 - ISS-00101：ival/arc 値モデル刷新（本仕様書と並行進行）
 - ISS-00108：charao .lib と orig .lib の構成・属性差分

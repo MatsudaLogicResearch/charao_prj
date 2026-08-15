@@ -187,7 +187,6 @@ class MyLibrarySetting(BaseModel):
   #   SKY130 実測（2026-08-05）: 全 measure 0.002 では power_tin が 109 件失敗。
   #   power_tin だけ 0.02 に戻すと 0 件。 他 measure は 0.002 で失敗なし。
   #   未指定なら tmax_low と同じ値を使う（従来動作）。
-  tmax_low_power_tin : float | None = None
   # ISS-00219: const / delay / mpw で、 出力遷移 trans_out に何点のサンプルを乗せるか（単位＝点数）。
   #   maxstep = min(maxstep, trans_out / この値) で上限を被せる（絞る方向のみ）。
   #   trans_out は maxstep に依存する測定値（粗いと過大に出る）ため、 掃引位置を固定したまま

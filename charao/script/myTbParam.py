@@ -15,6 +15,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 ###############################################################################
+import math
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
 import os, json, re
@@ -120,6 +121,10 @@ class MyTbParam:
   nodeset_file     :str         = ""   #-- 取り込む nodeset ファイル（sim dir からの相対パス）。 空なら出力しない
   nodeset_probe    :bool        = False #-- True で .control に内部ノード電圧の meas find を出す（0 回目のみ）
   nodeset_meas_at  :float       = 0.0  #-- 内部ノード電圧を meas find する時刻[s]（＝再開時刻）
+  #-- ISS-00234: PWL 折れ点の時刻を丸める粒度[s]。 0=無効（従来動作）。
+  #   端数を持つ折れ点で LTE が刻みを詰めて delmin を割る（Timestep too small）。
+  #   jsonc の sim_segment_timestep_min[ns]（掃引の最小刻み）× time_mag を流用する。
+  time_quantize    :float       = 0.0
 
   def set_common_value(self, harness:Mcar, arc_oirc:list[str]):
     h=harness
@@ -179,6 +184,10 @@ class MyTbParam:
 
     # PWL slew 用の最小時間（秒換算）。 .tran の print 間隔（simulation_timestep_max / _min）と独立に細かい値を扱える
     self.tslew_min = float("{:.5g}".format(h.mls.simulation_slew_min * h.mls.time_mag))
+    #-- ISS-00234: 時刻の量子化幅。 **掃引の最小刻み sim_segment_timestep_min[ns] を
+    #   そのまま使う**（ダーマツ判断 2026-08-15）。 専用の設定は増やさない。
+    #   掃引の分解能と同じ粒度なので掃引点は潰れず、 原点のずれ（実測 0.37ps）だけが消える。
+    self.time_quantize = float(getattr(h.mls, "sim_segment_timestep_min", 0.0)) * h.mls.time_mag
     
     #self.model        = h.mlc.model   if h.mlc.model.startswith("/")   else "../" + h.mlc.model
     #self.netlist      = h.mlc.netlist if h.mlc.netlist.startswith("/") else "../" + h.mlc.netlist
@@ -389,11 +398,22 @@ class MyTbParam:
     self.t_in1   = self.t_in0    + (self.tslew_in     if (self.pin_oirc[1]!="" or self.measure_type.startswith("leakage")) else self.tslew_min)
 
     self.t_rel0  = self.t_in1    + (self.tdelay_rel   if self.pin_oirc[2]!="" else self.tslew_min)
+    if self.time_quantize > 0.0:
+      self.t_rel0 = math.ceil(self.t_rel0 / self.time_quantize) * self.time_quantize
     self.t_rel1  = self.t_rel0   + (self.tslew_rel    if self.pin_oirc[2]!="" else self.tslew_min)
     self.t_rel2  = self.t_rel1   + (self.tpulse_rel   if self.pin_oirc[2]!="" else self.tslew_min)
     self.t_rel3  = self.t_rel2   + (2*self.tslew_min  if self.pin_oirc[2]!="" else self.tslew_min)
 
     self.t_clk4  = self.t_rel3   + ((self.tdelay_clk + self.tsweep_clk) if self.pin_oirc[3]!="" else self.tslew_min)
+    #-- ISS-00234（2026-08-15、 ダーマツ指示）: 遷移の開始時刻を time_quantize[s] へ切り上げる。
+    #   端数（実測 0.3 ps）を持つ PWL 折れ点で LTE が刻みを詰めて delmin を割り
+    #   `Timestep too small` で abort する。 1ps 格子に乗せるだけで解消する（実測）。
+    #   ⚠ 遷移幅（slew）は変えない。 t_clk5 以降は丸めた t_clk4 からの相対で決まるので、
+    #     下の既存式がそのまま「元の幅」を保つ。
+    #   ⚠ 丸めるのは **開始側の折れ点だけ**（t_rel0 / t_clk4）。 終了側（t_rel1 / t_clk5）を
+    #     丸めると slew が変わってしまう。
+    if self.time_quantize > 0.0:
+      self.t_clk4 = math.ceil(self.t_clk4 / self.time_quantize) * self.time_quantize
     self.t_clk5  = self.t_clk4   + (self.tslew_clk    if self.pin_oirc[3]!="" else self.tslew_min)
     self.t_clk6  = self.t_clk5   + (self.tpulse_clk   if self.pin_oirc[3]!="" else self.tslew_min)
     self.t_clk7  = self.t_clk6   + (2*self.tslew_min  if self.pin_oirc[3]!="" else self.tslew_min)
