@@ -229,10 +229,21 @@ def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
     ng = _group(new_rows, group_keys, value_key, kind_key,
                 drop_zero=drop_zero_new, drop_default_when=drop_default_when)
 
+    #-- ISS(2026-08-14、 ダーマツ指示): when 完全一致が前提だが、 orig 側に when が無い
+    #   （sky130 の internal_power は出力ピンに when を付けない）のに charao が
+    #   non-target ピンの固定状態を when として出すため、 group key が噛み合わず
+    #   matched 0 になっていた。 一致しないときは **when を除いたキー** で対応付け、
+    #   結果には charao 側 when（when_new）と when 違いフラグを明記する。
+    #   1 対多（charao 側に複数 when）は集約せず、 すべて行として出す。
+    ng_nowhen = defaultdict(list)
+    for _k, _v in ng.items():
+        ng_nowhen[(_k[0], _k[1], _k[2]) + tuple(_k[4:])].append((_k[3], _v))
+
     per_point = []
     matched_groups = 0
     missing_groups = 0
     matched_points = 0
+    when_fallback_groups = 0
     n_extras = len(extras)
 
     for key, o_triples in og.items():
@@ -245,18 +256,27 @@ def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
         if cell_filter and cell != cell_filter:
             continue
         n_triples = ng.get(key)
-        if not n_triples:
+        if n_triples:
+            cands = [(when, n_triples)]                     # when 完全一致（優先）
+        else:
+            cands = ng_nowhen.get((cell, pin, rpin) + tuple(key[4:]), [])
+            if cands:
+                when_fallback_groups += 1
+        if not cands:
             missing_groups += 1
             continue
         matched_groups += 1
 
-        # NaN 行（scalar / 1D の欠損 axis）を含む group は補間不能 → strict matching
-        has_nan = any(i1 == "NaN" or i2 == "NaN" for i1, i2, _ in n_triples)
+        for when_new, n_triples in cands:
+          # NaN 行（scalar / 1D の欠損 axis）を含む group は補間不能 → strict matching
+          has_nan = any(i1 == "NaN" or i2 == "NaN" for i1, i2, _ in n_triples)
 
-        def _append(i1, i2, vo, vn):
+          def _append(i1, i2, vo, vn, when_new=when_new):
             row = {
                 "cell_name": cell, "pin": pin, "related_pin": rpin,
                 "when": when,
+                "when_new": when_new,
+                "when_mismatch": "Y" if when != when_new else "",
             }
             for k, v in zip(extras, extra_vals):
                 row[k] = v
@@ -268,7 +288,7 @@ def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
             row["abs_diff"]   = vn - vo
             per_point.append(row)
 
-        if interpolate and not has_nan:
+          if interpolate and not has_nan:
             i1_arr, i2_arr, table = _build_table_2d(n_triples)
             for i1, i2, vo in o_triples:
                 vn = _interp2d(i1, i2, i1_arr, i2_arr, table)
@@ -276,7 +296,7 @@ def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
                     continue
                 matched_points += 1
                 _append(i1, i2, vo, vn)
-        else:
+          else:
             n_by_idx = {(i1, i2): v for i1, i2, v in n_triples}
             for i1, i2, vo in o_triples:
                 vn = n_by_idx.get((i1, i2))
@@ -285,9 +305,14 @@ def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
                 matched_points += 1
                 _append(i1, i2, vo, vn)
 
-    _log(f"  matched groups : {matched_groups}")
+    _log(f"  matched groups : {matched_groups}"
+         + (f"  (うち when 違いで対応付け {when_fallback_groups})" if when_fallback_groups else ""))
     _log(f"  missing groups : {missing_groups} (new side not found)")
     _log(f"  matched points : {matched_points}")
+    if when_fallback_groups:
+        _n_mis = sum(1 for r in per_point if r.get("when_mismatch") == "Y")
+        _log(f"  ⚠ when 違いの点 : {_n_mis} / {len(per_point)}"
+             f"（orig に when が無く charao が when 付きで出すケース。 when_new 列を参照）")
 
     # ── (extras, kind, index1, index2) ごとの diff 統計を表示 ──
     buckets = defaultdict(list)
