@@ -845,13 +845,11 @@ def runSpicePowerToutSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_s
     estart = rslt1["estart"]
     eend   = rslt1["eend"]
     param.meas_energy   = 2
-    ## ISS-00219(2026-08-14、 ダーマツ指示): energy2 は energy1 で収束した maxstep をそのまま
-    ##   引き継ぐ。 従来は ISS-00094/00095 の別式
-    ##     max(maxstep/20, min(maxstep/5, tslew_min*20))
-    ##   で独自に決めていたが、 energy1 側が trans_out に基づいて最適化されるようになったため、
-    ##   同じ刻みを使うほうが一貫する（energy1/energy2 で刻みが違うと積分区間の解像度も変わる）。
-    ##   ISS-00094/00095 の意図（i_*_leak の AVG 区間＝_t_in0 直前の 100*tslew_min 幅に複数
-    ##   ステップを入れる）は、 収束後の maxstep が tslew_min*20 以下であれば満たされる。
+    ## ISS-00236(2026-08-16、 ダーマツ判断): energy2 は tmax = tstep = tmax_low 固定。
+    ##   energy1 の収束値（実測 48〜750ps）は leak の AVG 区間（_t_in0 手前の 100*tslew_min）に
+    ##   対して粗すぎ、 窓内 1 点で `avg(TRIG) : out of interval`、 窓内 0 点だと ngspice が
+    ##   無警告で 0A を返す。 energy1（trans_out の最適化）は従来どおり＝leak を測っていない。
+    param.maxstep       = _clamp_maxstep(h.mls.tmax_low * h.mls.time_mag, h.mls)
     param.compute_timing()                       # t_in0/t_in1/t_rel0/t_rel1 確定（tsim_end 非依存）
     ## tsim_end は compute_timing 結果（t_rel1）を参照して算出（出力遷移 eend も考慮）
     ## ISS-00117: energy2 の sim_end は energy1 の autostop 時刻（=実証済の安全停止点）を使う。
@@ -913,11 +911,11 @@ def runSpicePowerTinSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_sl
   #-- timestep
   slope          = index1_slope
   tslew_min_s    = h.mls.simulation_slew_min
-  #-- ISS-00188: power_tin だけ TSTEP の下限を分ける（未指定なら共通値）。
-  #   共通値を下げると power_tout の大負荷点は救えるが、 power_tin の最速 slew が
-  #   逆に `Timestep too small ... vclk#branch` で落ちるため（SKY130 実測 2026-08-05）。
-  #-- ISS-00234(2026-08-15、 ダーマツ指示): tmax_low_power_tin（専用フロア）を廃し tmax_low に統一。
-  maxstep  = _calc_maxstep(slope, h.mls)
+  #-- ISS-00236(2026-08-16、 ダーマツ判断): power_tin は maxstep を tmax_low 固定。
+  #   leak の AVG 区間（_t_in0 手前の 100*tslew_min）に 2 点以上入れるため。 統一式だと
+  #   index_1=1.5 で 750ps まで開き、 窓内 1 点で `avg(TRIG) : out of interval`、
+  #   窓内 0 点だと ngspice が無警告で 0A を返す。 power_tin は微電流かつ sim 時間も短い。
+  maxstep  = h.mls.tmax_low
 
   #-- 計測対象（target pin pin_tr[0]）のスロット逆引き（優先順 c > r > i、 未検出は slot2=VREL）
   #   slope→tslew 割当と積分窓・cin 選択を「X を駆動するスロット」基準にする。
@@ -2161,8 +2159,10 @@ def runSpicePassiveSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slo
   #-- timestep
   slope          = index1_slope_in
   tslew_min_s    = h.mls.simulation_slew_min
-  maxstep  = _calc_maxstep(slope, h.mls)
-  ## ISS-00234(2026-08-15): 旧実装の max(maxstep/20, ...) は tmax_low を 1/20 に潰していた。 廃止。
+  #-- ISS-00236(2026-08-16、 ダーマツ判断): passive も maxstep を tmax_low 固定。
+  #   leak の AVG 区間（_t_in0 手前の 100*tslew_min）に 2 点以上入れるため。 power_tin /
+  #   power_tout（energy2）と同じ扱い（passive は 1 回 sim なので分岐なし）。
+  maxstep  = h.mls.tmax_low
 
   #-- param 早期 instantiate（passive: meas_energy=4、 tsim_end/time_energy は compute_timing 後に確定）
   param = Mtp(

@@ -4,6 +4,52 @@
 
 ---
 
+## [2.0.0.a17] 2026-08-16
+
+`power_tin` / `power_tout`（energy2）/ `passive` の `maxstep` を **`tmax_low` 固定**にした。
+leak の `.MEASURE AVG` 区間に刻みが入らず、`.lib` の `internal_power` がゼロになる問題の是正（ISS-00236）。
+
+> **a15 / a16 の CHANGELOG 追記漏れを本エントリで回収する**（`pyproject.toml` も `a14` のまま
+> 止まっていた）。2026-08-05 の `a03` と同じ事故の再発。
+> - **[2.0.0.a15] 2026-08-14** — 文書：`docs/SPEC_measure.md` §12 に `tmax` の考え方と
+>   `tsim_end` の切り上げを追記。`tmax` は「刻み」ではなく「刻みの上限」であり実際の刻みは
+>   LTE 制御が `delmin`(=1e-11×tmax) 〜 `tmax` で決めること、`pts` は実点数ではなく
+>   「点数の下限見積り」であることを明記。§12.2.1 に `tsim_end` の 1ps 切り上げ（ISS-00230）を新設
+> - **[2.0.0.a16] 2026-08-15** — 変更：sky130 の `tmax_low` を `0.01` に確定し
+>   `tmax_low_power_tin` を廃止（ISS-00234）
+
+### 変更
+
+- **`maxstep` を `tmax_low` 固定に**（ISS-00236、ダーマツ判断）。対象は 3 経路。
+  - `runSpicePowerTinSingle`：`maxstep = h.mls.tmax_low`
+  - `runSpicePowerToutSingle`：**energy2 のみ** `param.maxstep = _clamp_maxstep(tmax_low × time_mag)`。
+    energy1（`trans_out` の最適化＝ISS-00232 の `maxstep_fix`）は**従来どおり**
+  - `runSpicePassiveSingle`：`maxstep = h.mls.tmax_low`
+
+  leak は `.MEASURE TRAN i_*_leak AVG ... FROM={_t_in0-101*_tslew_min} TO={_t_in0-1*_tslew_min}` で
+  測るため、**窓幅は `100 × simulation_slew_min`（sky130 で 100 ps）固定**。一方 ISS-00234 の統一式
+  `maxstep = clamp(slope / points_per_transition, tmax_low, tmax_high)` は `index_1=1.5` で
+  **750 ps** まで開き、窓に点が入らなくなっていた。
+
+  | 窓内の点 | ngspice の挙動 | `.lib` |
+  |---|---|---|
+  | 2 点以上 | 正常に平均が出る | 正しい値 |
+  | 1 点 | **`avg(TRIG) : out of interval` → `failed!`** | **ゼロ**（charao が 0 を代入） |
+  | 0 点 | **エラーを出さず `0.000000e+00` を返す** | leak 減算が抜けた値（**無警告**） |
+
+  `.meas` 欠損時の処理は `sys.exit()` だが**ワーカースレッド内なのでそのスレッドだけ終了**し、
+  `Failed to launch spice` は増えないため **「0 failures」と表示されたまま値が欠ける**。
+
+  検証（sky130 / full grid）：
+  - `dfxtp_1` / `power_tin`：ゼロ **12 → 0**、`i_vdd_leak` が 7 点とも `-4.033396e-09` で一致
+  - `dfrtp_1` / `power_tout`：ゼロ **11 → 0**、無警告の 0 A **9 → 0**、所要 6 分 → 22 分
+  - `dfstp_1` ほか 5 セル / `passive`：ゼロ **6 → 0**
+
+- **ISS-00219 / ISS-00234 で外していたガードの復元**。旧実装の
+  `max(maxstep/20, min(maxstep/5, tslew_min*20))` は **ISS-00094/00095 が leak の AVG 区間に
+  複数ステップを入れるために設けた制約**だったが、`power_tin`（ISS-00234）/ `power_tout`（ISS-00219）/
+  `passive`（ISS-00234）の **3 箇所とも「根拠不明」として廃止**していた。根拠はこの窓にあった。
+
 ## [2.0.0.a14] 2026-08-14
 
 const（setup / hold / recovery）の掃引を高速化した。初期化のやり直しを止め、
