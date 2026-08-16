@@ -155,7 +155,8 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
     outlines.append(f"### CELL ATTRIBUTES")
     outlines.append(f"| Attribute| Value |")
     outlines.append(f"|----|----|")
-    outlines.append(f"|area | {str(targetCell.area)}")
+    #-- ISS-00250(2026-08-16): 行末の `|` が欠けており Markdown の表が崩れていた（全セル）
+    outlines.append(f"|area | {str(targetCell.area)} |")
     outlines.append(f"")
     
     ##-------------------------------------------------
@@ -190,8 +191,12 @@ def exportHarness2doc(targetCell, harnessList: list[Mcar]):
       outlines.append(f'### FUNCTIONS')
       outlines.append(f'| Output Pin| Function |')
       outlines.append(f'|----|----|')
+      #-- ISS-00250(2026-08-16): 関数式の `|`(OR) が Markdown の列区切りと衝突し表が崩れる
+      #   （`!((A1&A2)|B1|C1)` が 3 列に割れる）。 セル内の `|` を `\|` にエスケープする。
+      #   ⚠ .lib 側の function は Liberty 構文なのでエスケープしない（ここは .md のみ）。
       for p,f in targetCell.functions.items():
-          outlines.append(f'|{targetCell.replace_by_portmap(p)}  | {targetCell.replace_by_portmap(f)} |')
+          _fn = targetCell.replace_by_portmap(f).replace("|", "\\|")
+          outlines.append(f'|{targetCell.replace_by_portmap(p)}  | {_fn} |')
       outlines.append(f'')
 
       for p,f in targetCell.functions.items():

@@ -4,6 +4,75 @@
 
 ---
 
+## [2.0.0.a21] 2026-08-16
+
+**`.lib` の PG 情報と `.md` の Markdown 崩れを修正**した（ISS-00247 / ISS-00250）。
+どちらも露払い `run_sky5_smoke` の出力フォーマットを orig と突合して見つけたもの。
+
+### 修正
+
+- **`myExportLib.py`（347-378）：`pg_pin` の定義と参照が食い違っていた**（ISS-00247、**対象 PDK：SKY130**）。
+  定義は小文字（`pg_pin (vpwr)`）なのに参照は大文字（`related_power_pin : "VPWR"`）で、
+  **参照先の `pg_pin` が存在しない**状態だった。さらに **`pg_type` が 4 本とも `primary_ground`**、
+  `related_bias_pin` と `physical_connection` が出力されていなかった。
+
+  **原因**：`ports_dict` の「値」の流儀が PDK で違う。
+  ```
+  gf180 : {"VDD":"vdd","VSS":"vss","VNW":"vnw","VPW":"vpw"}      ← charao の正規トークン
+  sky130: {"VPWR":"VPWR","VGND":"VGND","VPB":"VPB","VNB":"VNB"}  ← 実ピン名そのまま
+  ```
+  `vports` は値を `.lower()` して持つ（`myLogicCell.py:326`）ため、`port` トークンで
+  `pg_type` を判定していた旧コードは **sky130 が全て else に落ちて `primary_ground`** になった。
+  **gf180 は値が偶然 `vdd`/`vss`/`vnw`/`vpw` なので正しく動いていただけ**。
+  sky130 が実ピン名なのは **ISS-00181 の回避策**（正規トークンだと XDUT の照合で
+  `not used port name=vss` になる。`tools/gen_sky_jsonc.py:19-21`）。
+
+  **対処**：実ピン名を大小無視で逆引き（`rvs_lc`）し、`config_lib.jsonc` の
+  `vdd_name` / `vss_name` / `nwell_name` / `pwell_name` と突き合わせて役割を決める方式へ変更。
+  config に該当が無い補助電源（`VDDIO` / `VSS1` 等）は従来どおり `port.startswith("vdd")` で判定。
+  `related_bias_pin` は**そのセルが実際に持つ電源ピン**に限って出力する。
+  **`ports_dict` 自体は変えていない**（ISS-00181 の回避策を温存し、影響を `.lib` 生成に閉じた）。
+
+- **`myExportDoc.py`：`.md` の Markdown テーブルが 2 箇所で壊れていた**（ISS-00250）。
+  ① **158 行**：`|area | 1.0` に**行末の `|` が無い**（全セル）→ 追加。
+  ② **190-195 行**：**関数式の `|`(OR) が未エスケープ**で `!((A1&A2)|B1|C1)` が 3 列に割れる
+  → セル内の `|` を `\|` にエスケープ。**`.lib` 側の `function` は Liberty 構文なので
+  エスケープしない**旨をコメントで明記。
+
+### 検証
+
+**sky130**（`run_247_fmt`：`inv_1` / `a211oi_1` / `dfxtp_1` / `mux2_1` × `leakage`、0 failures）
+
+| 項目 | 修正前 | 修正後 |
+|---|---|---|
+| `pg_pin` 名 | `vgnd`/`vnb`/`vpb`/`vpwr` | **`VGND`/`VNB`/`VPB`/`VPWR`** |
+| `pg_type` | 4 本とも `primary_ground` | **`primary_ground`/`pwell`/`nwell`/`primary_power`** |
+| `related_bias_pin` | 出ない | **`VPWR`→`VPB`、`VGND`→`VNB`** |
+| `physical_connection` | 出ない | **`VNB`/`VPB` に `device_layer`** |
+| 未定義参照 | `related_power_pin:"VPWR"` が解決不能 | **0 件** |
+
+**orig sky130 と同じ構造**になった。**leakage 値の非退行も確認**
+（`cell_leakage_power` 4 セル / `leakage_power()` 34 値とも `run_a20_leak` と一致）。
+`.md` は `|area | 1.0 |` と `|Y  | !((A1&A2)\|B1\|C1) |` を確認（ともに 2 列として正しく解釈される）。
+
+**gf180**（`run_247_gf`：`inv_1` / `nand2_1` × `leakage`、0 failures）
+
+`pg_pin` の構造が**修正前（`run_nopassive_gf`）と完全一致**＝**デグレなし**。参照整合も未定義 0 件。
+⚠️ `run_nopassive_gf` に `inv_1` が無い（`antenna` ＋ seq 7 セル）ため同一セルのバイト比較はできず、
+`pg_pin` ブロックの**構造突合**で確認した（gf180 標準セルは PG 4 本が共通なので有効）。
+⚠️ 選んだ 2 セルは関数式に `|` を含まないため、**`.md` のエスケープの実効は gf180 では未確認**
+（sky130 で確認済み。コードは PDK 非依存）。
+
+### 未対応で残した関連課題
+
+- **ISS-00248**（MEDIUM）：`.lib` に orig が持つ属性が無い。**`power_down_function`**（PG 対応 STA で必要）／
+  出力ピンの `max_transition` ／ `rise/fall_capacitance` ／ `clock` ／ `driver_waveform_*`
+- **ISS-00249**（LOW）：**sky130 の `area` が全セル 1.0 固定**（gf180 は実面積、orig `inv_1` は 3.7536）。
+  `cell_footprint` も `"INV"` と短縮名（orig は `"sky130_fd_sc_hd__inv"`）。jsonc 側の未設定
+- **ISS-00091**（LOW）：`.md` の TRUTH TABLE が見出しのみで中身未生成（今回の run でも再確認）
+
+---
+
 ## [2.0.0.a20] 2026-08-16
 
 **HIGH 課題の棚卸し**で 5 件をクローズし、その過程で見つけた 2 件を修正した。

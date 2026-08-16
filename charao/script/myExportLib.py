@@ -347,15 +347,37 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
   outlines = []
   ### PG infomation
   rvs_dict = {v:k for k,v in targetCell.ports_dict.items()}
+  #-- ISS-00247(2026-08-16): ports_dict の「値」の流儀が PDK で違う。
+  #     gf180 : {"VDD":"vdd","VSS":"vss","VNW":"vnw","VPW":"vpw"}     ＝ charao の正規トークン
+  #     sky130: {"VPWR":"VPWR","VGND":"VGND","VPB":"VPB","VNB":"VNB"} ＝ 実ピン名そのまま
+  #   （sky130 が実ピン名なのは ISS-00181 の回避策＝正規トークンだと XDUT の照合で
+  #     `not used port name=vss` になるため。 tools/gen_sky_jsonc.py:19-21 参照）
+  #   vports は値を .lower() して持つ（myLogicCell.py:326）ので、 port トークンで
+  #   pg_type を判定すると sky130 は全て else に落ち 4 本とも primary_ground になり、
+  #   pin 名も小文字のまま出て related_power_pin:"VPWR" の参照先が消えていた。
+  #   ⇒ 実ピン名を大小無視で逆引きし、 config の *_name と突き合わせて役割を決める。
+  rvs_lc = {v.lower(): k for k,v in targetCell.ports_dict.items()}
+  name_of_role = {}
+  for _nm, _role in ((targetLib.vdd_name,"vdd"), (targetLib.vss_name,"vss"),
+                     (targetLib.nwell_name,"vnw"), (targetLib.pwell_name,"vpw")):
+    if _nm:
+      name_of_role[_role] = _nm
+  role_of_name = {v.lower():k for k,v in name_of_role.items()}
+  cell_vpins   = {rvs_lc.get(p, p).lower() for p in targetCell.vports if p is not None}
+
   for port in [p for p in (targetCell.vports ) if p is not None]:
     #-- VDD/VSS/VDD1/VSS1/VDDIO/VSSIO/VNW/VPW
-    pin_name=targetCell.replace_by_portmap(port)
+    pin_name = rvs_lc.get(port, targetCell.replace_by_portmap(port))
+    #-- 役割は config の *_name 優先。 該当が無い補助電源（VDDIO/VSS1 等）は名前で判定
+    role = role_of_name.get(pin_name.lower(), "")
+    if not role:
+      role = "vdd" if port.startswith("vdd") else "vss"
     outlines.append(f'    pg_pin ({pin_name}){{') ##
-    if port == "vnw":
+    if role == "vnw":
       pg_type = "nwell"
-    elif port == "vpw":
+    elif role == "vpw":
       pg_type = "pwell"
-    elif port.startswith("vdd"):
+    elif role == "vdd":
       pg_type = "primary_power"
     else:
       pg_type = "primary_ground"
@@ -364,10 +386,10 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
     outlines.append(f'      voltage_name : "{pin_name}";')
     outlines.append(f'      direction : "inout";')
 
-    if port == "vdd" and "vnw" in rvs_dict:
-      outlines.append(f'      related_bias_pin : {rvs_dict["vnw"]};')
-    elif port == "vss" and "vpw" in rvs_dict:
-      outlines.append(f'      related_bias_pin : {rvs_dict["vpw"]};')
+    if   role == "vdd" and name_of_role.get("vnw","").lower() in cell_vpins:
+      outlines.append(f'      related_bias_pin : {name_of_role["vnw"]};')
+    elif role == "vss" and name_of_role.get("vpw","").lower() in cell_vpins:
+      outlines.append(f'      related_bias_pin : {name_of_role["vpw"]};')
 
     if pg_type in ("nwell", "pwell"):
       outlines.append(f'      physical_connection : device_layer;')
