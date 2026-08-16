@@ -4,6 +4,51 @@
 
 ---
 
+## [2.0.0.a19] 2026-08-16
+
+**`power_tin` の `internal_power` を max-rail 方式に変更**した（ISS-00243）。
+露払い a18 で残っていた **701 点のゼロが全て解消**した。
+
+### 変更
+
+- **`charao_run.py` `genFileLogic_PowerTinTrial1x`（1205-1214）：`min` → `max`**
+  `eintl = max(|q_vdd_dyn|, |q_vss_dyn|) × VDD − pleak × energy_time`
+  `min()` は **貫通電荷（short-circuit charge）を抽出する式**で、出力が遷移し両 rail に
+  電流が流れる `power_tout` 専用。**`power_tin` は出力を保持したまま入力だけを叩くため、
+  電流は「出力が繋がっている側のレール」1 本にしか流れない**（実測：出力 H 保持なら
+  `|q_vdd|`=1.6〜2.0e-15 C / `|q_vss|`=1e-20 台、L 保持ならその逆）。
+  `min` は必ず繋がっていない側 1e-19〜1e-22 を拾い、leak 減算で 0 クランプに当たっていた。
+  **ゼロは偶発ではなく構造的**で、`.meas` エラーでも波形の暴れでもない
+  （`run_243_nand4` の `.raw` で `i(vdd_dyn)` に −1.50e-04 A のピークが正しく立ち、
+  積分窓内 108 点・振動発散なしを確認済み）。
+- **`genFileLogic_PowerToutTrial1x`（1104）と `passive`（2306）は `min` のまま無変更**。
+  `power_tout` は出力が遷移するため `min` が正しい（ISS-00243 で残 1 点＝`a22oi_2` の
+  最小負荷 × 最遅 slew は 0 で妥当と確定済み）。
+
+### 検証（sky130 181 セル × `power_tin` × フルグリッド 7 点、`run_243_tin_full`）
+
+- **総 28,700 点 / ゼロ 0 点**（露払い a18 は 701 点）。`0 failures / 0 traceback`、
+  `.meas` 失敗（`Value res_* is not defined`）0 件、`.lib` 181 セル
+- 事前に既存 `.lis` から手計算した予測値と **±0.00001 pJ 以内で一致**
+  （`nand4_1` 56 点 / `a222oi_1` 276 点、`run_243_verify2`）
+- orig との突合（比較可能 556 entry、`|orig|` 基準）：差は **−0.0099〜+0.0189 pJ**、
+  **index_1 による傾向差なし**（どの slew でも同じ広がり）。**orig 超過は 100〜105 entry**
+- **超過の上位は `mux` の選択ピン**（`mux2_8 S` rise 0.0179〜0.0185 / orig −0.00185、
+  同ピンの fall は 0.0179〜0.0188 / orig +0.02514 ＝ orig の 71%）。
+  charao が rise/fall をほぼ同値で出すのに対し orig は大きく非対称で、
+  **符号を潰していること（ISS-00244）の現れ**とみられる
+
+### 既知の残課題
+
+- **ISS-00244**：`abs()` により符号が失われ、rise+fall のトグル合計が orig 比で過大。
+  orig の input pin `internal_power` は符号付きで rise が負・fall が正、
+  **トグル合計はほぼ 0**（`nand4_1` pin C: +0.00394 / −0.00395 → −0.00001 pJ）。
+  charao は 0.00302 + 0.00280 = 0.00582 pJ。per-point の `|orig|` 一致は良好
+- `dfxtp_*` / `dfrtp_*` / `dlrtp_*` / `sdfrtp_*` 等 **116 entry は orig 側に対応する
+  input pin `internal_power` が無く**比較対象外
+
+---
+
 ## [2.0.0.a18] 2026-08-16
 
 **output ありセルの `passive` entry を削除**した（`docs/SPEC_measure.md` §9、2026-05-31 確定の実施）。

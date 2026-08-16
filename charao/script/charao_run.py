@@ -1097,6 +1097,8 @@ def genFileLogic_PowerToutTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
     
     ## intl. energy: min-rail method
     ## min(|Q_vdd|, |Q_vss|) = short-circuit charge
+    ## ISS-00243(2026-08-16): power_tout は出力が遷移し両 rail に電流が流れるため min が正しい。
+    ##   max-rail 化したのは power_tin 側のみ（genFileLogic_PowerTinTrial1x）。
     q_vdd = abs(float(res["q_vdd_dyn"]))
     q_vss = abs(float(res["q_vss_dyn"]))
     q_min = min(q_vdd, q_vss)
@@ -1194,12 +1196,22 @@ def genFileLogic_PowerTinTrial1x(targetHarness:Mcar, spicef:str, param:Mtp):
   ##   slot2 空の新方式 entry では常に c_rel（遊休 VREL≈0）となり CLK/D target の cin が壊れるため）
   cin = {1: c_in, 2: c_rel, 3: c_clk}.get(param.energy_tgt_slot, c_rel)
 
+  ## intl. energy: max-rail method
+  ## ISS-00243(2026-08-16、 ダーマツ判断): power_tin は max-rail 方式。
+  ##   min(|Q_vdd|,|Q_vss|) は貫通電荷（short-circuit charge）を拾う式で、 出力が遷移する
+  ##   power_tout 専用。 power_tin は出力を保持したまま入力だけを叩くため、 電流は
+  ##   「出力が繋がっている側のレール」 1 本にしか流れない（実測: 出力 H 保持なら
+  ##   |q_vdd|=1.6〜2.0e-15 / |q_vss|=1e-20 台、 L 保持ならその逆）。 min では必ず
+  ##   繋がっていない側 = 1e-19〜1e-22 を拾い、 leak 減算で 0 クランプされる。
+  ##   実測(a222oi_1 276点 / nand4_1 56点、 index_1=0.01)で min のゼロ 139+32 点が
+  ##   max で全て解消。 |orig| との差は -0.0005〜-0.0015 pJ（orig の 72〜88%）。
+  ##   ※符号は依然 abs() で潰しており、 rise+fall のトグル合計は orig 比で過大 → ISS-00244。
   q_vdd = abs(float(res["q_vdd_dyn"]))
   q_vss = abs(float(res["q_vss_dyn"]))
-  q_min = min(q_vdd, q_vss)
+  q_max = max(q_vdd, q_vss)
 
   e_leak = pleak * energy_time
-  eintl = q_min * h.mls.vdd_voltage - e_leak
+  eintl = q_max * h.mls.vdd_voltage - e_leak
   if eintl < 0.0:
     eintl = 0.0
 
