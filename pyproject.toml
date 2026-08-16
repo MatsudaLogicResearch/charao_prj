@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "charao"
-version = "2.0.0.a19"
+version = "2.0.0.a20"
 description = "An open cell library characterizer by Python."
 authors = [{ name = "LogicResearch K.K.(MATSUDA Masahiro)", email = "matsuda@logic-research.co.jp" }]
 readme = "README.md"

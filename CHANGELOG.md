@@ -4,6 +4,64 @@
 
 ---
 
+## [2.0.0.a20] 2026-08-16
+
+**HIGH 課題の棚卸し**で 5 件をクローズし、その過程で見つけた 2 件を修正した。
+
+### 変更
+
+- **`temp_testbench.sp.jp2`（144-149）：`u`/`d` 専用の `.IC V(WOUT)` ブロックを削除**（ISS-00245）。
+  ISS-00076 で pre-charge SW を導入した際、直下の分岐が `["u","1"]` / `["d","0"]` となり
+  **`u`/`d` も `1`/`0` と同じ扱い（SW ＋ `.IC`）**になったため、ここの `.IC` は
+  同じノードへの重複出力になっていた。`val_oirc[0]="1"` の生成 deck では `.IC V(WOUT)` が
+  1 行のみであることを実測確認済み。
+- **`myConditionsAndResults.py`：`check_pin_oirc_unique()` を新設**（ISS-00238）。
+  `set_target_port()` の冒頭で全 entry を検査し、**同じピンが `pin_oirc` の 2 slot 以上に
+  現れたら `my_exit()`**。`pin_oirc = [VOUT, VIN, VREL, VCLK]` は **tb の電圧源スロット**で、
+  同じピンを 2 スロットに置くと駆動源が二重になる（ISS-00237 の直接原因だった旧規約の残骸）。
+  **`b0`（双方向ピン）は例外**として許可（ダーマツ判断）。
+
+### 検証（`run_a20_leak`：sky130 181 セル × `leakage` × 2x2）
+
+`0 failures / 0 traceback`、`.meas` 失敗 0 件、`.lib` 181 セル。
+
+| # | 確認内容 | 結果 |
+|---|---|---|
+| 1 | `.IC` 削除後の **`leakage` 非退行** | **`cell_leakage_power` 181 件 / `leakage_power()` 1,767 値とも a19（`run_sky5_smoke`）と完全一致（差分 0）**。`u`/`d` を使う 652 entry を含む |
+| 2 | **`pin_oirc` 検査が全セルで非発火** | **`[Error] ISS-00238` 0 件**。検査コードが載った状態で全 181 セルが通過 |
+
+検査ロジックは実データの 9 パターンで単体テスト済み（`b0` 系 3 パターン通過／`i0`・`i3`・
+旧 `r0` の 3 パターンでエラー／正常形 3 パターン通過）。io セルは `std_*.jsonc` に未登録のため
+現行セルでは発火しない。
+
+### クローズした HIGH 課題（コード変更なし・確認のみ）
+
+- **ISS-00097**（`u`/`d` の妥当性）：**誤用 0 件**。`u`/`d` は 652 件すべて `ival["o"]`／
+  `meas_types=["leakage"]`。`i`/`r`/`c` スロットには 0 件。`seq_lat` の leakage も内部状態は
+  `ival["i"]`（D）＋`ival["c"]`（E）の駆動ピンで作っており D 遷移方式に合致
+- **ISS-00098**（`mondrv_oirc[1]` と `when` の整合）：**監査対象が存在しない**。
+  `mondrv_oirc=` の実代入は `mylogic_io.py` の 52 件のみで他 7 family は 0 件
+  （ISS-00101 で `ival` ＋ `arc_oirc` からの導出に置換済み）→ ISS-00128 へ集約
+- **ISS-00134**（`pin_oirc[i]==""` 時の phase 集約）：**実装済み**。`compute_timing()` 383-419。
+  実測でも `_t_rel3`→`_t_clk4..7` が各 1 ps（`tslew_min`）で 4 ps に集約されることを確認
+- **ISS-00106**（MUX2 の冗長 arc）：**実装済み**（`mylogic_comb_base.py:852`）。
+  arc 本数は gf180 orig と一致（`Z←I0` が `!I1` / `I1` / ifnone ＝ 3 本）。
+  残る `when` 表記差は ISS-00246 へ分離
+- **ISS-00238**：上記のとおり検査を実装
+
+**⇒ HIGH は 10 件 → 5 件。残る 5 件はすべて sim 待ち（ISS-00234 / 00218 / 00199）か
+保留（ISS-00128 ＝ IO 着手待ち / ISS-00140 ＝ post-1.0.0）で、コードだけで進められる HIGH は無い。**
+
+### 新規起票
+
+- **ISS-00245**（LOW、本 TAG で対応済み）：上記の `.IC` 重複
+- **ISS-00246**（MEDIUM）：**`when` の持ち方が PDK ごとに違い compare が突合できない**。
+  gf180 orig は `!I1`（select を含めない）／sky130 orig は `when` 自体が無い／charao は
+  `!S&!A1`（select を含む）。**方針＝charao の default（ifnone）の結果と orig を突合する**
+  （ダーマツ判断）。ISS-00233 も同系統で同じ方針で解ける見込み
+
+---
+
 ## [2.0.0.a19] 2026-08-16
 
 **`power_tin` の `internal_power` を max-rail 方式に変更**した（ISS-00243）。

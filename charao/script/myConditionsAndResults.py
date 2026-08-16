@@ -257,6 +257,7 @@ class MyConditionsAndResults(BaseModel):
     self.function = self.mec.function 
 
   def set_target_port(self):
+    self.check_pin_oirc_unique()   # ISS-00238: pin_oirc の重複記載を禁止（b0 は例外）
     self.set_target_outport()
     self.set_target_inport()
     self.set_target_relport()
@@ -281,6 +282,25 @@ class MyConditionsAndResults(BaseModel):
       if not is_leak_noinput:
         print(f"[Error] ISS-00135: pin_tr[0] (target) must be non-empty. meas_type={self.mec.meas_type}, pin_oirc={self.mec.pin_oirc}, pin_tr={pin_tr}")
         my_exit()
+
+
+  def check_pin_oirc_unique(self):
+    """ISS-00238: 同じピンを pin_oirc の複数 slot に置くことを禁止する。
+    pin_oirc = [VOUT, VIN, VREL, VCLK] は **tb の電圧源スロット**であり、
+    同じピンを 2 スロットに置くと駆動源が二重になる。 旧規約（対象ピンを VIN と
+    VREL の両方に置き、 VREL 固定の積分窓を成立させる）の残骸で、 これが ISS-00237
+    （積分窓が VREL 固定で VIN 側の遷移を外す）の直接原因だった。
+    例外: `b0`（双方向ピン）は VOUT と VREL の両方に置く必要があるため許可
+    （2026-08-16 ダーマツ判断）。"""
+    seen = {}
+    for pos, pin in enumerate(self.mec.pin_oirc):
+      if not pin or pin == "b0":
+        continue
+      if pin in seen:
+        print(f"[Error] ISS-00238: duplicated pin '{pin}' in pin_oirc slot{seen[pin]} and slot{pos}.")
+        print(f"[Error]   meas_type={self.mec.meas_type}, pin_oirc={self.mec.pin_oirc}, pin_tr={self.mec.pin_tr}, tmg_when='{self.mec.tmg_when}'")
+        my_exit()
+      seen[pin] = pos
 
 
   def set_target_outport(self):

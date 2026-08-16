@@ -142,11 +142,10 @@ VOCAP VOUT WOUT DC 0
 ** DRIVE
 
 **** VOUT
-{% if param.val_oirc[0] == "u" %}
- .IC V(WOUT)={_vdd_vout}
-{% elif param.val_oirc[0] == "d" %}
- .IC V(WOUT)={_vss_vout}
-{% endif %}
+**** ISS-00245(2026-08-16): u/d 専用の .IC ブロックを削除。 ISS-00076 で pre-charge SW を
+****   導入した際、 直下の分岐が ["u","1"] / ["d","0"] となり u/d も 1/0 と同じ扱い
+****   （SW + .IC）になったため、 ここの .IC は同じノードへの重複出力になっていた。
+****   u/d の実使用は ival["o"] の leakage 652 entry のみ（ISS-00097 で監査済み）。
 
 **** WOUT pre-charge SW (ISS-00076: SW ON during _t_init0 ~ _t_init3-tslew_min)
 **** ISS-00087: tdelay_in を 1 ns に短縮（pre-force あれば D→Q 待ち padding 不要）するため、 release を _t_init3 に変更。 release から D edge (_t_in0) まで tdelay_in=1 ns の安定期間で Q の internal settle を確保
