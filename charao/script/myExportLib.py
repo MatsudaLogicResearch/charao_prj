@@ -515,9 +515,13 @@ def exportHarness(targetCell:Mls, harnessList:list[Mcar]):
       size=len(group_list)
       print(f"  [INFO] group(power): target={port}, relport={target_relport}, timing_type={timing_type}, timing_when={timing_when} -> {size}")
         
-      size_exp=1 if timing_type in ["clear","preset"] else 2
-      if size != size_exp:
-        print(f"Error: len(group) is not {size_exp}(={size}) @{timing_type}")
+      ## ISS-00240(2026-08-16、 ダーマツ判断): internal_power は 1 本でも出力する（欠けている側は出さない）。
+      ##   clear/preset のような片方向 arc（RESET_B assert -> Q fall のみ）は rise/fall が対にならない。
+      ##   timing_type は internal_power 側では "power" に正規化されるため clear/preset を判別できず、
+      ##   従来の size_exp=1 分岐（死んでいた）に入らずここで my_exit() していた。
+      ##   下流の出力ループは本数に依存しない（direction_in_lib["power"] が rise/fall を決める）。
+      if size not in (1, 2):
+        print(f"Error: len(group) is not 1 or 2(={size}) @{timing_type} relport={target_relport}")
         my_exit()
         
       ## check

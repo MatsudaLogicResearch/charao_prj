@@ -4,6 +4,50 @@
 
 ---
 
+## [2.0.0.a18] 2026-08-16
+
+**output ありセルの `passive` entry を削除**した（`docs/SPEC_measure.md` §9、2026-05-31 確定の実施）。
+入力ピンの `capacitance` は `power_*` の副産物へ統一し、失われる非同期ピンぶんは
+`clear` / `preset` に `power_tout` を併記して補った（ISS-00240）。
+
+### 削除
+
+- **`mylogic_seq_ff.py` / `_lat.py` / `_scan.py` の `passive` entry 108 件**（48 / 36 / 24）。
+  `passive` は **input pin の `capacitance` 算出専用 sim** であり、output ありセルは
+  `power_tin` / `power_tout` の副産物として `c_in` / `c_rel` / `c_clk` が取れるため不要
+  （`genFileLogic_PowerToutTrial1x` / `genFileLogic_PowerTinTrial1x` に実装済み。`delay` には無い）。
+  **`passive_power` は Liberty 標準に無く、gf180 orig（20.1MB）/ sky130 orig とも 0 件**。
+  一方 charao は gf180 で 218 テーブル / 55 セル、sky130 で 90 テーブル / 26 セルを出力していた。
+- **`mylogic_comb_base.py` の ANTENNA 用 2 entry は残す**。output 無し＋入力ピンありのセルは
+  他 measure が無く `passive` が唯一の `c_in` 供給源。両 PDK の物理セル 14 個ずつは
+  **入力ピン自体が無い**ので不要、sky130 に ANTENNA 相当の登録は無し。
+
+### 変更
+
+- **`clear` / `preset` の 32 entry に `power_tout` を併記**（`meas_types=["clear","power_tout"]`）。
+  stimulus は同一で `tmax` だけが変わる（delay 用の最適化値 → energy2 の `tmax_low`）。
+  `capacitance` は **`tmax` が最小の `power_*` の結果だけを使う**（ダーマツ判断）。
+  `myLogicCell._gather_in()` は `pin_oirc[n] == inport` かつ `arc_oirc[n] ∈ {r,f}` で
+  `c_in`/`c_rel`/`c_clk` を集約するため、`clear`/`preset`（`pin_oirc[2]=r0/s0`・`arc_oirc[2]=f`）は
+  **条件を既に満たしており、`c_rel` の値を作る側だけが無かった**。
+  **副次的に orig にある `pin(Q) internal_power { related_pin : "RESET_B" }` が埋まる**
+  （charao は従来 CLK の 1 本のみだった）。
+- **`myExportLib.py`：`internal_power` を 1 本でも出力する**。`clear`/`preset` は片方向 arc
+  （RESET_B assert → Q fall のみ）で rise/fall が対にならない。`timing_type` は `internal_power` 側で
+  `"power"` に正規化されるため従来の `size_exp=1` 分岐（`clear`/`preset` 判定）は**死んでおり**、
+  `Error: len(group) is not 2(=1) @power` で `my_exit()` していた。**欠けている側は出力しない**。
+
+### 検証（sky130 / gf180、全 measure）
+
+| 対象 | 結果 |
+|---|---|
+| `dfrtp_1`（sky130、2x2） | RESET_B cap **0.00205 pF**（passive 由来 0.00194 から +0.00011）、`related_pin=RESET_B` の `internal_power`（`fall_power` 1 本）を出力 |
+| 7 セル（sky130、2x2） | 入力 25 ピン中 **21 ピンが非ゼロ**。非同期ピン 6 本は全て維持し **+0.00007〜+0.00020 pF 改善**。他ピンの差は −0.00013〜+0.00003 pF |
+| `antenna`（gf180、2x2） | `pin(I)` cap **0.000741 pF**（a33 回帰 0.000743 と一致）、`passive` テーブル 2 本を維持、`cell_leakage_power` 一致 |
+
+ゼロのまま残る 4 ピン（`sdfrtp_1` / `sdfstp_1` の SCD / SCE）は **削除前から 0** で、
+scan 経路が未実装であることによる既存の欠落（ISS-00086B）。
+
 ## [2.0.0.a17] 2026-08-16
 
 `power_tin` / `power_tout`（energy2）/ `passive` の `maxstep` を **`tmax_low` 固定**にした。

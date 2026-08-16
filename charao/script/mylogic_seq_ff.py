@@ -82,16 +82,6 @@ def get_logic_dict():
                         ,meas_types=["hold_rising"],tmg_sense="non",arc_oirc=["r","f","","r"], tmg_when="", specify="$hold(posedge c0, negedge i0, 0, notifier);"),
              MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["f"],"b":[],"c":["p"]}
                         ,meas_types=["hold_rising"],tmg_sense="non",arc_oirc=["f","r","","r"], tmg_when="", specify="$hold(posedge c0, posedge i0, 0, notifier);"),
-             #--- passive power (data)  -- CLK 静止 L
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","","0"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["p"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","f","","0"], tmg_when="", specify=""),
-             #--- passive power (clk)
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","r"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","f"], tmg_when="", specify=""),
              #--- min_pulse (clk)  #ISS-00135: dffrsnq 新方式（単一 entry、 when 分割は ISS-00082）
              MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"]}
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","","p"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
@@ -164,16 +154,6 @@ def get_logic_dict():
                         ,meas_types=["hold_falling"],tmg_sense="non",arc_oirc=["r","f","","f"], tmg_when="", specify="$hold(negedge c0, negedge i0, 0, notifier);"),
              MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["f"],"b":[],"c":["n"]}
                         ,meas_types=["hold_falling"],tmg_sense="non",arc_oirc=["f","r","","f"], tmg_when="", specify="$hold(negedge c0, posedge i0, 0, notifier);"),
-             #--- passive power (data) -- CLKN 静止 H
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","","1"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["n"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","f","","1"], tmg_when="", specify=""),
-             #--- passive power (clkn)
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","f"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","r"], tmg_when="", specify=""),
              #--- min_pulse (clkn)  #ISS-00135: dffrsnq 新方式（単一 entry、 when 分割は ISS-00082）
              MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["f"]}
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","","p"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
@@ -241,7 +221,7 @@ def get_logic_dict():
                         ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["1","f","","1"], tmg_when="c0", specify=""),
              #--- clear (RN fall -> Q fall, async)
              MyExpectCell(pin_tr=["o0","r0"], pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["p"],"r":["1"]}
-                        ,meas_types=["clear"]       ,tmg_sense="pos",arc_oirc=["f","1","f","0"], tmg_when="", specify="(negedge r0 => (o0 +: 1'b0)) = (0,0);"),
+                        ,meas_types=["clear","power_tout"],tmg_sense="pos",arc_oirc=["f","1","f","0"], tmg_when="", specify="(negedge r0 => (o0 +: 1'b0)) = (0,0);"),
              #--- setup (D -> CLK rising edge)
              MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"r":["1"]}
                         ,meas_types=["setup_rising"] ,tmg_sense="non",arc_oirc=["r","r","","r"], tmg_when="r0", specify="$setup(posedge i0, posedge c0, 0, notifier);"),
@@ -258,21 +238,6 @@ def get_logic_dict():
              #--- removal (CLK rise after RN rise, arc same as recovery)
              MyExpectCell(pin_tr=["r0","c0"], pin_oirc=["o0","i0","r0","c0"], ival={"o":["0"],"i":["1"],"b":[],"c":["p"],"r":["0"]}
                         ,meas_types=["removal_rising"],tmg_sense="non",arc_oirc=["r","1","r","r"], tmg_when="", specify="$removal(posedge r0, posedge c0, 0, notifier);"),
-             #--- passive power (data) -- CLK static L, RN=1
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"r":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","","0"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["p"],"r":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","f","","0"], tmg_when="", specify=""),
-             #--- passive power (reset)
-             MyExpectCell(pin_tr=["r0",""], pin_oirc=["o0","r0","r0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"r":["0"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","r","0"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["r0",""], pin_oirc=["o0","r0","r0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"r":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","r","0"], tmg_when="", specify=""),
-             #--- passive power (clk)
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"r":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","r"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"r":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","f"], tmg_when="", specify=""),
              #--- min_pulse (clk)  #ISS-00135: dffrsnq 新方式（単一 entry、 when 分割は ISS-00082）
              MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"r":["1"]}
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","","p"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
@@ -350,7 +315,7 @@ def get_logic_dict():
                         ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["1","f","","1"], tmg_when="c0", specify=""),
              #--- preset (SETN fall -> Q rise, async)
              MyExpectCell(pin_tr=["o0","s0"], pin_oirc=["o0","i0","s0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"s":["1"]}
-                        ,meas_types=["preset"]      ,tmg_sense="neg",arc_oirc=["r","0","f","0"], tmg_when="", specify="(negedge s0 => (o0 -: 1'b1)) = (0,0);"),
+                        ,meas_types=["preset","power_tout"],tmg_sense="neg",arc_oirc=["r","0","f","0"], tmg_when="", specify="(negedge s0 => (o0 -: 1'b1)) = (0,0);"),
              #--- setup
              MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"s":["1"]}
                         ,meas_types=["setup_rising"] ,tmg_sense="non",arc_oirc=["r","r","","r"], tmg_when="s0", specify="$setup(posedge i0, posedge c0, 0, notifier);"),
@@ -367,21 +332,6 @@ def get_logic_dict():
              #--- removal
              MyExpectCell(pin_tr=["s0","c0"], pin_oirc=["o0","i0","s0","c0"], ival={"o":["1"],"i":["0"],"b":[],"c":["p"],"s":["0"]}
                         ,meas_types=["removal_rising"],tmg_sense="non",arc_oirc=["f","0","r","r"], tmg_when="", specify="$removal(posedge s0, posedge c0, 0, notifier);"),
-             #--- passive (data) -- CLK static L, SETN=1
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","","0"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["p"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","f","","0"], tmg_when="", specify=""),
-             #--- passive (set)
-             MyExpectCell(pin_tr=["s0",""], pin_oirc=["o0","s0","s0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["p"],"s":["0"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","r","r","0"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["s0",""], pin_oirc=["o0","s0","s0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["p"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","f","f","0"], tmg_when="", specify=""),
-             #--- passive (clk)
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","r"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","f"], tmg_when="", specify=""),
              #--- min_pulse (clk)  #ISS-00135: dffrsnq 新方式（単一 entry、 when 分割は ISS-00082）
              MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"s":["1"]}
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","","p"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
@@ -457,7 +407,7 @@ def get_logic_dict():
                         ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["1","f","","n"], tmg_when="c0", specify=""),
              #--- clear
              MyExpectCell(pin_tr=["o0","r0"], pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["n"],"r":["1"]}
-                        ,meas_types=["clear"]       ,tmg_sense="pos",arc_oirc=["f","1","f","1"], tmg_when="", specify="(negedge r0 => (o0 +: 1'b0)) = (0,0);"),
+                        ,meas_types=["clear","power_tout"],tmg_sense="pos",arc_oirc=["f","1","f","1"], tmg_when="", specify="(negedge r0 => (o0 +: 1'b0)) = (0,0);"),
              #--- setup
              MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"r":["1"]}
                         ,meas_types=["setup_falling"] ,tmg_sense="non",arc_oirc=["r","r","","f"], tmg_when="r0", specify="$setup(posedge i0, negedge c0, 0, notifier);"),
@@ -474,21 +424,6 @@ def get_logic_dict():
              #--- removal
              MyExpectCell(pin_tr=["r0","c0"], pin_oirc=["o0","i0","r0","c0"], ival={"o":["0"],"i":["1"],"b":[],"c":["n"],"r":["0"]}
                         ,meas_types=["removal_falling"],tmg_sense="non",arc_oirc=["r","1","r","f"], tmg_when="", specify="$removal(posedge r0, negedge c0, 0, notifier);"),
-             #--- passive (data) -- CLKN static H, RN=1
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"r":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","","1"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["n"],"r":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","f","","1"], tmg_when="", specify=""),
-             #--- passive (reset)
-             MyExpectCell(pin_tr=["r0",""], pin_oirc=["o0","r0","r0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"r":["0"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","r","1"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["r0",""], pin_oirc=["o0","r0","r0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"r":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","r","1"], tmg_when="", specify=""),
-             #--- passive (clkn)
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"r":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","f"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"r":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","r"], tmg_when="", specify=""),
              #--- min_pulse_high (clkn)  #ISS-00135: dffrsnq 新方式（単一 entry、 when 分割は ISS-00082）
              MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["f"],"r":["1"]}
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","","p"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
@@ -564,7 +499,7 @@ def get_logic_dict():
                         ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["1","f","","n"], tmg_when="c0", specify=""),
              #--- preset
              MyExpectCell(pin_tr=["o0","s0"], pin_oirc=["o0","i0","s0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"s":["1"]}
-                        ,meas_types=["preset"]      ,tmg_sense="neg",arc_oirc=["r","0","f","1"], tmg_when="", specify="(negedge s0 => (o0 -: 1'b1)) = (0,0);"),
+                        ,meas_types=["preset","power_tout"],tmg_sense="neg",arc_oirc=["r","0","f","1"], tmg_when="", specify="(negedge s0 => (o0 -: 1'b1)) = (0,0);"),
              #--- setup
              MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"s":["1"]}
                         ,meas_types=["setup_falling"] ,tmg_sense="non",arc_oirc=["r","r","","f"], tmg_when="s0", specify="$setup(posedge i0, negedge c0, 0, notifier);"),
@@ -581,21 +516,6 @@ def get_logic_dict():
              #--- removal
              MyExpectCell(pin_tr=["s0","c0"], pin_oirc=["o0","i0","s0","c0"], ival={"o":["1"],"i":["0"],"b":[],"c":["n"],"s":["0"]}
                         ,meas_types=["removal_falling"],tmg_sense="non",arc_oirc=["f","0","r","f"], tmg_when="", specify="$removal(posedge s0, negedge c0, 0, notifier);"),
-             #--- passive (data) -- CLKN static H, SETN=1
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","","1"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["n"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","f","","1"], tmg_when="", specify=""),
-             #--- passive (set)
-             MyExpectCell(pin_tr=["s0",""], pin_oirc=["o0","s0","s0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["n"],"s":["0"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","r","r","1"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["s0",""], pin_oirc=["o0","s0","s0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["n"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","f","f","1"], tmg_when="", specify=""),
-             #--- passive (clkn)
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","f"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","r"], tmg_when="", specify=""),
              #--- min_pulse_high (clkn)  #ISS-00135: dffrsnq 新方式（単一 entry、 when 分割は ISS-00082）
              MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["f"],"s":["1"]}
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","","p"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
@@ -675,10 +595,10 @@ def get_logic_dict():
                         ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["1","f","","1"], tmg_when="c0", specify=""),
              #--- clear (RN fall)  #ISS-00101: mondrv_oirc 省略
              MyExpectCell(pin_tr=["o0","r0"], pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["p"],"r":["1"],"s":["1"]}
-                        ,meas_types=["clear"]       ,tmg_sense="pos",arc_oirc=["f","1","f","0"], tmg_when="", specify="(negedge r0 => (o0 +: 1'b0)) = (0,0);"),
+                        ,meas_types=["clear","power_tout"],tmg_sense="pos",arc_oirc=["f","1","f","0"], tmg_when="", specify="(negedge r0 => (o0 +: 1'b0)) = (0,0);"),
              #--- preset (SETN fall)  #ISS-00101: mondrv_oirc 省略
              MyExpectCell(pin_tr=["o0","s0"], pin_oirc=["o0","i0","s0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"r":["1"],"s":["1"]}
-                        ,meas_types=["preset"]      ,tmg_sense="neg",arc_oirc=["r","0","f","0"], tmg_when="", specify="(negedge s0 => (o0 -: 1'b1)) = (0,0);"),
+                        ,meas_types=["preset","power_tout"],tmg_sense="neg",arc_oirc=["r","0","f","0"], tmg_when="", specify="(negedge s0 => (o0 -: 1'b1)) = (0,0);"),
              #--- setup  #ISS-00101: mondrv_oirc 省略
              MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"r":["1"],"s":["1"]}
                         ,meas_types=["setup_rising"] ,tmg_sense="non",arc_oirc=["r","r","","r"], tmg_when="r0&s0", specify="$setup(posedge i0, posedge c0, 0, notifier);"),
@@ -701,26 +621,6 @@ def get_logic_dict():
              #--- removal set
              MyExpectCell(pin_tr=["s0","c0"], pin_oirc=["o0","i0","s0","c0"], ival={"o":["1"],"i":["0"],"b":[],"c":["p"],"r":["1"],"s":["0"]}
                         ,meas_types=["removal_rising"],tmg_sense="non",arc_oirc=["f","0","r","r"], tmg_when="r0", specify="$removal(posedge s0, posedge c0, 0, notifier);"),
-             #--- passive (data) -- CLK static L, RN=1, SETN=1  #ISS-00101: mondrv_oirc 省略
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"r":["1"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","","0"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["p"],"r":["1"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","f","","0"], tmg_when="", specify=""),
-             #--- passive (reset) -- RN toggles (output static), SETN=1
-             MyExpectCell(pin_tr=["r0",""], pin_oirc=["o0","r0","r0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"r":["0"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","r","0"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["r0",""], pin_oirc=["o0","r0","r0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"r":["1"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","r","0"], tmg_when="", specify=""),
-             #--- passive (set) -- SETN toggles (output static), RN=1
-             MyExpectCell(pin_tr=["s0",""], pin_oirc=["o0","s0","s0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["p"],"r":["1"],"s":["0"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","r","r","0"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["s0",""], pin_oirc=["o0","s0","s0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["p"],"r":["1"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","f","f","0"], tmg_when="", specify=""),
-             #--- passive (clk) -- CLK toggles (output static)  #ISS-00101: mondrv_oirc 省略
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"r":["1"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","r"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"r":["1"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","f"], tmg_when="", specify=""),
              #--- min_pulse (clk)  #ISS-00101: mondrv_oirc 省略、 ival[c]=p / arc[r,c]=p,p で CLK H pulse 表現 / ISS-00127: pin_tr=[c0,""]
              MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["p"],"r":["1"],"s":["1"]}
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","","p"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
@@ -824,10 +724,10 @@ def get_logic_dict():
                         ,meas_types=["power_tin"] ,tmg_sense="non",arc_oirc=["1","f","","n"], tmg_when="c0", specify=""),
              #--- clear
              MyExpectCell(pin_tr=["o0","r0"], pin_oirc=["o0","i0","r0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["n"],"r":["1"],"s":["1"]}
-                        ,meas_types=["clear"]       ,tmg_sense="pos",arc_oirc=["f","1","f","1"], tmg_when="", specify="(negedge r0 => (o0 +: 1'b0)) = (0,0);"),
+                        ,meas_types=["clear","power_tout"],tmg_sense="pos",arc_oirc=["f","1","f","1"], tmg_when="", specify="(negedge r0 => (o0 +: 1'b0)) = (0,0);"),
              #--- preset
              MyExpectCell(pin_tr=["o0","s0"], pin_oirc=["o0","i0","s0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"r":["1"],"s":["1"]}
-                        ,meas_types=["preset"]      ,tmg_sense="neg",arc_oirc=["r","0","f","1"], tmg_when="", specify="(negedge s0 => (o0 -: 1'b1)) = (0,0);"),
+                        ,meas_types=["preset","power_tout"],tmg_sense="neg",arc_oirc=["r","0","f","1"], tmg_when="", specify="(negedge s0 => (o0 -: 1'b1)) = (0,0);"),
              #--- setup
              MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"r":["1"],"s":["1"]}
                         ,meas_types=["setup_falling"] ,tmg_sense="non",arc_oirc=["r","r","","f"], tmg_when="r0&s0", specify="$setup(posedge i0, negedge c0, 0, notifier);"),
@@ -850,26 +750,6 @@ def get_logic_dict():
              #--- removal set
              MyExpectCell(pin_tr=["s0","c0"], pin_oirc=["o0","i0","s0","c0"], ival={"o":["1"],"i":["0"],"b":[],"c":["n"],"r":["1"],"s":["0"]}
                         ,meas_types=["removal_falling"],tmg_sense="non",arc_oirc=["f","0","r","f"], tmg_when="r0", specify="$removal(posedge s0, negedge c0, 0, notifier);"),
-             #--- passive (data) -- CLKN static H, RN=1, SETN=1
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"r":["1"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","","1"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["n"],"r":["1"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","f","","1"], tmg_when="", specify=""),
-             #--- passive (reset) -- RN toggles (output static), SETN=1
-             MyExpectCell(pin_tr=["r0",""], pin_oirc=["o0","r0","r0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"r":["0"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","r","1"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["r0",""], pin_oirc=["o0","r0","r0","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"r":["1"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","r","r","1"], tmg_when="", specify=""),
-             #--- passive (set) -- SETN toggles (output static), RN=1
-             MyExpectCell(pin_tr=["s0",""], pin_oirc=["o0","s0","s0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["n"],"r":["1"],"s":["0"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","r","r","1"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["s0",""], pin_oirc=["o0","s0","s0","c0"], ival={"o":["1"],"i":["1"],"b":[],"c":["n"],"r":["1"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["1","f","f","1"], tmg_when="", specify=""),
-             #--- passive (clkn) -- CLKN toggles (output static)
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"r":["1"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","f"], tmg_when="", specify=""),
-             MyExpectCell(pin_tr=["i0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["n"],"r":["1"],"s":["1"]}
-                        ,meas_types=["passive"]      ,tmg_sense="non",arc_oirc=["0","0","","r"], tmg_when="", specify=""),
              #--- min_pulse_high (clkn)  #ISS-00135: dffrsnq 新方式（単一 entry、 when 分割は ISS-00082）
              MyExpectCell(pin_tr=["c0",""], pin_oirc=["o0","i0","","c0"], ival={"o":["0"],"i":["0"],"b":[],"c":["f"],"r":["1"],"s":["1"]}
                         ,meas_types=["min_pulse_width_high"],tmg_sense="non",arc_oirc=["r","r","","p"], tmg_when="", specify="$width(posedge c0, 0, 0, notifier);"),
@@ -969,10 +849,10 @@ def get_logic_dict():
                         ,meas_types=["power_tin"], tmg_sense="non",arc_oirc=["1","f","","1"], tmg_when="c0", specify=""),
              #--- clear (R rise, active-high) -- o0=Q fall
              MyExpectCell(pin_tr=["o0","r0"], pin_oirc=["o0","i0","r0","c0"], ival={"o":["1","0"],"i":["1"],"b":[],"c":["p"],"r":["0"]}
-                        ,meas_types=["clear"], tmg_sense="neg",arc_oirc=["f","1","r","0"], tmg_when="", specify="(posedge r0 => (o0 +: 1'b0)) = (0,0);"),
+                        ,meas_types=["clear","power_tout"], tmg_sense="neg",arc_oirc=["f","1","r","0"], tmg_when="", specify="(posedge r0 => (o0 +: 1'b0)) = (0,0);"),
              #--- preset (同じ R rise で o1=QB rise、 Q の補集合)
              MyExpectCell(pin_tr=["o1","r0"], pin_oirc=["o1","i0","r0","c0"], ival={"o":["1","0"],"i":["1"],"b":[],"c":["p"],"r":["0"]}
-                        ,meas_types=["preset"], tmg_sense="pos",arc_oirc=["r","1","r","0"], tmg_when="", specify="(posedge r0 => (o1 +: 1'b1)) = (0,0);"),
+                        ,meas_types=["preset","power_tout"], tmg_sense="pos",arc_oirc=["r","1","r","0"], tmg_when="", specify="(posedge r0 => (o1 +: 1'b1)) = (0,0);"),
 
              #--- setup (D vs CLK constraint)、 o0/o1 並列  #ISS-00135: 新方式 + when=async inactive
              MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["p"],"r":["0"]}
@@ -1092,10 +972,10 @@ def get_logic_dict():
 
              #--- preset (SETN fall, active-low SETN) -- o0=Q rise
              MyExpectCell(pin_tr=["o0","s0"], pin_oirc=["o0","i0","s0","c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["p"],"s":["1"]}
-                        ,meas_types=["preset"], tmg_sense="neg",arc_oirc=["r","0","f","0"], tmg_when="", specify="(negedge s0 => (o0 -: 1'b1)) = (0,0);"),
+                        ,meas_types=["preset","power_tout"], tmg_sense="neg",arc_oirc=["r","0","f","0"], tmg_when="", specify="(negedge s0 => (o0 -: 1'b1)) = (0,0);"),
              #--- clear (同じ SETN fall で o1=QB fall、 Q の補集合)
              MyExpectCell(pin_tr=["o1","s0"], pin_oirc=["o1","i0","s0","c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["p"],"s":["1"]}
-                        ,meas_types=["clear"], tmg_sense="pos",arc_oirc=["f","0","f","0"], tmg_when="", specify="(negedge s0 => (o1 +: 1'b0)) = (0,0);"),
+                        ,meas_types=["clear","power_tout"], tmg_sense="pos",arc_oirc=["f","0","f","0"], tmg_when="", specify="(negedge s0 => (o1 +: 1'b0)) = (0,0);"),
 
              #--- setup (D vs CLK constraint)、 o0/o1 並列  #ISS-00135: 新方式 + when=async inactive
              MyExpectCell(pin_tr=["i0","c0"], pin_oirc=["o0","i0","","c0"], ival={"o":["0","1"],"i":["0"],"b":[],"c":["p"],"s":["1"]}
