@@ -195,6 +195,12 @@ class MyLibrarySetting(BaseModel):
   #   5.0064 → 0.0474 ns（1/106）に改善、 コストは const 1.13 倍 / delay 1.05 倍。
   simulation_points_per_transition : float = 0.0
   simulation_slew_min : float = 0.001   # min_pulse_width / setup / hold 等の PWL slew 用（ns 単位、 default 1 ps）
+  #-- ISS-00234(2026-08-22、 ダーマツ判断): pre-charge SW（ISS-00076）のゲートランプ幅[ns]。
+  #   simulation_slew_min から切り離した専用値。 A4 は DUT の入力波形ではなく **アナログ SW の
+  #   ゲート制御**で、 SW_PRECHARGE は Ron=0.1Ω → Roff=1GΩ の 10 桁をヒステリシス付きで通過する。
+  #   simulation_slew_min を 1 ps -> 10 ps にしたところ、 このランプの途中で LTE が破綻し
+  #   sky130 dfrtp_1 に 16 件の `Timestep too small` が出た（run_tm03_sky、 t=3.00667 ns）。
+  sw_ramp_time        : float = 0.001   # pre-charge SW のゲートランプ幅（ns 単位、 default 1 ps）
   # ISS-00160: simulation_slew_for_pulse は廃止。min_pulse のパルス slew は templates の kind=mpw（index_1）で指定。
   sim_pulse_max       : float = 2.0
   sim_prop_max        : float =10.0

@@ -25,6 +25,14 @@ from .myLogicCell            import MyLogicCell             as Mlc
 from .myConditionsAndResults import MyConditionsAndResults  as Mcar
 from .myFunc                 import my_exit
 
+#-- ISS-00234(2026-08-21、 ダーマツ判断): init パルス（_t_clk0..3 / t_init0..3）の
+#   エッジ幅を `INIT_EDGE_MULT * tslew_min` とする。 pulse は rise / fall の 2 経路を
+#   持つため MULT=2（simulation_slew_min=0.01 ns なら 20 ps）。
+#   計測対象外の init パルスなので鈍らせても測定値には影響しない想定。
+#   ⚠ 2026-08-18 は MULT=20（＝20 ps）だったが、 simulation_slew_min を 1 ps -> 10 ps へ
+#     引き上げたことで同じ幅に到達するため 2 へ戻した。 両方を掛けると 200 ps になる。
+INIT_EDGE_MULT = 2
+
 
 @dataclass
 class MyTbParam:
@@ -72,6 +80,7 @@ class MyTbParam:
   
   maxstep      :float      =1e-9;  # ISS-00219: .tran の内部積分ステップ上限（第4引数）。 第1引数にも同値を渡す
   tslew_min    :float      =1e-12;  # PWL slew 用の最小時間（秒、 .tran の timestep より細かい用途）
+  tsw_ramp     :float      =1e-12;  # ISS-00234: pre-charge SW のゲートランプ幅（秒）。 slew_min とは独立
   tsim_end     :float      =1e-9;
   tdelay_init  :float      =1e-9;  #-- for VCLK
   tpulse_init  :float      =1e-9;  #-- for VCLK
@@ -389,10 +398,23 @@ class MyTbParam:
     """
     assert len(self.pin_oirc) == 4, f"pin_oirc must be length 4, got {len(self.pin_oirc)}: {self.pin_oirc}"
 
+    #-- ISS-00234: init パルスのエッジ幅は `INIT_EDGE_MULT * tslew_min`（rise/fall の 2 経路）。
+    #   ⚠⚠ 2026-08-18 のコメント（「エラー時刻 5.685 ns は _t_clk3 = 6.005 ns の直前」）は
+    #     **時刻の対応付けが誤っていた**（2026-08-21 に訂正）。 _t_clk3 は _t_ofs を戻して
+    #     いない絶対時刻で、 sim 時刻に直すと 6.005 - 6.405 = -0.400 ns ＝ **sim 開始前**。
+    #     offset を足し戻すと 5.685 + 6.441 = 12.126 ns ＝ **_t_in0（D 入力の遷移開始点）に
+    #     ちょうど一致**する（run_234_repro / run_234_initedge / run_tm25_hold の 3 run で確認）。
+    #   ⚠ 時短モード（ISS-00220 の _t_ofs）では init パルスも VPC_CTRL も PWL 起点も
+    #     **すべて t<0 に落ちて sim 窓の外**にある。 したがって「init エッジを鈍らせて直す」
+    #     という機序は成立しない。 2026-08-18 に MULT=20 で frr の 7 点が通ったのは、
+    #     タイムラインが 36 ps ずれて **probe 収束後の maxstep が 14 ps -> 15 ps に変わった**
+    #     ためと読める（rfr は 14 ps のまま変わらず、 失敗も残った）。
+    #   init パルスは内部状態を作るためのもので計測対象ではない。
+    _init_edge = INIT_EDGE_MULT * self.tslew_min
     self.t_init0 = self.tslew_min + self.tdelay_init
-    self.t_init1 = self.t_init0  + 2*self.tslew_min
+    self.t_init1 = self.t_init0  + _init_edge
     self.t_init2 = self.t_init1  + self.tpulse_init
-    self.t_init3 = self.t_init2  + 2*self.tslew_min
+    self.t_init3 = self.t_init2  + _init_edge
 
     self.t_in0   = self.t_init3  + (self.tdelay_in    if (self.pin_oirc[1]!="" or self.measure_type.startswith("leakage")) else self.tslew_min)
     self.t_in1   = self.t_in0    + (self.tslew_in     if (self.pin_oirc[1]!="" or self.measure_type.startswith("leakage")) else self.tslew_min)
@@ -402,7 +424,7 @@ class MyTbParam:
       self.t_rel0 = math.ceil(self.t_rel0 / self.time_quantize) * self.time_quantize
     self.t_rel1  = self.t_rel0   + (self.tslew_rel    if self.pin_oirc[2]!="" else self.tslew_min)
     self.t_rel2  = self.t_rel1   + (self.tpulse_rel   if self.pin_oirc[2]!="" else self.tslew_min)
-    self.t_rel3  = self.t_rel2   + (2*self.tslew_min  if self.pin_oirc[2]!="" else self.tslew_min)
+    self.t_rel3  = self.t_rel2   + (self.tslew_min    if self.pin_oirc[2]!="" else self.tslew_min)
 
     self.t_clk4  = self.t_rel3   + ((self.tdelay_clk + self.tsweep_clk) if self.pin_oirc[3]!="" else self.tslew_min)
     #-- ISS-00234（2026-08-15、 ダーマツ指示）: 遷移の開始時刻を time_quantize[s] へ切り上げる。
@@ -416,7 +438,7 @@ class MyTbParam:
       self.t_clk4 = math.ceil(self.t_clk4 / self.time_quantize) * self.time_quantize
     self.t_clk5  = self.t_clk4   + (self.tslew_clk    if self.pin_oirc[3]!="" else self.tslew_min)
     self.t_clk6  = self.t_clk5   + (self.tpulse_clk   if self.pin_oirc[3]!="" else self.tslew_min)
-    self.t_clk7  = self.t_clk6   + (2*self.tslew_min  if self.pin_oirc[3]!="" else self.tslew_min)
+    self.t_clk7  = self.t_clk6   + (self.tslew_min    if self.pin_oirc[3]!="" else self.tslew_min)
 
   def tsweep_for_clk4_at(self, target_time:float) -> float:
     """ISS-00133: `_t_clk4` を `target_time` にするための `tsweep_clk` を返す。

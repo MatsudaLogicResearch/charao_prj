@@ -246,7 +246,10 @@
 //    ⚠ この値を変えると sim の刻みも変わる＝結果が動く。 未指定ならモデル既定 3。
   ,"significant_digits" : 3
   ,"sim_nice"   : 19
-  ,"tmax_high"              : 20
+//--- ISS-00234(2026-08-21、 ダーマツ判断): 20 -> 0.3 ns(300 ps)。 3 PDK を同じ値に揃えて
+//    slew_min 10 ps 化の退行確認を行う。 ⚠ probe(ISS-00219) が trans_out から maxstep を
+//    決めるため、 この上限には届かない点が多い（Run ③ で実測 10〜17 ps）。
+  ,"tmax_high"              : 0.3
 // ISS-00219/00223: 出力遷移 trans_out に対し 4 点以上を目安に決める（trans_out / tmax_low）。
 //   sky130 は遷移 17〜25ps で 0.02 だと約 1 点＝不足のため 0.002。gf180 は 70〜96ps で 0.02（約 4 点）で十分。
   ,"tmax_low"               : 0.02
@@ -254,7 +257,25 @@
 //   maxstep = min(maxstep, trans_out / この値)。 掃引位置を固定したまま反復収束させる。
 //   0.0 で無効＝従来動作。 2.0 は実測（sky130 dfxtp_1 setup 最悪点で差 5.0064 → 0.0474 ns）。
   ,"simulation_points_per_transition" : 2.0
-  ,"simulation_slew_min"        : 0.001
+//--- ISS-00234(2026-08-21、 ダーマツ判断): simulation_slew_min を 0.001 -> 0.01 ns(10 ps) へ。
+//    PWL の遷移幅の下限。 1 ps のエッジは ngspice の LTE が刻みを詰める要因になりうるため
+//    10 ps へ引き上げる。 3 PDK すべて同じ値に揃える（係数の書き換えが PDK 非依存のため、
+//    片方だけ変えると leak の AVG 窓 [11*..1*] や tslew_clk が 1/10 に潰れる）。
+//    ⚠ この値が効く先（実効値は括弧内）:
+//      init パルスのエッジ  INIT_EDGE_MULT(2) * slew_min      (20 ps)
+//      t_rel3 / t_clk7 の終端エッジ、 VPC_CTRL の両エッジ        (10 ps)
+//      tslew_in / tslew_clk / tslew_rel の既定                  (10 ps)
+//      未使用 phase の折れ点間隔（ISS-00134）                    (10 ps)
+//      leak の AVG 窓 {_t_in0-11*slew_min .. _t_in0-1*slew_min} (幅 100 ps、 従来と同じ)
+//      .MEASURE の TD マージン 1*slew_min                       (10 ps)
+  ,"simulation_slew_min"        : 0.01
+//--- ISS-00234(2026-08-22、 ダーマツ判断): pre-charge SW（ISS-00076）のゲートランプ幅[ns]。
+//    simulation_slew_min から切り離した専用値（既定 1 ps）。
+//    A4 は DUT の入力波形ではなく **アナログ SW のゲート制御**で、 SW_PRECHARGE は
+//    Ron=0.1Ω → Roff=1GΩ の 10 桁をヒステリシス(Vh=0.3)付きで通過する。
+//    slew_min を 1 ps -> 10 ps にしたところ、 このランプの途中で LTE が破綻し
+//    sky130 dfrtp_1 に 16 件の `Timestep too small` が出た（run_tm03_sky、 t=3.00667 ns）。
+  ,"sw_ramp_time"               : 0.001
   // ISS-00160: min_pulse のパルス slew は templates の kind=mpw（index_1）で指定するため simulation_slew_for_pulse は廃止（2026-07-17）
   ,"sim_pulse_max"              : 5.0
   ,"sim_prop_max"               : 25.0

@@ -68,7 +68,25 @@
 //   maxstep = min(maxstep, trans_out / この値)。 掃引位置を固定したまま反復収束させる。
 //   0.0 で無効＝従来動作。 2.0 は実測（sky130 dfxtp_1 setup 最悪点で差 5.0064 → 0.0474 ns）。
   ,"simulation_points_per_transition" : 2.0
-  ,"simulation_slew_min"         : 0.001
+//--- ISS-00234(2026-08-21、 ダーマツ判断): simulation_slew_min を 0.001 -> 0.01 ns(10 ps) へ。
+//    PWL の遷移幅の下限。 1 ps のエッジは ngspice の LTE が刻みを詰める要因になりうるため
+//    10 ps へ引き上げる。 3 PDK すべて同じ値に揃える（係数の書き換えが PDK 非依存のため、
+//    片方だけ変えると leak の AVG 窓 [11*..1*] や tslew_clk が 1/10 に潰れる）。
+//    ⚠ この値が効く先（実効値は括弧内）:
+//      init パルスのエッジ  INIT_EDGE_MULT(2) * slew_min      (20 ps)
+//      t_rel3 / t_clk7 の終端エッジ、 VPC_CTRL の両エッジ        (10 ps)
+//      tslew_in / tslew_clk / tslew_rel の既定                  (10 ps)
+//      未使用 phase の折れ点間隔（ISS-00134）                    (10 ps)
+//      leak の AVG 窓 {_t_in0-11*slew_min .. _t_in0-1*slew_min} (幅 100 ps、 従来と同じ)
+//      .MEASURE の TD マージン 1*slew_min                       (10 ps)
+  ,"simulation_slew_min"         : 0.01
+//--- ISS-00234(2026-08-22、 ダーマツ判断): pre-charge SW（ISS-00076）のゲートランプ幅[ns]。
+//    simulation_slew_min から切り離した専用値（既定 1 ps）。
+//    A4 は DUT の入力波形ではなく **アナログ SW のゲート制御**で、 SW_PRECHARGE は
+//    Ron=0.1Ω → Roff=1GΩ の 10 桁をヒステリシス(Vh=0.3)付きで通過する。
+//    slew_min を 1 ps -> 10 ps にしたところ、 このランプの途中で LTE が破綻し
+//    sky130 dfrtp_1 に 16 件の `Timestep too small` が出た（run_tm03_sky、 t=3.00667 ns）。
+  ,"sw_ramp_time"               : 0.001
 
 //--- templates（2026-07-30、 orig .lib の index を有効 3 桁に丸めて採用）
 //    丸めによるズレは 0.5% 以下で、 遅延は slew/load の滑らかな関数なので影響しない
@@ -150,7 +168,31 @@
 //    ⚠ この値を変えると sim の刻みも変わる＝結果が動く。 未指定ならモデル既定 3。
   ,"significant_digits" : 3
   ,"sim_nice"   : 19
-  ,"tmax_high"                 : 20
+//--- ISS-00234(2026-08-17、 ダーマツ判断): tmax_high を 20 ns -> 0.3 ns(300 ps) へ。
+//    20 ns は事実上「上限なし」で slope/2 の生値がそのまま通っていた（index=1.5 で 750 ps）。
+//    sky130 の出力遷移は 17〜25 ps なので 300 ps でも遷移あたり 12 点以上は確保できる。
+//    ⚠ 全 measure（delay / power_* / const / min_pulse_width）に効く。
+//    これにより maxstep の 7 点は 10 / 12 / 27 / 61 / 141 / 300 / 300 ps となり
+//    **すべて整数 ps**（＝PWL 折れ点と同じ 1 ps 格子）になる。
+//    ⚠ tmax_low / tmax_high は _fix_maxstep の ③ clamp で使うため、
+//      **必ず ps 格子上の値**にすること（格子から外すと ① の効果が壊れる）。
+//--- ISS-00234(2026-08-18、 ダーマツ判断): 0.3 -> 0.25 ns(250 ps)。
+//    0.3 ns では `dfrtp_4` / `hold_rising` / `fall_constraint` / index_2=0.651（maxstep 300 ps）
+//    の 1 列 7 点が secant 第 1 段(`s100`)で必ず落ちた（`run_sky7_full`、2026-08-17）。
+//    ⚠ index_2=1.5 も 300 ps だったが無傷、`rise_constraint` も同 maxstep で無傷なので
+//      「300 ps が悪い」とは言い切れない。 250 ps で変化するか確認するための試行。
+//    ⚠ 影響範囲は 79,626 sim / 701,405（11.4%）＝13 measure すべてに及ぶ。
+//--- ISS-00234(2026-08-21、 ダーマツ判断): 0.25 -> 20 ns へ戻す（Run ③ の切り分け）。
+//    simulation_slew_min を 10 ps にした状態で、 tmax_high を a21 以前の値へ戻したときに
+//    失敗が出るかを見る。 ⚠ maxstep が slope/2 の生値（最大 750 ps）まで開く。
+//    ⚠ leak の AVG 窓は幅 100 ps 固定なので、 maxstep が 750 ps まで開く measure では
+//      窓にサンプルが 0 点しか入らず ISS-00236 の「無警告で 0 A」が再発しうる。
+//      const 系には leak の .MEASURE が出ないため本 run では発現しないが、
+//      leakage / power_tin / passive を回す段階で必ず確認すること。
+//--- ISS-00234(2026-08-21、 ダーマツ判断): 20 -> 0.3 ns(300 ps)。 3 PDK を同じ値に揃えて
+//    slew_min 10 ps 化の退行確認を行う。 ⚠ probe(ISS-00219) が trans_out から maxstep を
+//    決めるため、 この上限には届かない点が多い（Run ③ で実測 10〜17 ps）。
+  ,"tmax_high"                 : 0.3
 // ISS-00219/00223: 出力遷移 trans_out に対する点数を目安に決める（trans_out / tmax_low）。
 //   ⚠ ISS-00230(2026-08-14): この「点数」は下限見積りであって実点数ではない。 tmax は刻みではなく
 //     刻みの「上限」で、 実際の刻みは ngspice の LTE 制御が決める（docs/SPEC_measure.md §12.1）。

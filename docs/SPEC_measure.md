@@ -757,7 +757,11 @@ p_absorb = i_vss * (vdd - vss) + i_vpw * (nwell - pwell)
 pleak = max(p_supply, p_absorb)   # ← supply / absorb の最大値（保守的）
 ```
 
-`i_vdd_leak` 等は `.MEASURE TRAN i_vdd_leak AVG I(VDD_DYN) FROM={_t_in0 - 101*_tslew_min} TO={_t_in0 - 1*_tslew_min}` で、 input slew 前の **stable 期間**で AVG 計測。 これは DC steady state に近い。
+`i_vdd_leak` 等は `.MEASURE TRAN i_vdd_leak AVG I(VDD_DYN) FROM={_t_in0 - 11*_tslew_min} TO={_t_in0 - 1*_tslew_min}` で、 input slew 前の **stable 期間**で AVG 計測。 これは DC steady state に近い。
+
+**⚠ 係数は 2026-08-21 に `101*` → `11*` へ変更**（ISS-00234）。 同時に `simulation_slew_min` を
+1 ps → 10 ps へ上げているため、 **窓の幅は 100 ps のまま**。 窓に 0 点しか入らないと ngspice が
+無警告で 0 A を返す（ISS-00236）ので、 `simulation_slew_min` を下げるときは幅も併せて確認する。
 
 → Liberty の leakage_power（DC current）と整合。
 
@@ -927,10 +931,24 @@ library (name) {
 ### 12.1 `maxstep` の決まり方
 
 ```
-maxstep = clamp( slope / simulation_points_per_transition , tmax_low , tmax_high )
-maxstep = <significant_digits 桁へ丸め>                     ISS-00230（既定 3 桁）
+v       = slope / simulation_points_per_transition          _calc_maxstep()（clamp しない生値）
+
+maxstep = _fix_maxstep(v)                                   ISS-00234（2026-08-17、 ダーマツ指示）
+          ① ps 単位へ切り上げ    sim_segment_timestep_min ＝ PWL 折れ点と同じ 1 ps 格子
+          ② 有効桁へ丸め        significant_digits（既定 3）
+          ③ clamp               [tmax_low, tmax_high]
+
 .tran {maxstep} {tsim_end} 0 {maxstep}
 ```
+
+**この順序を守ること。** ②は①を壊さない（整数 ps は 0.001 ns の倍数で、 有効 3 桁は
+0.001 ns 以上の分解能を必ず残す）。③の境界 `tmax_low` / `tmax_high` も **ps 格子上の値**に
+しておく（sky130 は 0.01 / 0.3 ns）。①が切り上げなのは**刻みを粗い側＝安全側に倒す**ため。
+
+**⚠️ ①が要る理由**：ISS-00234 で PWL 折れ点（`t_rel0` / `t_clk4`）は 1 ps 格子へ切り上げたのに、
+**`maxstep` は有効桁丸めだけで格子に乗っていなかった**（ISS-00230 の狙いは格子合わせだったが
+実装は桁丸め）。`26.6 ps` / `11.5 ps` という端数が出ており、`.tran` の刻みが整数 ps の折れ点を
+またぐたびに端数の残りステップが生じる構図だった。
 
 **`slope` は template の index 値**（閾値間の遷移時間）。**transition なので index のままでよく**、
 実 PWL 幅への換算は不要（ISS-00234、ダーマツ判断）。measure ごとにどの index を使うかは §12.1.1。
@@ -971,8 +989,13 @@ passive      max(maxstep/20, min(maxstep, tslew_min×20))     tmax_low の 1/20
 **`min_pulse` の `5 × tmax_high`** は `.tran` の `tmax`（刻みの上限）であって**パルス幅ではない**。
 `tmax_high = 20 ns` に対し `maxstep = 100 ns` と**上限の 5 倍**を指定していた。
 
-**現在は `_calc_maxstep()` / `_clamp_maxstep()`（`charao_run.py`）に集約**し、
-初期式・probe とも必ず `[tmax_low, tmax_high]` に収める。**`tmax_low_power_tin` は廃止**。
+**現在は `_fix_maxstep()`（`charao_run.py`）の 1 箇所に集約**し、初期式・probe とも必ず
+`[tmax_low, tmax_high]` に収める。**`tmax_low_power_tin` は廃止**。
+
+**⚠️ `_clamp_maxstep()` は削除済み**（ISS-00234、 2026-08-17）。`_calc_maxstep()` からも clamp を
+除き、 **clamp は `_fix_maxstep()` だけが行う**。`_fmt_maxstep()`（有効桁丸め）は `_fix_maxstep()` の
+内部でのみ使う。呼び出しは **16 箇所**（delay / power_tout / power_tin / const / removal /
+lat_hold / passive / min_pulse_width / leakage の各経路と probe 4 経路）。
 
 **`maxstep` の有効桁は `significant_digits` で決まる**（`_fmt_maxstep()`、既定 3）。従来は `"{:.5g}"` の
 ハードコードだった。**`significant_digits` は本来 `.lib` / doc の出力桁**（`--significant_digits` / `-s`、
@@ -990,8 +1013,8 @@ passive      max(maxstep/20, min(maxstep, tslew_min×20))     tmax_low の 1/20
 必要なら `tmax` よりはるかに細かく刻む**。`tmax_low` から実際の刻みまでは **2 段階間接**である。
 
 ```
-tmax_low  ──決める──▶  tmax = max(tmax_low, min(slew × 0.198, tmax_high))
-                        （= .tran の第 4 引数）
+tmax_low  ──決める──▶  tmax = _fix_maxstep(slope / points_per_transition)
+                        （= .tran の第 4 引数。 ①ps 格子 → ②有効桁 → ③clamp）
                               │
                               ├─ 上限 : 刻みはこれを超えない
                               └─ 下限 : delmin = 1e-11 × tmax（ngspice が内部算出）
@@ -1075,6 +1098,50 @@ sky130 LAT/ICG hold  maxstep = 4 ps      _tsim_end = 14.040367 ns
 `tsim_end` を 14.041 ns（**+0.633 ps**）にするだけで **12 failures → 0**、しかも**他の値は 1 点も動かない**
 （sky130 5 セル × 全 measure × 2x2 の 3126 点で検証）。**切り上げ**に限るのは、縮めると測定対象
 （Q の応答）を切り落とすため。
+
+### 12.2.2 `simulation_slew_min` と `sw_ramp_time`（ISS-00234、2026-08-21〜22）
+
+**`simulation_slew_min` は PWL の遷移幅の下限**［ns］で、 **3 PDK とも `0.01`（10 ps）**。
+1 ps のエッジは ngspice の LTE が刻みを詰める要因になりうるため引き上げた。
+
+**⚠ この 1 つの値が 6 箇所に効く**（括弧内は `simulation_slew_min = 0.01` のときの実効値）。
+
+| 効く先 | 式 | 実効値 |
+|---|---|--:|
+| init パルスのエッジ | `INIT_EDGE_MULT(2) * slew_min`（`myTbParam.py`） | 20 ps |
+| `t_rel3` / `t_clk7` の終端エッジ | `slew_min` | 10 ps |
+| `tslew_in` / `tslew_clk` / `tslew_rel` の既定 | `slew_min` | 10 ps |
+| 未使用 phase の折れ点間隔（ISS-00134） | `slew_min` | 10 ps |
+| leak の AVG 窓（§9） | `{_t_in0-11*slew_min .. _t_in0-1*slew_min}` | 幅 100 ps |
+| `.MEASURE` の TD マージン | `1*slew_min` | 10 ps |
+
+**⚠ PDK ごとに変えない。** 上の係数は PDK 非依存のコードなので、 片方の PDK だけ下げると
+**leak の AVG 窓や `tslew_clk` が一緒に潰れる**（ISS-00236 と同じ穴が開く）。
+
+#### `sw_ramp_time` — pre-charge SW のゲートランプ幅（`simulation_slew_min` とは独立）
+
+**`VPC_CTRL`（ISS-00076 の pre-charge SW のゲート制御）のランプ幅**［ns］。既定 **0.001（1 ps）**。
+
+```
+SW_PRECHARGE : Ron=0.1Ω → Roff=1GΩ（10 桁）をヒステリシス Vh=0.3 付きで通過
+VPC_CTRL PWL( ... {_t_init0 - _tsw_ramp} vss  {_t_init0} vdd
+                  {_t_init3 - _tsw_ramp} vdd  {_t_init3} vss )
+```
+
+**⚠ `simulation_slew_min` に紐づけてはならない。** `VPC_CTRL` は **DUT の入力波形ではなく
+アナログ SW のゲート制御**で、 信号 slew とは別の量。2026-08-21 に `simulation_slew_min` を
+1 ps → 10 ps へ上げた際、 この 1 箇所も道連れで鈍り、 **sky130 `dfrtp_1` に 16 件の
+`Timestep too small`** が出た（`run_tm03_sky`）。
+
+```
+失敗 16 件すべて同一条件 : t = 3.00667 ns / maxstep = 10 ps（tmax_low フロア）
+                          node vclk#branch / index_1 = 0.00338 pF（最小負荷）/ _t_ofs = 0
+  変更前（1 ps）  : 3.009 → 3.010 ns
+  変更後（10 ps） : 3.000 → 3.010 ns   失敗時刻 3.00667 ns ＝ ランプの途中
+```
+
+**遷移領域の滞在時間が 10 倍**になり、 `maxstep` が下限に張り付いた状態で LTE が破綻した。
+専用設定へ切り出して 1 ps に戻すことで解消している。
 
 ### 12.3 probe（`simulation_points_per_transition`）
 

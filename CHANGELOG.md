@@ -4,6 +4,140 @@
 
 ---
 
+## [2.0.0.a22] 2026-08-22
+
+ISS-00234（seq 系の `Timestep too small`）への対処。**`maxstep` の確定手順を一本化**し、
+**`simulation_slew_min` の役割を整理して 1 ps → 10 ps へ引き上げ**、
+**pre-charge SW のゲートランプ幅を `sw_ramp_time` として分離**した。`tmax_high` は 3 PDK とも 0.3 ns。
+
+### ① `maxstep` の確定手順を `_fix_maxstep()` に一本化（2026-08-17、ダーマツ指示）
+
+`charao_run.py` に `_fix_maxstep()` を新設し、順序を固定した。
+
+```
+① ps 単位へ切り上げ（sim_segment_timestep_min ＝ PWL 折れ点と同じ 1 ps 格子）
+② 有効桁を significant_digits へ丸め
+③ [tmax_low, tmax_high] に収める
+```
+
+- **`_clamp_maxstep()` を削除**し、`_calc_maxstep()` からも clamp を除去（`slope / points_per_transition`
+  の生値を返すだけに）。**clamp を `_fix_maxstep` の 1 箇所へ集約**した
+- 呼び出しは **16 箇所**（delay / power_tout / power_tin / const / removal / lat_hold / passive /
+  min_pulse_width / leakage の各経路と、probe 4 経路）
+
+**背景**：PWL 折れ点（`t_rel0` / `t_clk4`）は 1 ps 格子へ切り上げていたのに、**`maxstep` は
+有効桁丸めだけで格子に乗っていなかった**（ISS-00230 の狙いは格子合わせだったが実装は桁丸め）。
+`26.6 ps` / `11.5 ps` という端数が出ており、`.tran` の刻みが整数 ps の折れ点をまたぐたびに
+端数の残りステップが生じる構図だった。
+
+**`maxstep` 設定値の変化（sky130、probe 前の値）**
+
+| index [ns] | 旧 [ps] | 新 [ps] | 備考 |
+|---|---|---|---|
+| 0.01 | 10.00 | 10.00 | — |
+| 0.0231 | **11.50** | **12.00** | 端数解消 |
+| 0.0531 | **26.60** | **27.00** | 端数解消 |
+| 0.122 | 61.00 | 61.00 | — |
+| 0.282 | 141.00 | 141.00 | — |
+| 0.651 | **326.00** | **300.00** | tmax_high でクランプ |
+| 1.5 | **750.00** | **300.00** | tmax_high でクランプ |
+
+**⚠ 上表は probe 前の設定値**。実際に走る値は probe（ISS-00219）が `trans_out` から
+収束させるため、sky130 の const では **10〜17 ps** に落ち着く（`tmax_high` には届かない）。
+
+### ② `simulation_slew_min` の役割整理と 1 ps → 10 ps（2026-08-21、ダーマツ判断）
+
+`simulation_slew_min` が 5 役（PWL 幅／leak の AVG 窓／`.MEASURE` の TD マージン／起点／
+未使用 phase の折れ点間隔）を兼務しており片方だけ動かせなかった。**係数側を書き換えて
+実効値を保ったまま**、設定値そのものを引き上げた。
+
+| 箇所 | 変更 | 実効値 |
+|---|---|--:|
+| init パルスのエッジ | `INIT_EDGE_MULT = 2` を新設（`myTbParam.py`）。`2*tslew_min` → `MULT*tslew_min` | 20 ps |
+| `t_rel3` / `t_clk7` の終端エッジ | `2*tslew_min` → `tslew_min` | 10 ps |
+| `tslew_in` / `tslew_clk` の既定 | `charao_run.py` の `10*tslew_min_s` → `tslew_min_s`（5 箇所） | 10 ps |
+| leak の AVG 窓 | `temp_testbench.sp.jp2` の `101*_tslew_min` → `11*_tslew_min`（8 箇所） | **幅 100 ps（不変）** |
+| `.MEASURE` の TD マージン | 同 `2*_tslew_min` → `1*_tslew_min`（**42 行**、残存 0） | 10 ps |
+
+**⚠ 3 PDK すべて `0.01` に揃えた。** 係数の書き換えは PDK 非依存のため、sky130 だけ変えると
+**gf180 / OSU035 の leak AVG 窓が 100 ps → 10 ps に潰れ、`tslew_clk` も 10 ps → 1 ps になる**。
+前者は ISS-00236（AVG 窓に 0 点だと ngspice が無警告で 0 A を返す）と同じ穴を開けることになる。
+
+**⚠ 「`slew_min` 10 ps が効いた」機序は未特定。** A/B（`run_234_repro` → `run_234_slew10`）で
+`dfstp_4` × `hold_rising` × 7×7 の **7 failures → 0** を確認したが、失敗点の**窓内 PWL 折れ点も
+probe 収束後の `maxstep`（14 ps）も完全に同一**で、solver に見える差は **`tsim_end` +18 ps だけ**だった。
+
+### ③ `sw_ramp_time` の新設 — pre-charge SW のゲートランプ幅を分離（2026-08-22、ダーマツ判断）
+
+| ファイル | 変更 |
+|---|---|
+| `myLibrarySetting.py` | `sw_ramp_time : float = 0.001`（ns、既定 1 ps）を新設 |
+| `myTbParam.py` | `tsw_ramp` フィールドを追加 |
+| `charao_run.py` | 全 8 measure の param 生成で `tsw_ramp=` を渡す |
+| `temp_testbench.sp.jp2` | `VPC_CTRL` の PWL が `_tslew_min` → `_tsw_ramp`（4 箇所） |
+| 3 PDK の `config_lib.jsonc` | `sw_ramp_time : 0.001` を追加 |
+
+**背景**：②で `slew_min` を 10 ps にしたところ、**sky130 `dfrtp_1` に 16 件の `Timestep too small`**
+が出た（`run_tm03_sky`）。16 件すべて同一条件で、**落ちた時刻 `t = 3.00667 ns` は `VPC_CTRL` の
+ランプの真っ最中**（開始から 6.67 ps）だった。
+
+```
+SW_PRECHARGE : Ron=0.1Ω → Roff=1GΩ（10 桁）をヒステリシス Vh=0.3 付きで通過
+  変更前（slew_min 1 ps） : 3.009 → 3.010 ns（ランプ幅  1 ps）
+  変更後（slew_min 10 ps）: 3.000 → 3.010 ns（ランプ幅 10 ps）
+  失敗時刻 3.00667 ns     = ランプの途中
+```
+
+ランプを 10 倍に鈍らせたことで**遷移領域の滞在時間が 10 倍**になり、`maxstep` が `tmax_low`（10 ps）に
+張り付いた状態で LTE が破綻した。**`VPC_CTRL` は DUT の入力波形ではなくアナログ SW のゲート制御**で、
+`simulation_slew_min` に紐づける理由が無いため独立設定に切り出した。
+
+### ④ `tmax_high` を 3 PDK とも 20 → 0.3 ns
+
+sky130 / gf180 / OSU035 の `config_lib.jsonc`。`tmax_low` は変更なし（sky130 0.01 / 他 0.02）。
+
+**⚠ 判断の経緯**：`tmax_high` を 20 ns に戻した A/B（`run_234_tm20`）では `dfstp_4` が 0 failures の
+ままで「probe が収束させるので効かない」と見えたが、**gf180 では 0.3 ns にすると
+`dffrsnq_4` の `recovery_rising` 2 件が消えた**。`tmax_high` は **probe の初期値を絞る**ため、
+収束の経路が変わって回避される。**「収束後の値が上限より小さい ＝ 上限は無関係」ではない。**
+
+### 検証（`run_swr_gf` / `run_swr_sky` / `run_swr_osu`、2026-08-22）
+
+**3 PDK × 20 セル、index・measure とも絞りなしのフルグリッド**（gf180 10×10、sky130 / OSU035 7×7）。
+
+| run | PDK | セル | `Failed to launch spice` | Traceback | `.lib` |
+|---|---|---|--:|--:|--:|
+| `run_swr_gf` | gf180 | `dffrsnq_1` `dffrsnq_4` `latrsnq_1` `icgtp_1` `sdffrsnq_1` `bufz_1` `antenna` `buf_20` `inv_1` | **0** | 0 | 9 |
+| `run_swr_sky` | sky130 | `dfrtp_1` `dfstp_4` `dlrtp_1` `sdlclkp_1` `sdfrtp_1` `inv_1` `buf_16` | **0** | 0 | 7 |
+| `run_swr_osu` | OSU035 | `DFFARAS_1X` `INV_1X` `NAND2_1X` `XOR2_1X` | **0** | 0 | 4 |
+
+直前の `run_tm03_*` で残っていた **sky130 `dfrtp_1` の 16 件**（③で解消）と
+**OSU035 `DFFARAS_1X` の 3 件**（`recovery_rising`）が、いずれも 0 になった。
+
+**⚠ measure の網羅には PDK ごとに穴がある**（走った sim 種別を実測して確認）。
+
+| measure | gf180 | sky130 | OSU035 |
+|---|--:|--:|--:|
+| `setup` / `hold`（rising・falling とも） | ⭕ | ⭕ | falling が **0** |
+| `recovery` / `removal`（rising・falling とも） | ⭕ | ⭕ | falling が **0** |
+| `delay` / `power_tout` / `power_tin` / `leakage` | ⭕ | ⭕ | ⭕ |
+| `min_pulse_width_low` / `_high` / `clear` / `preset` / `rising_edge` | ⭕ | ⭕ | ⭕ |
+| **`passive`** | ⭕（`antenna`） | **0** | **0** |
+| **`three_state_enable` / `_disable`** | ⭕（`bufz_1`） | **0** | **0** |
+
+**全 measure が実際に走ったと言えるのは gf180 のみ。** sky130 / OSU035 のセル集合には
+output 無しセルと tristate セルが含まれていない。
+
+### ⚠️ 未確定・未確認
+
+- **181 セル × フルグリッドの真打ちは未実施**。`run_sky7_full`（a21）は 161 セル時点で 6 件が出ており、
+  **セルを増やすと別条件が現れる**構図を 2 度踏んでいる。ISS-00234 のクローズ条件はこれ
+- **`.lib` の値の妥当性（orig 比較）は未確認**。`slew_min` / `tmax_high` / `maxstep` の 3 つが同時に
+  動いているため、`delay` / `transition` / `power_*` の値も動く
+- **②の機序は未特定**（上記）
+
+---
+
 ## [2.0.0.a21] 2026-08-16
 
 **`.lib` の PG 情報と `.md` の Markdown 崩れを修正**した（ISS-00247 / ISS-00250）。
