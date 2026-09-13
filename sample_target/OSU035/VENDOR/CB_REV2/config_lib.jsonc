@@ -152,7 +152,11 @@
 // ISS-00220: const 掃引の高速化。 0 回目（準備 run）で _t_init3 時点の内部ノード電圧を取得し、
 //   1 回目以降は nodeset で復元して測定区間だけ回す（初期化のやり直しを止める）。
 //   false で従来動作（0 から回し直す）。 値の切り分け用に残してある。
-  ,"const_start_offset_enable"       : true
+//   ISS-00327（2026-09-05 確定）: 本機構は false 運用とする。`.nodeset` を過渡状態の復元に
+//   使っていたのが誤りで `.ic` へ修正済みだが、`.ic` にしても ISS-00234 の failure は消えず、
+//   false にすると消える。値は 3 条件とも一致（dly_rel_clk 9 点が小数第 6 位まで同一）。
+//   ⚠ 速度利得は gf180 の 1 arc でしか未測定（そこでは差なし）。sky130 dfxtp_1 setup は未実測。
+  ,"const_start_offset_enable"       : false
   ,"sim_tsim_end4hold"          : 30.0
 //  ,"sim_time_end_extent"        : 3
   

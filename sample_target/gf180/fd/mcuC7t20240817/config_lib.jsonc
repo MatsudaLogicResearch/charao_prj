@@ -249,7 +249,19 @@
 //--- ISS-00234(2026-08-21、 ダーマツ判断): 20 -> 0.3 ns(300 ps)。 3 PDK を同じ値に揃えて
 //    slew_min 10 ps 化の退行確認を行う。 ⚠ probe(ISS-00219) が trans_out から maxstep を
 //    決めるため、 この上限には届かない点が多い（Run ③ で実測 10〜17 ps）。
-  ,"tmax_high"              : 0.3
+//--- ISS-00234(2026-09-06 ダーマツ確定): 0.3 -> 0.02（= tmax_low と同値）。**これが恒久実装**。
+//    `_maxstep` を 20 ps に固定してばらつきを消す。専用設定は設けない
+//    （_fix_maxstep の ③clamp が min(v,tmax_high) -> max(v,tmax_low) の順なので、
+//     hi==lo なら常に lo になる＝コード変更が不要）。
+//    機序: delmin = 1e-11 x tmax ＝ abort の床が tmax に比例するため、tmax が動くと収束が揺れる。
+//    収束確認: 300 -> 1 ps で最大偏差 0.007 ns（判定基準「0.01 ns 以下なら収束」を満たす）。
+//    コスト: 総ステップ数 Σ(1/maxstep) 比で 1.32 倍の見積りに対し、単セル実測は 0.60〜0.78 倍
+//            （probe が maxstep を下げる分と probe ループ短絡で sim 数が減るため）。
+//            comb 161 セル一括では 2.3 倍（9/7 実測）。
+//    検証: gf180 フルグリッド 229 セル（comb 161 / physical 14 / seq 54）で failure 0 件
+//          （2026-09-11。ISS-00234 / ISS-00328 のクローズ根拠）。
+//    ⚠ 2026-09-06 以前の「暫定。screening 後に 0.3 へ戻す」という注記は **無効**。
+  ,"tmax_high"              : 0.02
 // ISS-00219/00223: 出力遷移 trans_out に対し 4 点以上を目安に決める（trans_out / tmax_low）。
 //   sky130 は遷移 17〜25ps で 0.02 だと約 1 点＝不足のため 0.002。gf180 は 70〜96ps で 0.02（約 4 点）で十分。
   ,"tmax_low"               : 0.02
@@ -301,6 +313,14 @@
 // ISS-00220: const 掃引の高速化。 0 回目（準備 run）で _t_init3 時点の内部ノード電圧を取得し、
 //   1 回目以降は nodeset で復元して測定区間だけ回す（初期化のやり直しを止める）。
 //   false で従来動作（0 から回し直す）。 値の切り分け用に残してある。
+//   ISS-00327（2026-09-05）: `.nodeset` を過渡状態の復元に使っていたのが誤りで `.ic` へ修正済み
+//   （`.nodeset` は DC 解の初期推定にすぎず値が保持されない。ngspice manual 15.2）。
+//   ⚠ このとき「本機構は false 運用とする」としたが、それは **`_maxstep` 可変時代の暫定判断**で
+//     **現在は無効**。`_maxstep` 固定（tmax_high == tmax_low）にした後は **true でも failure 0 件**
+//     （ISS-00234 クローズ時に確認。gf180 フルグリッド 229 セルも true で failure 0、2026-09-11）。
+//     よって **true 運用**とする。OSU035 のみ false のまま（本課題の対象外）。
+//   ⚠ myLibrarySetting.py の既定値は False。有効化は本 jsonc で明示する。
+//   ⚠ 速度利得は gf180 の 1 arc でしか未測定（そこでは差なし）。sky130 dfxtp_1 setup は未実測。
   ,"const_start_offset_enable"       : true
   ,"sim_tsim_end4hold"          : 35.0
   ,"sim_pullres_std_enable"     : 100000
