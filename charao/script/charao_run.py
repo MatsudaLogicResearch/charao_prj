@@ -884,7 +884,23 @@ def runSpicePowerToutSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_s
     ##   collapse を解消する。 そのため sim_end は eend より十分後ろ（+2ns）にし、 SW が ON で居られる
     ##   tail 区間を確保する（sim_end≈eend だと SW の ON 区間が無く効かない）。 INTEG 窓 [estart,eend]
     ##   は SW OFF なので cin/energy/leakage は無影響。
-    tsim_end2 = max(eend, param.t_rel1) + 2e-9
+    ## ISS-00328(2026-09-09): energy2（meas_energy=2）は autostop が出ない（jp2:19）ので
+    ##   **全 .MEASURE の窓を tstop が覆うこと**が必須。INTEG 窓は下の time_energy[1] ＝
+    ##   `max(t_in1, t_rel1, eend) + _EEND_MARGIN(0.3ns)` なので、それに合わせて max の項を
+    ##   揃える（下の time_energy[1] と同じ 3 項にする＝式の対応を目で追えるようにする）。
+    ##   ⚠ `t_in1` は **実際には効かない**（no-op）。compute_timing()（myTbParam.py:422-425）が
+    ##     t_rel0 = t_in1 + (tdelay_rel or tslew_min) / t_rel1 = t_rel0 + (tslew_rel or tslew_min)
+    ##     と定義しており、**常に t_rel1 > t_in1** だから。
+    ##     実測でも gf180 の power_tout energy2 deck 1200 本で tstop を決めた項は
+    ##     eend 1018 / t_rel1 182 / **t_in1 0**（run_p1_win、2026-09-10）。
+    ##     したがってこの修正で .lib の値は変わらない。time_energy[1] 側の t_in1 も同じ理由で無効項。
+    ##   ⚠ 「t_in1 が最大になる条件で窓が tstop を超えうる」という当初の根拠は **誤り**だった。
+    ##     残しているのは式の対応を保つためで、防御的な意味しかない（2026-09-10 ダーマツ判断）。
+    ## 【実測（run_p1_win、gf180 5 セル・.sp 2520 本、2026-09-10）】
+    ##   窓が tstop を超える deck は 0 件。最小余裕 tstop-TO は
+    ##   power_tout energy2 +1.700ns / power_tin +1.000ns / passive +1.000ns。
+    ##   autostop 実測：power_tout energy1 のみ あり、energy2 / power_tin / passive は なし。
+    tsim_end2 = max(eend, param.t_rel1, param.t_in1) + 2e-9
     param.ener_estart   = estart   # ISS-00151: energy2 の WHEN 不成立時フォールバック用（energy1 の確定値）
     param.ener_eend     = eend
     param.tsim_end      = tsim_end2
@@ -1488,8 +1504,20 @@ def runSpiceConstSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slope
                                f"nodeset_{''.join(c or 'n' for c in arc_oirc)}"
                                f"_c{index1_slope_const}_r{index2_slope_rel}.sp")
         with open(_nsfile, "w") as _f:
-          _f.write("* ISS-00220: const 掃引の再開用 nodeset（0 回目の準備 run で取得）\n")
-          _f.write(".nodeset " + " ".join(
+          #-- ISS-00327（2026-09-05 確定）: `.nodeset` は **DC 解の初期推定にすぎず値が保持されない**
+          #   （ngspice manual 15.2「preliminary pass ... The restrictions are then released and the
+          #   iteration continues to the true solution」）。実測でも注入 net12=3.314832V に対し
+          #   sim t=0 の実値は 0.000000V だった（net15 も同、net0 は 0.732915→0.014334）。
+          #   ⚠ ISS-00166（leakage）の `.nodeset` は **tran 終端の静定値**を与えて op を安定解へ
+          #     収束させる用途で **正しい**（双安定の解選択＝本来用途）。本箇所は **過渡途中値**を
+          #     与えて状態を復元しようとしたため前提が違う。jp2 の「leakage と同方式」が誤りの入口。
+          #   → `.ic`（uic なし＝bias 解を求める間は強制し t=0 で拘束解除）へ修正。実測で 12 ノード
+          #     すべて注入値どおりに t=0 を開始することを確認済み。
+          #   ⚠ ただし `.ic` にしても ISS-00234 の failure は消えない（初期値の正しさとは独立）。
+          #     このため `const_start_offset_enable` は **false 運用**とする（2026-09-05 ダーマツ判断）。
+          #     本実装は機構を有効化したときに **正しく動く**ようにするためのもの。
+          _f.write("* ISS-00220/00327: const 掃引の再開用 初期条件（0 回目の準備 run で取得）\n")
+          _f.write(".ic " + " ".join(
             f"v(xcell.xdut.{n})={v:.6e}" for n, v in zip(_nodes, _vals)) + "\n")
         param.start_offset = -_ofs
         param.nodeset_file = os.path.join("..", os.path.basename(_nsfile))
@@ -1823,6 +1851,30 @@ def runSpiceRemovalSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slo
         #-- ISS-00080: param を更新して genFileLogic に渡す（hold は tsweep 正方向）
         param.tsweep_clk = tsweep * 1.0
         param.compute_timing()
+        ## ISS-00328(2026-09-09): tsim_end を掃引ごとに再計算する。
+        ##   従来はループ外（本関数の冒頭 `tsim_end = param.t_clk5+10E-9`）で 1 回だけ計算して
+        ##   いたため、掃引で t_clk4/t_clk5 が前へ動いても tsim_end が追随せず、判定窓
+        ##   （jp2:433-434 の judge_vlt_max/min ＝ _t_clk4 .. _t_clk5+10ns）より最大 13 ns 長い
+        ##   平坦テールが残っていた（gf180 dffnrnq_1 c=4.0 x r=4.0 で窓 26.799..41.799 ns に対し
+        ##   tsim_end=55.06 ns）。
+        ##   ⚠ MAX/MIN の .MEASURE は autostop を無効化する（jp2:398）ので必ず tstop まで走る。
+        ##   平坦テールでは理想源の枝電流が台形法の ringing（1 ステップごとに符号反転。実測
+        ##   i(vclk) が +7.035e-11 / -7.042e-11 を交互、末尾 100 点で 99 回反転）を続け、
+        ##   終端着地で LTE が破れて `Timestep too small` になる（gf180 フルグリッドで 11 件）。
+        ##   runSpiceConstSingle（setup/hold/recovery）は ISS-00152 で既に毎反復更新しており、
+        ##   removal だけ取り残されていた。判定窓は tsim_end に依存しないので値は変わらない。
+        ##   ⚠ runSpiceLatHoldSingle(2069) も同じ構造だが、今回 LAT は failure 0 件のため未修正。
+        ## ⚠⚠ max() に t_rel1 を必ず含めること（2026-09-09 ダーマツ指摘）。
+        ##   removal は MAX/MIN の .MEASURE を 2 組出す：
+        ##     judge_vlt_max/min = _t_clk4 .. _t_clk5+10ns   （jp2:433-434）
+        ##     o_max_v / o_min_v = _t_rel0 .. _t_rel1+10ns   （jp2:495-496、meas_o_max_min==1）
+        ##   掃引で前へ動くのは t_clk4/t_clk5 だけで **t_rel1 は動かない**。そのため
+        ##   `t_clk5 + 10ns` だけで tsim_end を決めると、探索が進むほど tstop が縮んで
+        ##   o_max_v の窓が tstop を超え、**measure 未完了のまま終端に着地して abort** する
+        ##   （実測 s404 で +1.75 ns 超過 / s408 で +0.55 ns 超過。failure が 11 → 46 件に増えた）。
+        param.tsim_end   = _quantize_tsim_end(max(param.t_clk5, param.t_rel1) + 10E-9)
+        param.tpulse_clk = param.tsim_end
+        param.compute_timing()
 
         rslt=genFileLogic_Removal1x(targetHarness=h, spicef=spicefo, param=param)
 
@@ -2032,16 +2084,38 @@ def runSpiceLatHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slo
     ,tsim_end     =1e-6
     ,tdelay_init  =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
     ,tpulse_init  =float("{:.5g}".format(h.mls.sim_pulse_max * h.mls.time_mag))
-    ,tdelay_in    =float("{:.5g}".format(_tslew_from_template(index2_slope_rel, h.mls) + sim_c2d_max * h.mls.time_mag))
-    ,tslew_in     =_tslew_from_template(index1_slope_const, h.mls)
-    ,tdelay_rel   =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
-    ,tslew_rel    =_tslew_from_template(index2_slope_rel, h.mls)
-    ,tpulse_rel   =1e-6
+    #-- ISS-00324: const の軸割り当てを runSpiceRemovalSingle（FF removal）に揃える。
+    #   removal の constrained pin は async 解放（VREL）＝index1、 related pin は CLK（VCLK）＝index2。
+    #   旧実装は index1 を VIN(D) へ、 index2 を VREL へ入れ、 さらに tslew_clk を渡していなかったため
+    #   VCLK の slew が Mtp 既定 1 ns に固定され、 related 軸（index2）が一度も掃引されていなかった。
+    ,tdelay_in    = 1.0E-9          # removal: VIN(D) は副次（保持のみ）
+    ,tslew_in     = 1.0E-9
+    ,tdelay_rel   =float("{:.5g}".format(_tslew_from_template(index2_slope_rel, h.mls) + sim_c2d_max * h.mls.time_mag))
+    ,tslew_rel    =_tslew_from_template(index1_slope_const, h.mls)   # constrained = VREL <- index1
+    #-- ISS-00324: 暫定値は 1.0E-9（runSpiceRemovalSingle と同じ）。 従来の 1e-6 のままだと
+    #   下の tsim_end 算出が t_clk5 経由でこの暫定値を拾い、 tsim_end が 1 μs 級に膨らむ
+    #   （実イベントは 26 ns で終わるのに sim だけ 32 倍走る）。 最終形状は下で tsim_end に差し替える。
+    ,tpulse_rel   = 1.0E-9
+    ,tdelay_clk   =float("{:.5g}".format(h.mls.sim_d2c_max   * h.mls.time_mag))
+    ,tslew_clk    =_tslew_from_template(index2_slope_rel, h.mls)     # related    = VCLK <- index2
     ,tsweep_clk   =0
   )
   param.set_common_value(harness=h, arc_oirc=arc_oirc)
   param.compute_timing()
-  tsim_end = param.t_rel1 + 1e-9
+  #-- ISS-00324: tslew_clk が実値（最大 index2 の全振幅時間）になったため、 従来の
+  #   `t_rel1 + 1ns` だけでは CLK エッジ（t_clk5 = t_clk4 + tslew_clk）が sim 内に収まらず、
+  #   jp2 の judge 窓（FROM=_t_clk4 TO=_t_clk5+10ns）も切れる。 FF 側の `t_clk5 + 10ns` と
+  #   LAT 側の解放マージン `t_rel1 + 1ns` の大きい方を採る。
+  ## ISS-00328(2026-09-09): ⚠ 本関数（LAT）の tsim_end は **伸ばしてはいけない**。以下 2 点を
+  ##   `max(param.t_clk5, param.t_rel1) + 10e-9` に変えて全格子で実測したところ（run_y_rem）、
+  ##   LAT 9 セルで 0.1ns 超の値変化 431 点・最大 1.183ns、9/8 では滑らかだった表が
+  ##   大きい index2 で暴れた。よって ISS-00324 の式に戻す。理由は 2 つ：
+  ##   ① jp2:394-395 の judge_vlt_max/min は窓が `_t_clk4 .. _tsim_end`＝**tstop 自体が判定窓の終端**。
+  ##      伸ばすと判定基準が変わる（removal の jp2:433-434 は `_t_clk5+10ns` 固定で tstop 非依存）。
+  ##   ② o_max_v/o_min_v の窓（_t_rel0.._t_rel1+10ns）は tstop を超えうるが、**o_max_v は判定に
+  ##      使わない**（myTbParam.py:67、ISS-00218 で判定は judge_vlt_* に一本化）。9/8 フルグリッドで
+  ##      LAT の failure は 0 件であり、伸ばす動機がなかった。
+  tsim_end = max(param.t_rel1 + 1e-9, param.t_clk5 + 10e-9)
   param.tsim_end   = tsim_end
   param.tpulse_rel = tsim_end
   param.compute_timing()
@@ -2076,6 +2150,15 @@ def runSpiceLatHoldSingle(poolg_sema, targetHarness:Mcar, spicef:str, index1_slo
         #-- ISS-00080: param を更新して genFileLogic に渡す（hold は tsweep 正方向）
         param.tsweep_clk = tsweep * 1.0
         param.compute_timing()
+        ## ISS-00328(2026-09-09): ⚠ ここで tsim_end を掃引ごとに再計算してはいけない。
+        ##   `param.tpulse_rel` は compute_timing() で **t_clk4 の上流**にある
+        ##   （t_rel2 = t_rel1 + tpulse_rel → t_rel3 → t_clk4 → t_clk5、myTbParam.py:426-439）。
+        ##   tsim_end を tpulse_rel に代入し直すと tpulse_rel → t_clk5 → tsim_end → tpulse_rel の
+        ##   帰還ループになり、掃引 1 ステップごとに tstop と t_clk4 が単調に伸び続ける。
+        ##   結果、掃引していないのに CLK エッジが動き・VREL パルス幅が変わり・判定窓の両端が
+        ##   動くため、探索が収束先を見失う（run_y_rem で実証）。
+        ##   removal 側（runSpiceRemovalSingle の掃引ループ）で同じことをして無害なのは、
+        ##   代入先が **t_clk6 の下流**である `tpulse_clk` だから。**上流に代入するな**、が教訓。
 
         rslt=genFileLogic_Removal1x(targetHarness=h, spicef=spicefo, param=param)
 

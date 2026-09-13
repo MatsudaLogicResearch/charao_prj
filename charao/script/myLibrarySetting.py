@@ -137,7 +137,9 @@ class MyLibrarySetting(BaseModel):
   #   掃引で変わるのは制約信号 / CLK の相対位置だけで、 _t_init3 より前の状態は全掃引点で共通。
   #   False で従来動作（0 から回し直す）。 値が合わないときの切り分け用に残す。
   #   内部ノードが取れないセル・LAT/ICG の hold（電圧判定）は True でも自動的に従来動作へ落ちる。
-  const_start_offset_enable      : bool  = True
+  #-- ISS-00327(2026-09-05): 既定を False へ。`.nodeset` を過渡状態の復元に使っていたのが誤りで
+  #   `.ic` へ修正したが、それでも ISS-00234 の failure は消えず、無効化すると消えるため。
+  const_start_offset_enable      : bool  = False
   energy_meas_low_threshold   : float = 0.01 ;# ISS-00117: 必ず 0.01 以上を設定。 myTbParam.py の meas_energy=1 補正で 0.99×low → 負電圧化を防ぐため。
   energy_meas_high_threshold  : float = 0.99 ;# ISS-00117: 必ず 0.99 以下を設定。 myTbParam.py の meas_energy=1 補正で 1.01×high → VDD 超過化を防ぐため。
   hold_meas_low_threshold     : float = 0.01 ;#

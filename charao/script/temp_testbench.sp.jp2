@@ -24,6 +24,10 @@
 *.option rshunt=1e9
 .options NOREFVALUE
 * ISS-00077: reltol=1e-4 で adaptive step を tight に → 入力 slew 大 × load 大での出力急変解像度向上（setup_rising avg +2.5ns → +0.16ns）
+* ISS-00234 案C（2026-09-03）: reltol=1e-3（ngspice 既定）を A/B した結果 **不採用**。
+*   failure は 8 件 → 8 件で減らず、内訳が入れ替わっただけ（4 件解消・2 セルで 1→3 件へ悪化）。
+*   悪化側は r（related slew）3.029〜4.0 ns の遅いエッジに集中＝reltol=1e-4 が遅いエッジで
+*   効いていることの裏返し。ISS-00077 の改善を捨てるコストにも見合わないため 1e-4 を維持する。
 .option reltol=1e-4
 
 * ISS-00184: model は .lib <file> <section> で読む（.inc だと全 section が素通しで読まれる）
@@ -129,8 +133,17 @@ VLOW_IO  VLOW_IO  0 PWL (0           {_vssio})
 VOCAP VOUT WOUT DC 0
 
 ** ISS-00220: 0 回目（準備 run）で取得した「再開時刻」の内部状態を復元する。
+**   取り込むファイルの中身は `.ic`（uic なし）。 charao_run.py が書き出す。
 **   uic は使わない（DC を飛ばすため捕捉漏れで破綻する。ISS-00176 で実際に踏んだ）。
-**   nodeset は DC 反復の初期推定値なので、 双安定でも示した側へ収束する（leakage と同方式）。
+**   ⚠ ISS-00327(2026-09-05 確定): ここは以前 `.nodeset` で「leakage と同方式」と書いていたが
+**     **誤り**だった。 `.nodeset` は DC 解の初期推定にすぎず値は保持されない
+**     （ngspice manual 15.2「preliminary pass ... The restrictions are then released and
+**     the iteration continues to the true solution」）。 実測でも注入 net12=3.314832V に対し
+**     sim t=0 の実値は 0.000000V。 `.ic`（uic なし）は bias 解を求める間ノードを強制し
+**     t=0 で拘束解除するため、 12 ノードすべてが注入値どおりに開始することを確認済み。
+**   ⚠ 621 行目付近の leakage の `.nodeset` は **tran 終端の静定値**を与えて op を安定解へ
+**     収束させる用途で **正しい**（双安定の解選択＝`.nodeset` 本来の用途）。 ここは
+**     **過渡途中値**を与えて状態を復元する用途なので前提が違う。 混同しないこと。
 {%- if param.nodeset_file %}
 .include '{{param.nodeset_file}}'
 {%- endif %}
