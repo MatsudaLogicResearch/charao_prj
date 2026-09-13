@@ -228,6 +228,17 @@ def exportLib(targetLib:Mls):
   outlines.extend(targetLib.template_lines["const"])
   outlines.extend(targetLib.template_lines["passive"])
   outlines.extend(targetLib.template_lines["delay"])
+  ## ISS-00329(2026-09-13): `delay_disable` の定義出力が漏れていた。three_state_disable の
+  ##   cell_rise / cell_fall / rise_transition / fall_transition が
+  ##   `(delay_disable_template_10x0)` を参照するのに `lu_table_template` の定義が .lib に出ず、
+  ##   **未定義 template 参照＝Liberty 文法違反**になっていた
+  ##   （gf180 で bufz_* / invz_* の 14 セル x 4 テーブル = 56 箇所。2026-09-11 のフルグリッドで検出）。
+  ##   kind="delay_disable" は myLibrarySetting.py の template_lines 初期値（267 行）・
+  ##   var_1_dict / var_2_dict（455 / 473 行）・生成側の `if kind in [...]`（530 行）には
+  ##   すべて揃っており、**ここの extend だけが欠けていた**。
+  ##   ⚠ 新しい kind を足すときは「dict 初期値 / var_*_dict / 生成側の kind リスト / **ここの extend**」
+  ##     の 4 箇所すべてに入れること。1 箇所でも漏れると無警告で不正な .lib が出る。
+  outlines.extend(targetLib.template_lines["delay_disable"])
   outlines.extend(targetLib.template_lines["delay_c2c"])
   outlines.extend(targetLib.template_lines["delay_c2i"])
   outlines.extend(targetLib.template_lines["delay_i2c"])
