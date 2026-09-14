@@ -98,8 +98,11 @@ def split_v(path):
             cells.append(block)
         else:
             i += 1
-    if not cells:
-        fail(f"celldefine ブロックが見つかりません: {path}")
+    ## ISS-00330(2026-09-13): cells が 0 個でも fail しない。`*_primitives.v` は
+    ##   `primitive`（UDP）だけで `celldefine` を含まない **パススルーファイル**
+    ##   （charao が PDK の std_primitives.v をそのまま出す）。従来はここで ERROR 終了し、
+    ##   .lib/.md/.v を出力し終えた後なのに exit が失敗扱いになっていた。
+    ##   cells 空は merge_group 側でパススルーとして処理する（全入力の一致を検証してコピー）。
     return header, cells
 
 
@@ -123,8 +126,7 @@ def split_md(path):
             cur.append(l)
     if cur is not None:
         cells.append(cur)
-    if not cells:
-        fail(f"cell セクション(## )が見つかりません: {path}")
+    ## ISS-00330(2026-09-13): cells 0 個は merge_group でパススルー扱い（split_v と同じ理由）。
     return header, cells
 
 
@@ -190,6 +192,18 @@ def merge_group(paths, splitter, is_date, kind, footer):
     for p in paths:
         h, cells = splitter(p)
         parsed.append((p, h, cells))
+
+    ## ISS-00330(2026-09-13): cell ブロックが 1 つも無いファイルは **パススルー**する。
+    ##   例：`*_primitives.v`（`primitive` の UDP だけで `celldefine` を持たない）。
+    ##   マージ対象が無いので「全入力が date 以外で一致すること」だけ検証してコピーする
+    ##   （一致しなければ従来どおり check_headers が ERROR で止める）。
+    ##   ⚠ `.lib` は cell 0 個なら本物の異常なので split_lib 側の fail は残してある。
+    if all(not cells for _, _, cells in parsed):
+        check_headers(parsed, is_date, kind)
+        out = list(merged_header(parsed, is_date))
+        print(f"util_merge: .{kind}: cell ブロックが無いためパススルー（{len(paths)} files 一致を確認）")
+        return "".join(out), 0
+
     check_headers(parsed, is_date, kind)
     out = list(merged_header(parsed, is_date))
     #-- ISS-00171: f1 をベースに f2, f3 ... を順次適用（同名 cell は上書き、 未登場の cell は追加）。
