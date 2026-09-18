@@ -4,6 +4,77 @@
 
 ---
 
+## [2.0.0.a23] 2026-09-18
+
+**`_maxstep` を固定値にして ISS-00234（const / removal 系の `Timestep too small`）を解決**し、
+**gf180 229 セル・sky130 181 セルのフルグリッドを failure 0 で完走**した。
+あわせて `.lib` の文法違反（ISS-00329）と、比較・統合ツールの破壊的な不具合（ISS-00330 / ISS-00333）を直した。
+
+⚠ **本 TAG で再キャラクタライズすると `.lib` の値が変わる**（`tmax_high` の変更と removal の修正による）。
+
+### ① `_maxstep` を固定値にする（ISS-00234、クローズ）
+
+`tmax_high` を `tmax_low` と同値にして `.tran` の maxstep を固定する。**これが恒久実装**で、
+専用設定は設けない（`_fix_maxstep` の clamp が `min(v,hi)` -> `max(v,lo)` の順なのでコード変更が不要）。
+
+- 値：gf180 `0.02` ／ sky130 `0.01`（`tmax_low` が PDK ごとに違うため）
+- 機序：**`delmin = 1e-11 x tmax`** ＝ abort の床が tmax に比例する。tmax が動くと収束が揺れる
+- 収束確認：300 ps -> 1 ps で最大偏差 **0.007 ns**（判定基準 0.01 ns 以下）
+- 効かなかった対策（すべて実測で否定）：`itl4` ／ `reltol` ／ `method=gear` ／ `.tran` の tstep ／ `.ic` 化
+
+### ② const 掃引の初期条件を `.nodeset` -> `.ic` へ（ISS-00327）
+
+`.nodeset` は DC 解の初期推定にすぎず**値が保持されない**（ngspice manual 15.2）。
+実測でも注入 3.314832 V に対し t=0 の実値は 0.000000 V だった。`.ic`（uic なし）へ修正し 12 ノードの復元を確認。
+`const_start_offset_enable` は gf180 / sky130 とも **true 運用**に確定（maxstep 固定後は true でも failure 0）。
+
+### ③ removal の `tstop` を掃引ごとに再計算（ISS-00328）
+
+`runSpiceRemovalSingle` が `tsim_end` をループ外で 1 回しか計算しておらず、判定窓より最大 13 ns 長い
+平坦テールが残っていた。そこで理想源の枝電流が台形法の ringing を続け、終端着地で LTE が破れていた。
+**`tsim_end = max(t_clk5, t_rel1) + 10ns` を毎ステップ再計算**する。
+
+- ⚠ **`t_rel1` を max に必ず含めること**。`t_clk5` だけで決めると `o_max_v` の窓が `tstop` を超え、
+  failure が 11 -> 46 件に悪化する（実測）
+- ⚠ **`runSpiceLatHoldSingle` には同じ修正を入れてはいけない**。LAT は `judge_vlt_max/min` の窓が
+  `_t_clk4 .. _tsim_end` ＝ **`tstop` 自体が判定窓の終端**で、伸ばすと判定基準が変わる
+
+### ④ `delay_disable` の LUT template 定義が出ない（ISS-00329）
+
+`three_state_disable` の 4 テーブルが `delay_disable_template_10x0` を参照するのに
+`lu_table_template` の定義が `.lib` に出ず、**未定義 template 参照＝Liberty 文法違反**になっていた
+（gf180 で `bufz_*` / `invz_*` の 14 セル x 4 = 56 箇所）。`myExportLib.py` の出力に 1 行追加して解消。
+
+### ⑤ `util_merge` が `primitives.v` でエラー終了（ISS-00330）
+
+`_primitives.v` は `primitive`（UDP）だけで `celldefine` を含まないパススルーファイルだが、
+`split_v` が cell ブロック 0 個で fail していた。
+**まとめる対象が無ければ全入力の一致を確認して素通し**する処理を追加。
+
+### ⑥ `lib2csv` に CSV の素性記録を追加し、破壊的な上書きを修正（ISS-00333）
+
+- CSV の隣に **`_provenance.csv`** を自動生成（元 `.lib` の sha256・セル数、生成日時・コミット、行数）。
+  **再利用時に sha256 を照合し、食い違えば `exit 2` で停止**する
+- `_util_run` が回収後に `rm -rf` してから `mv` していたため、`--RESULT` にトップレベルの `tmp` を渡す
+  `lib2csv` / `compare` が**既存の別 PDK の CSV を丸ごと消していた**（gf180 の orig CSV 127 MB が消失）。
+  **返ってきた要素だけを差し替える**実装へ変更
+
+### 検証（フルグリッド再キャラクタライズ）
+
+| PDK | セル | failure | 所要 |
+|---|---:|---:|---:|
+| gf180（comb 161 / physical 14 / seq 54） | **229** | **0 件** | 約 21h45m |
+| sky130（comb 141 / physical 14 / seq 26） | **181** | **0 件** | 約 10h14m |
+
+`Failed to launch spice` / `Traceback` / `[ERROR]` / `Timestep too small` / `aborted` すべて 0 件。
+gf180 の seq は前回実測 34,104 点中 34,093 点が一致し、**変化した 11 点は前回 failure だった点そのもの**。
+
+### クローズした課題
+
+ISS-00234 / ISS-00324 / ISS-00325 / ISS-00327 / ISS-00328 / ISS-00329 / ISS-00330 / ISS-00333
+
+---
+
 ## [2.0.0.a22] 2026-08-22
 
 ISS-00234（seq 系の `Timestep too small`）への対処。**`maxstep` の確定手順を一本化**し、
