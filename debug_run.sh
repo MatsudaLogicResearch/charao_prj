@@ -543,8 +543,25 @@ _util_run() {
       for r in $rslt; do
         if [ -e "${RUN_NAME}/${r}" ]; then
           mkdir -p "$(dirname "$r")"
-          rm -rf "$r"
-          mv "${RUN_NAME}/${r}" "$r"
+          #--- 🔴 ISS-00333(2026-09-17): ここで `rm -rf "$r"` してから mv すると、
+          #    **回収対象に含まれない既存の中身まで消える**。
+          #    lib2csv / compare は lrPymRPC がサブパスを回収できない都合で
+          #    --RESULT に `tmp`（トップレベル）を渡すため、別 PDK の CSV を
+          #    巻き添えで失う。2026-09-17 に sky130 の orig CSV を作った結果、
+          #    gf180 の orig CSV（127 MB、2026-09-07 生成）が消えた（実測）。
+          #    → **丸ごと置換をやめ、返ってきた要素だけを差し替える**。
+          if [ -d "${RUN_NAME}/${r}" ] && [ -d "$r" ]; then
+            # 既存ディレクトリへは「返ってきた中身だけ」を上書きコピーする
+            ( cd "${RUN_NAME}/${r}" && find . -mindepth 1 -maxdepth 1 -print0 ) \
+              | while IFS= read -r -d '' e; do
+                  rm -rf "${r}/${e#./}"
+                  mv "${RUN_NAME}/${r}/${e#./}" "${r}/"
+                done
+            rm -rf "${RUN_NAME}/${r}"
+          else
+            rm -rf "$r"
+            mv "${RUN_NAME}/${r}" "$r"
+          fi
         fi
       done
     fi
@@ -555,6 +572,89 @@ _util_run() {
   fi
 }
 
+#--- CSV の素性（provenance）------------------------------------------------
+# 2026-09-17（ダーマツ判断）: lib2csv が作る CSV の隣に `_provenance.csv` を残す。
+#   【目的】orig CSV は SKIP_IF_EXISTS で長期間再利用されるため、
+#     「どの .lib から・いつ・どのコミットで作ったか」が分からなくなると
+#     compare の結果を後から検証できない。2026-09-16 に実際にこれで困り、
+#     既存 gf180 CSV の素性を値の照合で確かめ直す作業が発生した。
+#   【効果】元 .lib を差し替えたのに古い CSV で比較し続ける事故を機械的に防ぐ
+#     （再利用時に sha256 を照合し、食い違えば停止する）。
+#   ⚠ `tmp/` は .gitignore 済みなので _provenance.csv はコミットされない。
+#     CSV と一心同体で、消すときも作り直すときも一緒に動くのが正しい。
+_write_provenance() {
+  local lib="$1" out="$2"
+  [ -d "$out" ] || return 0
+  local p="${out}/_provenance.csv"
+  local sha bytes mtime cells commit dirty
+  sha=$(sha256sum "$lib" 2>/dev/null | cut -d' ' -f1)
+  bytes=$(stat -c '%s' "$lib" 2>/dev/null)
+  mtime=$(stat -c '%y' "$lib" 2>/dev/null | cut -d. -f1)
+  cells=$(grep -cE '^\s*cell\s*\(' "$lib" 2>/dev/null)
+  commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
+  dirty=$(git status --porcelain 2>/dev/null | head -1 | grep -q . && echo 1 || echo 0)
+  {
+    echo "key,value"
+    echo "pdk,${FAB}"
+    echo "vendor,${VENDOR}"
+    echo "revision,${REV}"
+    echo "corner,${CORNER}_${TEMP}C_${VDD}V"
+    # ⚠ ORIG_LIB の既定は gf180 固定なので、パス一致では他 PDK の orig を判定できない
+    #   （2026-09-17 実測：sky130 の orig を kind=charao と誤記録した）。
+    #   charao の出力は必ず sample_src の外（rslt / merged / back_* 配下）にあるので、
+    #   「sample_src 配下なら orig」で判定する。明示したいときは KIND= で上書きできる。
+    local kind="${KIND:-}"
+    if [ -z "$kind" ]; then
+      case "$lib" in
+        sample_src/*|*/sample_src/*) kind=orig ;;
+        *)                            kind=charao ;;
+      esac
+    fi
+    echo "kind,${kind}"
+    echo "source_lib,${lib}"
+    echo "source_lib_bytes,${bytes}"
+    echo "source_lib_mtime,${mtime}"
+    echo "source_lib_sha256,${sha}"
+    echo "source_lib_cells,${cells}"
+    echo "generated_at,$(date '+%Y-%m-%d %H:%M:%S')"
+    echo "generator,charao.script.util_extract_lib2csv"
+    echo "charao_commit,${commit}"
+    echo "charao_dirty,${dirty}"
+    for k in timing power leakage; do
+      if [ -f "${out}/${k}.csv" ]; then
+        echo "rows_${k},$(( $(wc -l < "${out}/${k}.csv") - 1 ))"
+        echo "cells_${k},$(tail -n +2 "${out}/${k}.csv" | cut -d, -f1 | sort -u | wc -l)"
+      fi
+    done
+  } > "$p"
+  echo "  素性を記録: $p"
+}
+
+# 再利用する CSV の素性を照合する。食い違えば **停止**する（出戻り防止）。
+_check_provenance() {
+  local lib="$1" out="$2"
+  local p="${out}/_provenance.csv"
+  if [ ! -f "$p" ]; then
+    echo "  ⚠ 素性ファイルが無い: $p" >&2
+    echo "  ⚠ この CSV がどの .lib から作られたか **不明なまま** 比較に使うことになる。" >&2
+    echo "  ⚠ 確実にしたいなら: rm -rf ${out} して作り直す" >&2
+    return 0
+  fi
+  local rec cur
+  rec=$(awk -F, '$1=="source_lib_sha256"{print $2}' "$p")
+  cur=$(sha256sum "$lib" 2>/dev/null | cut -d' ' -f1)
+  if [ -n "$rec" ] && [ "$rec" != "$cur" ]; then
+    echo "lib2csv: ERROR: 元 .lib が記録と違う（CSV が古い）" >&2
+    echo "  lib      : $lib" >&2
+    echo "  記録 sha : $rec" >&2
+    echo "  現在 sha : $cur" >&2
+    echo "  対処     : rm -rf ${out} して作り直す" >&2
+    return 1
+  fi
+  echo "  素性 OK: $(awk -F, '$1=="source_lib"{print $2}' "$p") ($(awk -F, '$1=="generated_at"{print $2}' "$p"))"
+  return 0
+}
+
 cmd_lib2csv() {
   local lib="${LIB:-${MERGED_DIR:-merged}/${LIB_FILE}}"
   local out="${CSV_OUT:-tmp/charao_${RUN_NAME}}"
@@ -562,6 +662,7 @@ cmd_lib2csv() {
   [ -f "$lib" ] || { echo "lib2csv: .lib が無い: $lib（先に merge か、LIB= で指定）" >&2; exit 2; }
   # orig .lib は不変なので、 既に CSV があれば作り直さない（作り直すなら rm -rf してから）
   if [ "${SKIP_IF_EXISTS:-1}" = "1" ] && [ -f "${out}/timing.csv" ]; then
+    _check_provenance "$lib" "$out" || exit 2
     echo "  既存の CSV を再利用（作り直すには rm -rf ${out}）"
     return
   fi
@@ -572,6 +673,7 @@ cmd_lib2csv() {
   _util_run "lib2csv" \
     "${lib%%/*}" charao -- "${out%%/*}" -- \
     charao.script.util_extract_lib2csv --lib "$lib" --out "$out"
+  _write_provenance "$lib" "$out"
 }
 
 cmd_compare() {
