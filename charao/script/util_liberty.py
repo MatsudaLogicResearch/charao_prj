@@ -393,6 +393,11 @@ class LibertyParser:
         related_pin = None
         when = ""
         timing_type = ""
+        #--- ISS-00246: orig が when を持たない arc でも timing_sense で区別できる。
+        #    例 gf180 xnor2_1 の ZN<-A1 は when 無しの arc が negative_unate /
+        #    positive_unate の 2 本あり、charao の when="!A2" / "A2" と 1:1 で対応する。
+        #    timing_sense を落とすと 2 本が同じキーに潰れて偽の差が出る。
+        timing_sense = ""
         pending = []
         timing_tables = {"cell_rise", "cell_fall", "rise_transition", "fall_transition",
                          "rise_constraint", "fall_constraint"}
@@ -417,6 +422,9 @@ class LibertyParser:
             m = re.search(r'timing_type\s*:\s*"?([^";\s]+)"?\s*;', line)
             if m:
                 timing_type = m.group(1)
+            m = re.search(r'timing_sense\s*:\s*"?([^";\s]+)"?\s*;', line)
+            if m:
+                timing_sense = m.group(1)
             if "}" in line and "{" not in line:
                 break
         for i1, i2, vals, tt_type, tr, i2cap in pending:
@@ -424,6 +432,7 @@ class LibertyParser:
                              {"cell_name": cell_name, "pin": pin_name,
                               "related_pin": related_pin, "when": when,
                               "timing_type": timing_type,
+                              "timing_sense": timing_sense,
                               "table_type": tt_type},
                              self.timing_rows, COL_TIMING_VALUE,
                              self.s["time_scale"], transpose=tr, idx2_is_cap=i2cap)

@@ -34,9 +34,11 @@ python -m charao.script.util_extract_lib2csv --lib <file.lib> --out <dir>
 【出力 CSV（列名に括弧付き単位）】
   leakage.csv : cell_name, leakage_power (uW), when
   power.csv   : cell_name, pin, related_pin, rise_fall, index1 (ns), index2 (pF), value (pJ)
-  timing.csv  : cell_name, pin, related_pin, when, timing_type, table_type,
-                index1 (ns), index2 (pF), value (ns)
+  timing.csv  : cell_name, pin, related_pin, when, timing_type, timing_sense,
+                table_type, index1 (ns), index2 (pF), value (ns)
                 * timing_type は Liberty の arc 種別（rising_edge / setup_rising 等、 comb は空文字列）
+                * timing_sense は positive_unate / negative_unate / non_unate（ISS-00246）。
+                  orig が when を持たない arc でも、これで arc を区別できる
                 * table_type はその中の table 種別（cell_rise / fall_constraint 等）
                 * 1D table  : index2 = "NaN"
                 * scalar    : index1 = index2 = "NaN"
@@ -97,8 +99,8 @@ def extract_to_dir(lib_path, out_dir):
               ["cell_name", "pin", "related_pin", "when", "rise_fall",
                COL_INDEX1, COL_INDEX2, COL_POWER_VALUE], power)
     write_csv(out_dir / "timing.csv",
-              ["cell_name", "pin", "related_pin", "when", "timing_type", "table_type",
-               COL_INDEX1, COL_INDEX2, COL_TIMING_VALUE], timing)
+              ["cell_name", "pin", "related_pin", "when", "timing_type", "timing_sense",
+               "table_type", COL_INDEX1, COL_INDEX2, COL_TIMING_VALUE], timing)
 
 
 # ── メイン ──────────────────────────��──────────────────────────────────���──

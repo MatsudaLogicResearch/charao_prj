@@ -39,7 +39,7 @@ from pathlib import Path
 from bisect import bisect_right
 
 from charao.script.util_liberty import (
-    COL_INDEX1, COL_INDEX2, COL_TIMING_VALUE, COL_POWER_VALUE,
+    COL_INDEX1, COL_INDEX2, COL_TIMING_VALUE, COL_POWER_VALUE, COL_LEAKAGE,
 )
 
 
@@ -98,31 +98,39 @@ def _group(rows, group_keys, value_key, kind_key,
     drop_default_when=True: 同じ `(cell, pin, related_pin, kind)` に sensitization
     付き（when!=""）のエントリが存在する場合のみ、そのグループの default（when==""）
     を除外する。INV など default しか持たないセルは default を残す。
+
+    ISS-00334: leakage.csv は `cell_name / leakage_power / when` の 3 列しか持たず、
+    `pin` / `related_pin` / `index1` / `index2` / kind 列が無い。欠けている列は
+    空文字（index は "NaN"）として扱い、既存の突合経路にそのまま乗せる。
     """
+    def _cell_arc_id(r):
+        return (r["cell_name"], r.get("pin", ""), r.get("related_pin", ""),
+                r.get(kind_key, "") if kind_key else "")
+
     # Step 1: (cell, pin, related_pin, kind) ごとに sensitization 付きが存在するか判定
     arc_has_sensitized = set()
     if drop_default_when:
         for r in rows:
             if r.get("when", "") != "":
-                arc_has_sensitized.add((r["cell_name"], r["pin"], r["related_pin"], r[kind_key]))
+                arc_has_sensitized.add(_cell_arc_id(r))
 
     # Step 2: 実際にグルーピング
     g = defaultdict(list)
     for r in rows:
         if drop_default_when and r.get("when", "") == "":
-            arc_id = (r["cell_name"], r["pin"], r["related_pin"], r[kind_key])
-            if arc_id in arc_has_sensitized:
+            if _cell_arc_id(r) in arc_has_sensitized:
                 continue  # sensitization 付きが別途あるので default は捨てる
         # ISS: when は項順非依存で照合（charao/orig の AND 項並び差を吸収）
-        key = tuple(_norm_when(r[k]) if k == "when" else r[k] for k in group_keys)
+        key = tuple(_norm_when(r.get(k, "")) if k == "when" else r.get(k, "")
+                    for k in group_keys)
         try:
             v = float(r[value_key])
         except (ValueError, KeyError):
             continue
         if drop_zero and v == 0.0:
             continue
-        i1 = _coerce_idx(r[COL_INDEX1])
-        i2 = _coerce_idx(r[COL_INDEX2])
+        i1 = _coerce_idx(r.get(COL_INDEX1, "NaN"))
+        i2 = _coerce_idx(r.get(COL_INDEX2, "NaN"))
         g[key].append((i1, i2, v))
     return g
 
@@ -213,17 +221,20 @@ def _fmt_idx(x):
 
 def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
                      drop_zero_new, drop_default_when, interpolate=False,
-                     extra_group_keys=None):
+                     extra_group_keys=None, kind_label=None):
     """(cell, pin, related_pin, when, [extra,] kind, index1, index2) 単位で per-point 比較。
     各点の (orig, new, abs_diff) をリストで返す。
 
     extra_group_keys: timing.csv は ["timing_type"] を指定。 power/leakage は None。
 
+    kind_key=None（leakage.csv）のときは kind 列を持たないのでグループキーから外し、
+    出力の kind には kind_label（"leakage"）を入れる。
+
     NaN 行（scalar / 1D の欠損 axis）を含む group は補間 skip で 1:1 厳密照合。
     """
     base_keys = ["cell_name", "pin", "related_pin", "when"]
     extras = list(extra_group_keys) if extra_group_keys else []
-    group_keys = base_keys + extras + [kind_key]
+    group_keys = base_keys + extras + ([kind_key] if kind_key else [])
     og = _group(orig_rows, group_keys, value_key, kind_key,
                 drop_default_when=drop_default_when)
     ng = _group(new_rows, group_keys, value_key, kind_key,
@@ -244,6 +255,7 @@ def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
     missing_groups = 0
     matched_points = 0
     when_fallback_groups = 0
+    collapsed_groups = 0
     n_extras = len(extras)
 
     for key, o_triples in og.items():
@@ -252,7 +264,7 @@ def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
         rpin  = key[2]
         when  = key[3]
         extra_vals = list(key[4:4 + n_extras])
-        kind  = key[4 + n_extras]
+        kind  = key[4 + n_extras] if kind_key else (kind_label or "")
         if cell_filter and cell != cell_filter:
             continue
         n_triples = ng.get(key)
@@ -267,16 +279,15 @@ def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
             continue
         matched_groups += 1
 
-        for when_new, n_triples in cands:
-          # NaN 行（scalar / 1D の欠損 axis）を含む group は補間不能 → strict matching
-          has_nan = any(i1 == "NaN" or i2 == "NaN" for i1, i2, _ in n_triples)
-
-          def _append(i1, i2, vo, vn, when_new=when_new):
+        def _append(i1, i2, vo, vn, when_new, mismatch,
+                    collapse="", n_cands="", v_min=""):
             row = {
                 "cell_name": cell, "pin": pin, "related_pin": rpin,
                 "when": when,
                 "when_new": when_new,
-                "when_mismatch": "Y" if when != when_new else "",
+                "when_mismatch": mismatch,
+                "collapse": collapse,
+                "n_cands": n_cands,
             }
             for k, v in zip(extras, extra_vals):
                 row[k] = v
@@ -285,34 +296,74 @@ def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
             row[COL_INDEX2] = i2
             row["value_orig"] = vo
             row["value_new"]  = vn
+            row["value_new_min"] = v_min
             row["abs_diff"]   = vn - vo
             per_point.append(row)
 
-          if interpolate and not has_nan:
-            i1_arr, i2_arr, table = _build_table_2d(n_triples)
-            for i1, i2, vo in o_triples:
-                vn = _interp2d(i1, i2, i1_arr, i2_arr, table)
-                if vn is None:
-                    continue
-                matched_points += 1
-                _append(i1, i2, vo, vn)
-          else:
-            n_by_idx = {(i1, i2): v for i1, i2, v in n_triples}
-            for i1, i2, vo in o_triples:
-                vn = n_by_idx.get((i1, i2))
-                if vn is None:
-                    continue
-                matched_points += 1
-                _append(i1, i2, vo, vn)
+        def _values_of(n_triples):
+            """orig の各 (i1, i2) に対する charao 側の値を dict で返す。
+
+            NaN 行（scalar / 1D の欠損 axis）を含む group は補間不能なので
+            1:1 の厳密照合に落とす。
+            """
+            has_nan = any(i1 == "NaN" or i2 == "NaN" for i1, i2, _ in n_triples)
+            out = {}
+            if interpolate and not has_nan:
+                i1_arr, i2_arr, table = _build_table_2d(n_triples)
+                for i1, i2, _vo in o_triples:
+                    vn = _interp2d(i1, i2, i1_arr, i2_arr, table)
+                    if vn is not None:
+                        out[(i1, i2)] = vn
+            else:
+                n_by_idx = {(i1, i2): v for i1, i2, v in n_triples}
+                for i1, i2, _vo in o_triples:
+                    vn = n_by_idx.get((i1, i2))
+                    if vn is not None:
+                        out[(i1, i2)] = vn
+            return out
+
+        # ISS-00246（2026-09-23 ダーマツ確定）: orig の when 無し arc は
+        # 「side input を worst case に固定して畳んだ値」である。gf180 orig の中だけで
+        # 照合すると、when 無し arc の値は when 別値の **max と一致**（84,000 点中
+        # 66,484 点＝79%、max を超えるのは 0.04%）。つまり 1 対多になった場合は
+        # charao 側も **max で畳んで** 1 点 1 差にするのが、同じ条件どうしの比較になる。
+        # 畳んだ点は条件を揃えた正規の比較なので when_mismatch は立てない（"" のまま）。
+        cand_vals = [(w, _values_of(t)) for w, t in cands]
+        collapsed = len(cand_vals) > 1
+        if collapsed:
+            collapsed_groups += 1
+
+        for i1, i2, vo in o_triples:
+            picks = [(w, vals[(i1, i2)]) for w, vals in cand_vals if (i1, i2) in vals]
+            if not picks:
+                continue
+            matched_points += 1
+            if collapsed:
+                w_max, v_max = max(picks, key=lambda p: p[1])
+                _append(i1, i2, vo, v_max,
+                        when_new="max:" + (w_max or "(なし)"), mismatch="",
+                        collapse="max", n_cands=len(picks),
+                        v_min=min(p[1] for p in picks))
+            else:
+                w0, v0 = picks[0]
+                _append(i1, i2, vo, v0, when_new=w0,
+                        mismatch=("Y" if when != w0 else ""))
 
     _log(f"  matched groups : {matched_groups}"
          + (f"  (うち when 違いで対応付け {when_fallback_groups})" if when_fallback_groups else ""))
     _log(f"  missing groups : {missing_groups} (new side not found)")
     _log(f"  matched points : {matched_points}")
+    if collapsed_groups:
+        _n_col = sum(1 for r in per_point if r.get("collapse") == "max")
+        _log(f"  ◎ max で畳んだ点 : {_n_col} / {len(per_point)}"
+             f"（orig の when 無し arc は worst 畳み込み。charao の when 別値の"
+             f" max を採用＝同じ条件どうしの比較。採用 when は when_new、"
+             f"最小値は value_new_min 列）")
     if when_fallback_groups:
         _n_mis = sum(1 for r in per_point if r.get("when_mismatch") == "Y")
         _log(f"  ⚠ when 違いの点 : {_n_mis} / {len(per_point)}"
-             f"（orig に when が無く charao が when 付きで出すケース。 when_new 列を参照）")
+             f"（orig に when が無く charao が when 付き 1 本だけで出すケース。"
+             f" when_new 列を参照）")
 
     # ── (extras, kind, index1, index2) ごとの diff 統計を表示 ──
     buckets = defaultdict(list)
@@ -390,11 +441,16 @@ def main():
     ## power.csv を direction (input pin / output pin) で分けて比較
     ## - output pin: active arc, related_pin != "" (charao power_tout / IO power_c2c etc.)
     ## - input pin : stable state, related_pin == "" (charao power_tin)
-    for fn, kind_key, value_key, label, pin_filter, extra_keys in [
-        ("timing.csv", "table_type", COL_TIMING_VALUE, "=== timing ===", None, ["timing_type"]),
-        ("power.csv",  "rise_fall",  COL_POWER_VALUE,  "=== power (output pin, active arc) ===", "output", None),
-        ("power.csv",  "rise_fall",  COL_POWER_VALUE,  "=== power (input pin, stable state) ===", "input", None),
+    ## leakage.csv は (cell, when) のスカラー値で index を持たない（ISS-00334）。
+    ## kind 列も無いので kind_key=None / kind_label="leakage" で突合する。
+    for fn, kind_key, value_key, label, pin_filter, extra_keys, kind_label in [
+        ("timing.csv", "table_type", COL_TIMING_VALUE, "=== timing ===", None,
+         ["timing_type", "timing_sense"], None),
+        ("power.csv",  "rise_fall",  COL_POWER_VALUE,  "=== power (output pin, active arc) ===", "output", None, None),
+        ("power.csv",  "rise_fall",  COL_POWER_VALUE,  "=== power (input pin, stable state) ===", "input", None, None),
+        ("leakage.csv", None,        COL_LEAKAGE,      "=== leakage ===", None, None, "leakage"),
     ]:
+        is_leakage = (kind_label == "leakage")
         op = orig / fn
         np_ = new / fn
         if not (op.exists() and np_.exists()):
@@ -413,7 +469,9 @@ def main():
             n_rows = [r for r in n_rows if r.get("related_pin", "") == ""]
 
         # --interpolate 時: 新側に 0.0 の値が含まれていたら部分ランと判断し中断
-        if args.interpolate and not args.keep_zero_new:
+        # ⚠ leakage は index を持たないスカラーで補間の対象外。ゼロは「未実行」では
+        #   なく実測値なので、この検査も drop_zero も適用しない（ISS-00334）。
+        if args.interpolate and not args.keep_zero_new and not is_leakage:
             has_zero = any(
                 float(r.get(value_key, "1") or "1") == 0.0
                 for r in n_rows
@@ -428,18 +486,26 @@ def main():
 
         rows_out += _compare_section(
             o_rows, n_rows, kind_key, value_key, args.cell,
-            drop_zero_new=(not args.keep_zero_new),
+            drop_zero_new=(False if is_leakage else (not args.keep_zero_new)),
             drop_default_when=(not args.keep_default_when),
-            interpolate=args.interpolate,
+            interpolate=(False if is_leakage else args.interpolate),
             extra_group_keys=extra_keys,
+            kind_label=kind_label,
         )
         _log("")
 
     if args.out_csv and rows_out:
         out_path = Path(args.out_csv).resolve()
         out_path.parent.mkdir(parents=True, exist_ok=True)
+        # セクションごとに列が違う（leakage は timing_type を持たない）ので、
+        # fieldnames は全行のキーの和を出現順で作り、欠けた列は空欄で埋める。
+        fieldnames = []
+        for r in rows_out:
+            for k in r:
+                if k not in fieldnames:
+                    fieldnames.append(k)
         with open(out_path, "w", newline="", encoding="utf-8") as f:
-            w = csv.DictWriter(f, fieldnames=list(rows_out[0].keys()))
+            w = csv.DictWriter(f, fieldnames=fieldnames, restval="")
             w.writeheader()
             w.writerows(rows_out)
         _log(f"per-point CSV : {out_path} ({len(rows_out):,} rows)")
