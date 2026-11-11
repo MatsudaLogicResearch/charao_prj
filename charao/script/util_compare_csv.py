@@ -250,11 +250,28 @@ def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
     for _k, _v in ng.items():
         ng_nowhen[(_k[0], _k[1], _k[2]) + tuple(_k[4:])].append((_k[3], _v))
 
+    #-- ISS-00339（2026-09-23 ダーマツ確定）: edge arc に timing_sense を書くかは
+    #   PDK で割れている（gf180 は書かない 38,400 行すべて空／sky130 は non_unate
+    #   17,836 行すべて／IHP SG13G2 も non_unate 6,076 行すべて）。charao は常に
+    #   non_unate を書く＝3 件中 2 件と一致する多数派なので **charao 側は変えない**。
+    #   表記差は比較ツールで吸収する。**どちらか一方が空のときだけ** timing_sense を
+    #   キーから外して対応付ける（両方に値があって違う場合は別 arc なので一致させない。
+    #   例 xnor2_1 の positive_unate / negative_unate は区別を保つ必要がある）。
+    sense_idx = extras.index("timing_sense") if "timing_sense" in extras else None
+    ng_nosense = defaultdict(list)
+    if sense_idx is not None:
+        for _k, _v in ng.items():
+            _ex = _k[4:4 + len(extras)]
+            _rest = tuple(x for i, x in enumerate(_ex) if i != sense_idx)
+            ng_nosense[(_k[0], _k[1], _k[2]) + _rest + tuple(_k[4 + len(extras):])] \
+                .append((_k[3], _ex[sense_idx], _v))
+
     per_point = []
     matched_groups = 0
     missing_groups = 0
     matched_points = 0
     when_fallback_groups = 0
+    sense_fallback_groups = 0
     collapsed_groups = 0
     n_extras = len(extras)
 
@@ -274,6 +291,15 @@ def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
             cands = ng_nowhen.get((cell, pin, rpin) + tuple(key[4:]), [])
             if cands:
                 when_fallback_groups += 1
+            elif sense_idx is not None:
+                # ISS-00339: timing_sense の表記差を吸収する（片側が空のときだけ）
+                o_sense = extra_vals[sense_idx]
+                _rest = tuple(x for i, x in enumerate(extra_vals) if i != sense_idx)
+                _picks = ng_nosense.get((cell, pin, rpin) + _rest + tuple(key[4 + n_extras:]), [])
+                _sel = [(w, t) for (w, s, t) in _picks if o_sense == "" or s == ""]
+                if _sel:
+                    cands = _sel
+                    sense_fallback_groups += 1
         if not cands:
             missing_groups += 1
             continue
@@ -350,7 +376,9 @@ def _compare_section(orig_rows, new_rows, kind_key, value_key, cell_filter,
                         mismatch=("Y" if when != w0 else ""))
 
     _log(f"  matched groups : {matched_groups}"
-         + (f"  (うち when 違いで対応付け {when_fallback_groups})" if when_fallback_groups else ""))
+         + (f"  (うち when 違いで対応付け {when_fallback_groups})" if when_fallback_groups else "")
+         + (f"  (うち timing_sense の表記差を吸収 {sense_fallback_groups})"
+            if sense_fallback_groups else ""))
     _log(f"  missing groups : {missing_groups} (new side not found)")
     _log(f"  matched points : {matched_points}")
     if collapsed_groups:
